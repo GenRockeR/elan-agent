@@ -183,6 +183,9 @@ class NFLOG(object):
                             hwhdr = self.nflog_get_msg_packet_hwhdr(nfad)
                             hwhdr_len = self.nflog_get_msg_packet_hwhdrlen(nfad)
                             result.append(self.ffi.buffer(hwhdr, hwhdr_len)[:])
+                        elif attr == 'prefix':
+                            prefix = self.nflog_get_prefix(nfad)
+                            result.append(self.ffi.string(prefix)[:])
                         else: raise NotImplementedError('Unknown nflog attribute: {}'.format(attr))
                 cb_results.append(result)
             except:
