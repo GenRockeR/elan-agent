@@ -1,0 +1,5 @@
+# Small text file listing the dependences
+# should be replaced by real dependency management
+python cffi
+python impacket
+
