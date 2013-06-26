@@ -1,28 +1,22 @@
 #!/usr/bin/env python
 from impacket.ImpactDecoder import EthDecoder
-import libnflog_cffi
 import time
 
 class Tracker():
-    def __init__(self, connection_ttl_mn = 10):
+    def __init__(self, new_connection_cb = None, deleted_connection_cb = None, connection_ttl_mn = 10):
         self.establisedConnections = Connection_tree()
         self.decoder = EthDecoder()
-        self.connection_ttl_mn = connection_ttl_mn # used when calling cleanupEstablishedConnexions
         self.lastEstablishedConnexionsCleanup = time.time()
         self.leaves_count = 0
+        
+        self.connection_ttl_mn = connection_ttl_mn          # timeout to consider connection as closed if no new traffic seen.
+        self.new_connection_cb = new_connection_cb          # callback function when new connection found.
+        self.deleted_connection_cb = deleted_connection_cb  # callback function when connection deleted from established connection table.
     
-    def notifyNewConnection(self, packet):
-        if self.leaves_count % 1000 == 0:
-            print self.leaves_count,
-        
     def cleanupEstablishedConnexions(self):
-        print
-        print 'total leaves before: ' + str(self.leaves_count),
         self.__cleanupEstablishedConnexions(self.establisedConnections)
-        print 'total leaves after : ' + str(self.leaves_count)
         self.lastEstablishedConnexionsCleanup = time.time()
-        
-        
+                
     def __cleanupEstablishedConnexions(self, tree):
         trash = {}
         for branch in tree:
@@ -34,9 +28,11 @@ class Tracker():
             elif subtree['last_seen'] < (time.time() - 60 * self.connection_ttl_mn):
                 trash[branch] = tree
                 self.leaves_count -= 1
-        # Delete after so dict not changed during iteration
+                if self.deleted_connection_cb:
+                    self.deleted_connection_cb(subtree)
+        # Delete after, so dict does not change during iteration
         for key in trash:
-            del trash[key][key] # trash[key] give the dict from wich we want to delete 'key' entry
+            del trash[key][key] # trash[key] gives the dict from which we want to delete 'key' entry
         
     def processPacket(self, pktBuffer, direction):
         """ Reads a packet buffer, decodes its and if first time time that connection seen, tells central Controller.
@@ -48,28 +44,27 @@ class Tracker():
         pkt_params = self.getPacketParams(packet, direction)
         # check if connection has ports defined
         if 'lan_port' in pkt_params:
-            connection_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ][ pkt_params['lan_port'] ][ pkt_params['wan_port'] ]
+            type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ][ pkt_params['lan_port'] ][ pkt_params['wan_port'] ]
         else:
-            connection_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ]
-        
+            type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ]
+
         now = time.time()
-        if pkt_params['type'] in connection_path:
-            connection_path[ pkt_params['type'] ][ 'length' ] += len(pktBuffer)
-            connection_path[ pkt_params['type'] ][ 'last_seen' ] = now
+
+        if pkt_params['type'] in type_path:
+            type_path[ pkt_params['type'] ]['length'] += len(pktBuffer)
+            type_path[ pkt_params['type'] ]['last_seen'] = now
         else:
-            connection_path[ pkt_params['type'] ] = {
-                    'length': len(pktBuffer),
-                    'direction': direction,
-                    'first_seen': now,
-                    'last_seen': now,
-                    'lan_ether': pkt_params['lan_ether'],
-                    'wan_ether': pkt_params['wan_ether']
-            }
+            pkt_params['first_seen'] = now
+            pkt_params['direction'] = direction
+            type_path[ pkt_params['type'] ] = pkt_params
             self.leaves_count += 1
-            self.notifyNewConnection(pkt_params)
+            if self.new_connection_cb:
+                self.new_connection_cb(type_path[ pkt_params['type'] ])
+            pkt_params['length'] = len(pktBuffer)
+            pkt_params['last_seen'] = now
 
     def getPacketParams(self, packet, direction):
-        """ Base on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and port if applicable, and protocol (UDP, TCP, ICMP, UDP6...).
+        """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
         """
         params = {}
         while packet:
@@ -142,10 +137,15 @@ class Connection_tree(dict):
 
 
 if __name__ == "__main__":
+    import libnflog_cffi
+
+    def notifyNewConnection(pkt):
+        print pkt
+
     nflog = libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
 
-    tracker = Tracker()
+    tracker = Tracker(new_connection_cb = notifyNewConnection)
     
     for pkt, hwhdr, direction  in nflog:
         try:
@@ -155,5 +155,4 @@ if __name__ == "__main__":
         except Exception as e:
             # TODO: notify error to central manager...
             print 'Error: ' + str(e)
-            
             
