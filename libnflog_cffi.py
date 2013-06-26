@@ -180,11 +180,11 @@ class NFLOG(object):
                                 result.append(None)
                             else: result.append(ts_slot.tv_sec + ts_slot.tv_usec * 1e-6)
                         elif attr == 'msg_packet_hwhdr':
-                            hwhdr = self.nflog_get_msg_packet_hwhdr(nfad)
+                            hwhdr = self.nflog_get_msg_packet_hwhdr(nfad, no_check=True)
                             hwhdr_len = self.nflog_get_msg_packet_hwhdrlen(nfad)
                             result.append(self.ffi.buffer(hwhdr, hwhdr_len)[:])
                         elif attr == 'prefix':
-                            prefix = self.nflog_get_prefix(nfad)
+                            prefix = self.nflog_get_prefix(nfad, no_check=True)
                             result.append(self.ffi.string(prefix)[:])
                         else: raise NotImplementedError('Unknown nflog attribute: {}'.format(attr))
                 cb_results.append(result)
