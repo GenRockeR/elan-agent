@@ -21,7 +21,7 @@ def test_processPacket():
     assert( subtree['wan_port'] ==  60337 )
     assert( subtree['type'] ==  'TCP' )
     assert( subtree['direction'] ==  'IN' )
-    assert( subtree['length'] ==  114 )
+    assert( subtree['size'] ==  114 )
 
 def test_processPacket_samePacket():
     t.processPacket(b'RT\x00\xbb\x01\x93\xd4=~\x18\x8aU\x08\x00E\x10\x00d\x1f\xf2@\x00@\x06\x99\x03\xc0\xa8\x00\x06\xc0\xa8\x008\xeb\xb1\x00\x16Z\xaa\x11\xf8%\xf1\xdai\x80\x18\x01K\xb0\xb5\x00\x00\x01\x01\x08\n\x06\xcc\xb68\x00\xe8h\x97\x93\x81\xd6\xbaM}\x8a\xb4{{x\xe0</\x1b\x150\xc3^\xbf\x01\xfb\x94\xab4\x05%\x00\xd8{\x88\x06\x05P\xe9\xae\xa0\xa6\xb5#\x10\x8d}5\x806\x03+',
@@ -39,7 +39,7 @@ def test_processPacket_samePacket():
     assert( subtree['wan_port'] ==  60337 )
     assert( subtree['type'] ==  'TCP' )
     assert( subtree['direction'] ==  'IN' )
-    assert( subtree['length'] ==  228 ) # length updated
+    assert( subtree['size'] ==  228 ) # size updated
 
 def test_processPacket_packetOtherWay():
     # No new connection
@@ -58,7 +58,7 @@ def test_processPacket_packetOtherWay():
     assert( subtree['wan_port'] ==  60337 )
     assert( subtree['type'] ==  'TCP' )
     assert( subtree['direction'] ==  'IN' )
-    assert( subtree['length'] ==  294 ) # length updated
+    assert( subtree['size'] ==  294 ) # size updated
     
 def test_newConnection_cb_called():
     global called

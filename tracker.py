@@ -51,7 +51,7 @@ class Tracker():
         now = time.time()
 
         if pkt_params['type'] in type_path:
-            type_path[ pkt_params['type'] ]['length'] += len(pktBuffer)
+            type_path[ pkt_params['type'] ]['size'] += len(pktBuffer)
             type_path[ pkt_params['type'] ]['last_seen'] = now
         else:
             pkt_params['first_seen'] = now
@@ -60,7 +60,7 @@ class Tracker():
             self.leaves_count += 1
             if self.new_connection_cb:
                 self.new_connection_cb(type_path[ pkt_params['type'] ])
-            pkt_params['length'] = len(pktBuffer)
+            pkt_params['size'] = len(pktBuffer)
             pkt_params['last_seen'] = now
 
     def getPacketParams(self, packet, direction):
