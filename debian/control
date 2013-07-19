@@ -1,0 +1,12 @@
+Source: light-controller
+Section: main
+Priority: optional
+Maintainer: Origin Nexus <debian@origin-nexus.com>
+Homepage: http://origin-nexus.com
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>= 9)
+
+Package: light-controller
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, lc-ids, lc-connection-tracker
+Description: Light Controller main package
