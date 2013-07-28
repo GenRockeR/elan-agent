@@ -39,7 +39,6 @@ class Tracker():
         As the direction is known, packet will be tracked from the inner IP.
         
         """
-
         packet = self.decoder.decode(pktBuffer)
         pkt_params = self.getPacketParams(packet, direction)
         # check if connection has ports defined
@@ -134,25 +133,3 @@ class Connection_tree(dict):
         except KeyError:
             value = self[item] = type(self)()
             return value
-
-
-if __name__ == "__main__":
-    import libnflog_cffi
-
-    def notifyNewConnection(pkt):
-        print pkt
-
-    nflog = libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
-    fd = next(nflog)
-
-    tracker = Tracker(new_connection_cb = notifyNewConnection)
-    
-    for pkt, hwhdr, direction  in nflog:
-        try:
-            tracker.processPacket( hwhdr + pkt, direction )
-            if tracker.lastEstablishedConnexionsCleanup < time.time() - 60 * 1: # every 1 mn
-                tracker.cleanupEstablishedConnexions()
-        except Exception as e:
-            # TODO: notify error to central manager...
-            print 'Error: ' + str(e)
-            
