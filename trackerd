@@ -4,7 +4,7 @@ import pycurl
 import json
 import libnflog_cffi
 import time
-from tracker import Tracker
+from origin.tracker import Tracker
 
 class ConnectionSynapse():
     """ Synapse is the interface to the Central Controller
