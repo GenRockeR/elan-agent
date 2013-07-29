@@ -1,4 +1,7 @@
-lc-connection-tracker.debhelper.log
-lc-connection-tracker.substvars
+*.debhelper.log
+*.substvars
 files
-lc-connection-tracker/
+changelog
+control
+# Ignore all subdirs, as a subdir with the name of the package will be used to build the package
+*/

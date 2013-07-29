@@ -1,4 +1,4 @@
-lc-connection-tracker (1.0.0) unstable; urgency=low
+%{PACKAGE-NAME} (1.0.0) unstable; urgency=low
 
   * first version
 
