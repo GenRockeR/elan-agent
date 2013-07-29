@@ -2,8 +2,8 @@
 
 import pycurl
 import json
-import libnflog_cffi
 import time
+import origin.libnflog_cffi
 from origin.tracker import Tracker
 
 class ConnectionSynapse():
@@ -108,7 +108,7 @@ def notifyNewConnection(pkt):
             synapse.start_post(post_pool)
             post_pool = []
  
-nflog = libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
+nflog = origin.libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
 fd = next(nflog)
  
 tracker = Tracker(new_connection_cb = notifyNewConnection)
