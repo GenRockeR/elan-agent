@@ -1,5 +1,5 @@
-PACKAGE-NAME := 
-PACKAGE-DESC := 
+PACKAGE-NAME := lc-ids
+PACKAGE-DESC := Light Controller intrusion detection module
 
 include ../core/packaging.mk
 
