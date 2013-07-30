@@ -1,4 +1,7 @@
-light-controller.debhelper.log
-light-controller.substvars
+*.debhelper.log
+*.substvars
 files
-light-controller/
+changelog
+control
+# Ignore all subdirs, as a subdir with the name of the package will be used to build the package
+*/
