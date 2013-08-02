@@ -8,5 +8,5 @@ Build-Depends: debhelper (>= 9)
 
 Package: %{PACKAGE-NAME}
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, lc-ids, lc-connection-tracker
+Depends: ${shlibs:Depends}, ${misc:Depends}, lc-ids, lc-connection-tracker, bridge-utils
 Description: %{PACKAGE-DESC}

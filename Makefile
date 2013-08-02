@@ -1,5 +1,5 @@
 PACKAGE-NAME := light-controller
-PACKAGE-DESC := Light COntroller main package
+PACKAGE-DESC := Light Controller main package
 
 include ../core/packaging.mk
 
