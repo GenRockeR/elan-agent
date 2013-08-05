@@ -5,7 +5,7 @@ endif
 # Make sure that the MCN key exists in gpg configuration
 .PHONY: gpgkey
 gpgkey:
-	gpg --list-secret-keys "Origin Nexus" || gpg --import < ../core/packaging/gpg.key
+	@gpg --list-secret-keys "Origin Nexus" || gpg --import < ../core/packaging/gpg.key
 
 $(HOME)/.dupload.conf: ../core/packaging/dupload.conf
 	cp $< $@
@@ -21,6 +21,22 @@ deb: gpgkey debian/changelog debian/control
 	rm -f ../$(PACKAGE-NAME)_*
 	debuild -b -mdebian@origin-nexus.com
 
+ifneq ($(wildcard debian/preinst.in),)
+deb: debian/preinst
+endif
+
+ifneq ($(wildcard debian/postinst.in),)
+deb: debian/postinst
+endif
+
+ifneq ($(wildcard debian/prerm.in),)
+deb: debian/prerm
+endif
+
+ifneq ($(wildcard debian/postrm.in),)
+deb: debian/postrm
+endif
+
 # Make sure to regenerate changelog each time to add EPOCH time of build
 .PHONY: debian/changelog
 debian/changelog: debian/changelog.in
@@ -34,4 +50,16 @@ debian/changelog: debian/changelog.in
 	fi
 
 debian/control: debian/control.in
+	$(call gen-from-tmpl,$<,$@)
+
+debian/preinst: debian/preinst.in
+	$(call gen-from-tmpl,$<,$@)
+
+debian/postinst: debian/postinst.in
+	$(call gen-from-tmpl,$<,$@)
+
+debian/prerm: debian/prerm.in
+	$(call gen-from-tmpl,$<,$@)
+
+debian/postrm: debian/postrm.in
 	$(call gen-from-tmpl,$<,$@)
