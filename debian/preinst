@@ -1,0 +1,5 @@
+if ! dpkg-divert --package "lc-ids" --list | grep -F "/etc/suricata/suricata.yaml.diverted-lc-ids"
+then
+        dpkg-divert --package "lc-ids" --add --rename \
+                --divert "/etc/suricata/suricata.yaml.diverted-lc-ids " "/etc/suricata/suricata.yaml"
+fi
