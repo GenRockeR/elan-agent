@@ -8,8 +8,8 @@ test:
 	py.test
 
 .PHONY: install
-install: *.py trackerd
+install: origin/*.py trackerd
 	install -d ${DESTDIR}/opt/origin/lib/python
-	install -t ${DESTDIR}/opt/origin/lib/python *.py
+	install -t ${DESTDIR}/opt/origin/lib/python origin/*.py
 	install -d ${DESTDIR}/opt/origin/sbin
 	install -t ${DESTDIR}/opt/origin/sbin trackerd
