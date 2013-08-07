@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import sys
+import time
+from origin.synapse import Synapse
+from origin.ids_tools import alert_from_fastlog
+
+with open('/var/run/suricata.alerts', 'r') as pipe:
+    synapse = Synapse('alerts')
+    while True:
+        line = pipe.readline()
+        if line:
+             alert = alert_from_fastlog(line)
+             if alert:
+                 # Post alert by alert.
+                 #TODO: may want to post several async like Connection Tracker
+                 try:
+                     synapse.post(alert)
+                 except:
+                     #TODO: raise error
+                     print("Error:", sys.exc_info()[0])
+             else:
+                 #TODO: raise error
+                 print("Error: no alert from ", line)
+        else:
+            time.sleep(5)
+    
+    

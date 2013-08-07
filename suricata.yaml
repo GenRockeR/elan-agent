@@ -62,7 +62,7 @@ default-log-dir: /var/log/suricata/
 # to activate the feature. You can use the filename variable to set
 # the file name of the socket.
 unix-command:
-  enabled: yes
+  enabled: no
   filename: custom.socket
 
 # Configure the type of alert (and other) logging you would like.
@@ -71,7 +71,7 @@ outputs:
   # a line based alerts log similar to Snort's fast.log
   - fast:
       enabled: yes
-      filename: fast.log
+      filename: /var/run/suricata.alerts
       append: yes
       #filetype: regular # 'regular', 'unix_stream' or 'unix_dgram'
 
