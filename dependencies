@@ -3,3 +3,7 @@
 python cffi
 python impacket
 
+
+
+in iptables for new connections:
+-m conntrack --ctstate NEW
