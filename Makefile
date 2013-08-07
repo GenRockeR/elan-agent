@@ -1,5 +1,5 @@
-PACKAGE-NAME := 
-PACKAGE-DESC := 
+PACKAGE-NAME := lc-core
+PACKAGE-DESC := Edge Agent Core
 
 include ../core/packaging.mk
 
@@ -8,6 +8,6 @@ test:
 	py.test
 
 .PHONY: install
-install: *.py
+install: origin/*.py
 	install -d ${DESTDIR}/opt/origin/lib/python
-	install -t ${DESTDIR}/opt/origin/lib/python *.py
+	install -t ${DESTDIR}/opt/origin/lib/python origin/*.py
