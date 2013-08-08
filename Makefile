@@ -1,5 +1,6 @@
 PACKAGE-NAME := 
 PACKAGE-DESC := 
+PACKAGE-DEPENDS :=
 
 include ../core/packaging.mk
 
