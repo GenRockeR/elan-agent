@@ -1,0 +1,7 @@
+if ! dpkg-divert --list "light-controller" | grep -F "/etc/network/interfaces.diverted-light-controller"
+then
+        dpkg-divert --package "light-controller" --add --rename \
+                --divert "/etc/network/interfaces.diverted-light-controller " "/etc/network/interfaces"
+fi
+
+invoke-rc.d networking stop

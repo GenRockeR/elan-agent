@@ -1,0 +1,7 @@
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/network/interfaces.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/network/interfaces.diverted-%{PACKAGE-NAME} " "/etc/network/interfaces"
+fi
+
+invoke-rc.d networking stop
