@@ -1,0 +1,6 @@
+in iptables for new connections:
+-m conntrack --ctstate NEW
+
+this relies on python-cffi not in precise distribution
+got it from: ppa:stefanor/pypy
+and added the 2 packages python-cffi and python-pycparser to light-controller/external
