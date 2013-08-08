@@ -1,9 +1,3 @@
-'''
-Created on 7 août 2013
-
-@author: michael
-'''
-
 import json
 import pycurl
 
@@ -30,7 +24,7 @@ class Synapse():
         self.connection = c 
         
     def __output(self, data):
-        self.output = data
+        self.output += data
         
     def post(self, data):
         ''' Synchronious POST '''

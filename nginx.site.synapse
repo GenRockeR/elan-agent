@@ -1,0 +1,28 @@
+server {
+
+    listen 127.0.0.1:80;
+    server_name synapse;
+
+    # no need for logs
+    access_log off;
+
+    location / {
+        proxy_pass http://commandcenter;
+    }
+}
+
+proxy_redirect          off;
+proxy_set_header	Authorization	"Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84";
+proxy_hide_header       X-Powered-By;
+proxy_cache off;
+proxy_intercept_errors off;
+proxy_buffering off;
+
+# 2 following lines enable keep alive proxy between reverse proxy and command center
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+
+upstream commandcenter {
+	server 192.168.20.254:8000;
+	keepalive 3;
+}
