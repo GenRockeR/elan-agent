@@ -1,6 +1,6 @@
 case "$1" in
 remove|abort-install|disappear)
-	if dpkg-divert --package "%{PACKAGE-NAME}" --list | grep -F "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}"
+	if dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}"
 	then
         	dpkg-divert --package "%{PACKAGE-NAME}" --remove --rename \
                 --divert "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME} " "/etc/suricata/suricata.yaml"

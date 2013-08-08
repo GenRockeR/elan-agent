@@ -8,5 +8,5 @@ Build-Depends: debhelper (>= 9)
 
 Package: %{PACKAGE-NAME}
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, suricata
+Depends: ${shlibs:Depends}, ${misc:Depends}, %{PACKAGE-DEPENDS}
 Description: %{PACKAGE-DESC}
