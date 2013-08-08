@@ -10,7 +10,7 @@ gpgkey:
 $(HOME)/.dupload.conf: ../core/packaging/dupload.conf
 	cp $< $@
 
-gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s\#%{PACKAGE-DESC}\#${PACKAGE-DESC}\#g' $(1) > $(2)
+gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s:%{PACKAGE-DESC}:${PACKAGE-DESC}:g; s:%{PACKAGE-DEPENDS}:${PACKAGE-DEPENDS}:g' $(1) > $(2)
 
 .PHONY: deb-stable
 deb-stable: ORIGIN_TARGET = stable
@@ -63,3 +63,8 @@ debian/prerm: debian/prerm.in
 
 debian/postrm: debian/postrm.in
 	$(call gen-from-tmpl,$<,$@)
+
+PACKAGE-VERSION = $(shell head -1 debian/changelog | cut -f 2 -d \( | cut -f 1 -d \))
+.PHONY: deploy-dev
+deploy-dev:
+	@(cd /srv/repositories; reprepro includedeb light-controller $$OLDPWD/../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb )
