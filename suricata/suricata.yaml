@@ -798,8 +798,8 @@ rule-files:
  #- http-events.rules    # available in suricata sources under rules dir
  #- smtp-events.rules    # available in suricata sources under rules dir
 
-classification-file: /etc/suricata/rules/classification.config
-reference-config-file: /etc/suricata/rules/reference.config
+classification-file: /etc/suricata/classification.origin
+reference-config-file: /etc/suricata/reference.origin
 
 # Holds variables that would be used by the engine.
 vars:

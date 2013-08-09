@@ -8,3 +8,10 @@ respawn limit 10 5
 umask 022
 
 exec /usr/bin/suricata --af-packet
+
+pre-start script
+    if [ ! -e /var/log/suricata ]
+    then
+        mkdir /var/log/suricata
+    fi
+end script
