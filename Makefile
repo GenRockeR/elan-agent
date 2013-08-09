@@ -1,6 +1,6 @@
 PACKAGE-NAME := lc-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx-light
+PACKAGE-DEPENDS := nginx-light, python-pycurl
 
 include ../core/packaging.mk
 
