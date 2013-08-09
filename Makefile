@@ -1,6 +1,6 @@
 PACKAGE-NAME := lc-connection-tracker
 PACKAGE-DESC := Connection Tracker Package
-PACKAGE-DEPENDS := lc-core, python-cffi, python-impacket
+PACKAGE-DEPENDS := lc-core, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev
 
 
 include ../core/packaging.mk
