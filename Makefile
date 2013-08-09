@@ -1,6 +1,6 @@
 PACKAGE-NAME := lc-ids
 PACKAGE-DESC := Light Controller intrusion detection module
-PACKAGE-DEPENDS := lc-core, suricata, python-tz, libnetfilter-log-dev, libnfnetlink-dev, python-dev
+PACKAGE-DEPENDS := lc-core, suricata, python-tz
 
 include ../core/packaging.mk
 
