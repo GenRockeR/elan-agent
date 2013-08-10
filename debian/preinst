@@ -1,7 +1,7 @@
-if ! dpkg-divert --list "light-controller" | grep -F "/etc/network/interfaces.diverted-light-controller"
+if ! dpkg-divert --list "edge-agent" | grep -F "/etc/network/interfaces.diverted-edge-agent"
 then
-        dpkg-divert --package "light-controller" --add --rename \
-                --divert "/etc/network/interfaces.diverted-light-controller " "/etc/network/interfaces"
+        dpkg-divert --package "edge-agent" --add --rename \
+                --divert "/etc/network/interfaces.diverted-edge-agent " "/etc/network/interfaces"
 fi
 
 invoke-rc.d networking stop
