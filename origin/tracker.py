@@ -42,10 +42,14 @@ class Tracker():
         packet = self.decoder.decode(pktBuffer)
         pkt_params = self.getPacketParams(packet, direction)
         # check if connection has ports defined
-        if 'lan_port' in pkt_params:
-            type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ][ pkt_params['lan_port'] ][ pkt_params['wan_port'] ]
-        else:
-            type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ]
+        try:
+            if 'lan_port' in pkt_params:
+                type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ][ pkt_params['lan_port'] ][ pkt_params['wan_port'] ]
+            else:
+                type_path = self.establisedConnections[ pkt_params['lan_ip'] ][ pkt_params['wan_ip'] ]
+        except KeyError:
+            # if not IP stack
+            return
 
         now = time.time()
 
