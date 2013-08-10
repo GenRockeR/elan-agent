@@ -1,4 +1,4 @@
-PACKAGE-NAME := lc-core
+PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
 PACKAGE-DEPENDS := nginx-light, python-pycurl
 
