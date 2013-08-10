@@ -11,13 +11,13 @@ env PYTHONPATH=/opt/origin/lib/python
 exec /opt/origin/sbin/connection-trackerd
 
 pre-start script
-	# eth0 is lan interface
-	# eth1 is wan interface
+	# eth0 is wan interface
+	# eth1 is lan interface
 	if ! iptables-save | grep -q 'FORWARD *-m *physdev *--physdev-in *eth1 *-j *NFLOG *--nflog-prefix *IN'
 	then
-		iptables  -I FORWARD -m physdev --physdev-in  eth1 -j NFLOG --nflog-prefix IN
-		iptables  -I FORWARD -m physdev --physdev-out eth1 -j NFLOG --nflog-prefix OUT
-		ip6tables -I FORWARD -m physdev --physdev-in  eth1 -j NFLOG --nflog-prefix IN
-		ip6tables -I FORWARD -m physdev --physdev-out eth1 -j NFLOG --nflog-prefix OUT
+		iptables  -I FORWARD -m physdev --physdev-in  eth0 -j NFLOG --nflog-prefix IN
+		iptables  -I FORWARD -m physdev --physdev-out eth0 -j NFLOG --nflog-prefix OUT
+		ip6tables -I FORWARD -m physdev --physdev-in  eth0 -j NFLOG --nflog-prefix IN
+		ip6tables -I FORWARD -m physdev --physdev-out eth0 -j NFLOG --nflog-prefix OUT
 	fi
 end script
