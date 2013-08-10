@@ -1,6 +1,6 @@
-PACKAGE-NAME := lc-ids
-PACKAGE-DESC := Light Controller intrusion detection module
-PACKAGE-DEPENDS := lc-core, suricata, python-tz, python-yaml, zsync
+PACKAGE-NAME := ea-ids
+PACKAGE-DESC := Edge Agent intrusion detection module
+PACKAGE-DEPENDS := ea-core, suricata, python-tz, python-yaml, zsync
 
 include ../core/packaging.mk
 
