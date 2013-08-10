@@ -12,7 +12,7 @@ class Synapse():
         self.output = ""
         
         c = pycurl.Curl()
-        c.setopt(pycurl.URL, "127.0.0.1:8000/" + path + '/')
+        c.setopt(pycurl.URL, "127.0.0.1:80/" + path + '/')
         c.setopt(pycurl.HTTPHEADER, [
                 # TODO: Remove that token from somewhere as it will get added by synapse module
                 "Authorization: Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84",
@@ -22,6 +22,9 @@ class Synapse():
         c.setopt(pycurl.WRITEFUNCTION, self.__output)
         c.setopt(pycurl.POST, 1)
         self.connection = c 
+        
+    def get_url(self):
+        return 'http://' + self.connection.getinfo(pycurl.EFFECTIVE_URL)
         
     def __output(self, data):
         self.output += data
