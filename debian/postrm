@@ -1,8 +1,8 @@
 case "$1" in
 remove|abort-install|disappear)
-	if dpkg-divert --list "lc-ids" | grep -F "/etc/suricata/suricata.yaml.diverted-lc-ids"
+	if dpkg-divert --list "ea-ids" | grep -F "/etc/suricata/suricata.yaml.diverted-ea-ids"
 	then
-        	dpkg-divert --package "lc-ids" --remove --rename \
-                --divert "/etc/suricata/suricata.yaml.diverted-lc-ids " "/etc/suricata/suricata.yaml"
+        	dpkg-divert --package "ea-ids" --remove --rename \
+                --divert "/etc/suricata/suricata.yaml.diverted-ea-ids " "/etc/suricata/suricata.yaml"
 	fi;;
 esac
