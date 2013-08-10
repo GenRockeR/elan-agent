@@ -2,6 +2,7 @@
 
 import time
 import origin.libnflog_cffi
+import signal
 from origin.tracker import Tracker
 from origin.synapse import Synapse
 
@@ -33,16 +34,44 @@ def notifyNewConnection(pkt):
             synapse.start_post(post_pool)
             post_pool = []
  
+
+
 nflog = origin.libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
 fd = next(nflog)
  
 tracker = Tracker(new_connection_cb = notifyNewConnection)
- 
-for pkt, hwhdr, direction  in nflog:
-    try:
-        tracker.processPacket( hwhdr + pkt, direction )
-        if tracker.lastEstablishedConnexionsCleanup < time.time() - 60 * 1: # every 1 mn
-            tracker.cleanupEstablishedConnexions()
-    except Exception as e:
-        # TODO: notify error to central manager...
-        print 'Exception: ', type(e), e
+
+
+
+
+# catch TERM signal so final post can execute.
+def noop(signum, frame):
+    pass
+signal.signal(signal.SIGTERM, noop)
+
+
+try:
+    for pkt, hwhdr, direction  in nflog:
+        try:
+            tracker.processPacket( hwhdr + pkt, direction )
+            if tracker.lastEstablishedConnexionsCleanup < time.time() - 60 * 1: # every 1 mn
+                tracker.cleanupEstablishedConnexions()
+        except Exception as e:
+            # TODO: notify error to central manager...
+            print 'Exception: ', type(e), e
+except:
+    pass
+finally:
+    # Let request finish and send remaining connections, if any
+    http_code, result = synapse.get_result()
+    if http_code != 201 and http_code != 0:
+        # Todo: Raise alert back to CC
+        print "Error ", http_code, ': ', result
+    if post_pool:
+        synapse.post(post_pool)
+
+
+
+
+        
+            
