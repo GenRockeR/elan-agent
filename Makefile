@@ -1,6 +1,6 @@
-PACKAGE-NAME := light-controller
-PACKAGE-DESC := Light Controller main package
-PACKAGE-DEPENDS := lc-ids, lc-connection-tracker, bridge-utils
+PACKAGE-NAME := edge-agent
+PACKAGE-DESC := Edge Agent main package
+PACKAGE-DEPENDS := ea-ids, ea-connection-tracker, bridge-utils
 
 include ../core/packaging.mk
 
