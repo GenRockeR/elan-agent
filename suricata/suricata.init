@@ -14,4 +14,5 @@ pre-start script
     then
         mkdir /var/log/suricata
     fi
+    PYTHONPATH=/opt/origin/lib/python /opt/origin/sbin/rule-fetcher --no-rule-reload
 end script
