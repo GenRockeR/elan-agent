@@ -13,7 +13,7 @@ exec /opt/origin/sbin/connection-trackerd
 pre-start script
 	# eth0 is wan interface
 	# eth1 is lan interface
-	if ! iptables-save | grep -q 'FORWARD *-m *physdev *--physdev-in *eth1 *-j *NFLOG *--nflog-prefix *IN'
+	if ! iptables-save | grep -q 'FORWARD *-m *physdev *--physdev-in *eth. *-j *NFLOG *--nflog-prefix *IN'
 	then
 		iptables  -I FORWARD -m physdev --physdev-in  eth0 -j NFLOG --nflog-prefix IN
 		iptables  -I FORWARD -m physdev --physdev-out eth0 -j NFLOG --nflog-prefix OUT
