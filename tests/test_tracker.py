@@ -13,8 +13,8 @@ def test_processPacket():
     for key in expected_path:
         assert( subtree.keys() == [key] )
         subtree = subtree[key]
-    assert( subtree['lan_ether'] ==  '52:54:00:bb:01:93' ) 
-    assert( subtree['wan_ether'] ==  'd4:3d:7e:18:8a:55' )
+    assert( subtree['lan_mac'] ==  '52:54:00:bb:01:93' ) 
+    assert( subtree['wan_mac'] ==  'd4:3d:7e:18:8a:55' )
     assert( subtree['lan_ip'] == '192.168.0.56' ) 
     assert( subtree['wan_ip'] ==  '192.168.0.6' ) 
     assert( subtree['lan_port'] ==  22 )
@@ -31,8 +31,8 @@ def test_processPacket_samePacket():
     for key in expected_path:
         assert( subtree.keys() == [key] )
         subtree = subtree[key]
-    assert( subtree['lan_ether'] ==  '52:54:00:bb:01:93' ) 
-    assert( subtree['wan_ether'] ==  'd4:3d:7e:18:8a:55' )
+    assert( subtree['lan_mac'] ==  '52:54:00:bb:01:93' ) 
+    assert( subtree['wan_mac'] ==  'd4:3d:7e:18:8a:55' )
     assert( subtree['lan_ip'] == '192.168.0.56' ) 
     assert( subtree['wan_ip'] ==  '192.168.0.6' ) 
     assert( subtree['lan_port'] ==  22 )
@@ -50,8 +50,8 @@ def test_processPacket_packetOtherWay():
     for key in expected_path:
         assert( subtree.keys() == [key] )
         subtree = subtree[key]
-    assert( subtree['lan_ether'] ==  '52:54:00:bb:01:93' ) 
-    assert( subtree['wan_ether'] ==  'd4:3d:7e:18:8a:55' )
+    assert( subtree['lan_mac'] ==  '52:54:00:bb:01:93' ) 
+    assert( subtree['wan_mac'] ==  'd4:3d:7e:18:8a:55' )
     assert( subtree['lan_ip'] == '192.168.0.56' ) 
     assert( subtree['wan_ip'] ==  '192.168.0.6' ) 
     assert( subtree['lan_port'] ==  22 )
@@ -67,8 +67,8 @@ def test_newConnection_cb_called():
         global called
         called = True
         assert( pkt['direction'] == 'IN' )
-        assert( pkt['lan_ether'] == '52:54:00:bb:01:93' )
-        assert( pkt['wan_ether'] == 'd4:3d:7e:18:8a:55' )
+        assert( pkt['lan_mac'] == '52:54:00:bb:01:93' )
+        assert( pkt['wan_mac'] == 'd4:3d:7e:18:8a:55' )
         assert( pkt['lan_ip'] == '192.168.0.56' )
         assert( pkt['wan_ip'] == '192.168.0.6' )
         assert( pkt['lan_port'] == 22 )

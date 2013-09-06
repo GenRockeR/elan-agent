@@ -8,6 +8,7 @@ class Tracker():
         self.decoder = EthDecoder()
         self.lastEstablishedConnexionsCleanup = time.time()
         self.leaves_count = 0
+        self.macIPs = {}
         
         self.connection_ttl_mn = connection_ttl_mn          # timeout to consider connection as closed if no new traffic seen.
         self.new_connection_cb = new_connection_cb          # callback function when new connection found.
@@ -78,8 +79,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_ether = packet.get_ether_dhost
                     get_wan_ether = packet.get_ether_shost                    
-                params['lan_ether'] = packet.as_eth_addr(get_lan_ether())
-                params['wan_ether'] = packet.as_eth_addr(get_wan_ether())
+                params['lan_mac'] = packet.as_eth_addr(get_lan_ether())
+                params['wan_mac'] = packet.as_eth_addr(get_wan_ether())
             elif packet.__class__.__name__ == 'IP':
                 if direction == 'OUT':
                     get_lan_ip = packet.get_ip_src
@@ -125,7 +126,7 @@ class Tracker():
             packet = packet.child()
             
         else:
-            #TODO: log error as we should always some date (?)
+            #TODO: log error as we should always some data (?)
             print("Error, Data class type not found")
         return params 
 
