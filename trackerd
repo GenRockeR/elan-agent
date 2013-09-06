@@ -12,7 +12,7 @@ POST_EVERY_X_SECONDS = 300
 last_post_time = time.time()
 post_pool = []
 
-synapse = Synapse(path = 'connections')
+synapse = Synapse(path = 'connection')
  
 def notifyNewConnection(pkt):
     global POST_EVERY_X_REQUESTS, POST_EVERY_X_SECONDS
@@ -67,6 +67,8 @@ finally:
     if http_code != 201 and http_code != 0:
         # Todo: Raise alert back to CC
         print "Error ", http_code, ': ', result
+    else:
+        post_pool = []
     if post_pool:
         synapse.post(post_pool)
 
