@@ -2,7 +2,7 @@ from origin.tracker import Tracker
 
 t = Tracker()
 
-def test_extablishedConnections_empty():
+def test_establishedConnections_empty():
     assert( t.establisedConnections == {} )
 
 def test_processPacket():
