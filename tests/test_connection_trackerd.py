@@ -18,3 +18,5 @@ def test_ignorePacket_IANA():
     assert( connection_trackerd.ignorePacket({'wan_mac': '02:00:5e:05:06:07', 'lan_mac': '01:02:03:04:05:06'}) == True )
     assert( connection_trackerd.ignorePacket({'lan_mac': '02:00:5e:05:06:07', 'wan_mac': '01:02:03:04:05:07'}) == True )
     assert( connection_trackerd.ignorePacket({'wan_mac': '02:00:5e:05:06:07', 'lan_mac': '02:00:5e:05:06:07'}) == True )
+    assert( connection_trackerd.ignorePacket({'wan_mac': '33:33:ff:ff:ff:01', 'lan_mac': '01:02:03:04:05:06'}) == True )
+    assert( connection_trackerd.ignorePacket({'wan_mac': 'ff:ff:ff:ff:ff:01', 'lan_mac': '33:33:03:04:05:06'}) == True )
