@@ -1,0 +1,21 @@
+description "DHCP fingerprinter and Host gatherer"
+
+start on filesystem or runlevel [2345]
+stop on runlevel [!2345]
+
+respawn
+respawn limit 10 5
+
+env PYTHONPATH=/opt/origin/lib/python
+
+exec /opt/origin/sbin/dhcp-trackerd
+
+pre-start script
+	# eth0 is wan interface
+	# eth1 is lan interface
+	if ! iptables-save | grep -q -- '-A *FORWARD *-p *udp *-m *physdev *--physdev-is-bridged *-m *udp *--dport *67 *-j *NFLOG *--nflog-group *5'
+	then
+    # we are only interested in client DHCP requests
+		iptables -I FORWARD -m physdev --physdev-is-bridged --protocol udp --dport 67 -j NFLOG --nflog-group 5
+	fi
+end script
