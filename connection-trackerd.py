@@ -67,41 +67,17 @@ def getPacketParams(packet, direction):
         print("Error, Data class type not found")
     return params 
 
-def shouldLogPacket(pkt):
+def ignorePacket(pkt):
     # Ignore broadcast packets
     if pkt['wan_mac'] == 'ff:ff:ff:ff:ff:ff' or pkt['lan_mac'] == 'ff:ff:ff:ff:ff:ff':
-        return False
+        return True
 
     # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml
     IANA_6_prefix = ['00:00:5e', '01:00:5e', '02:00:5e']
     if pkt['wan_mac'][0:8] in IANA_6_prefix or pkt['lan_mac'][0:8] in IANA_6_prefix:
-        return False
+        return True
 
-    return True
-    
- 
-def notifyNewConnection(pkt):
-    global POST_EVERY_X_CONNECTIONS, POST_EVERY_X_SECONDS
-    global last_post_time, post_pool, synapse
-    
-    # TODO: Use NFLOG time
-    pkt['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-     
-    post_pool.append(pkt)
-     
-    if len(post_pool) >= POST_EVERY_X_CONNECTIONS or POST_EVERY_X_SECONDS <= (time.time() - last_post_time):
-        # check if last request finished
-        if synapse.request_finished():
-            # Check how last request went on
-            http_code, result = synapse.get_result()
-            if http_code != 201 and http_code != 0:
-                # Todo: Raise alert back to CC
-                print "Error ", http_code, ': ', result
-             
-            if post_pool:
-                synapse.start_post(post_pool)
-                post_pool = []
- 
+    return False
 
 if __name__ == '__main__':
     import time
@@ -109,9 +85,6 @@ if __name__ == '__main__':
     import signal
     from origin.synapse import Synapse
     from impacket.ImpactDecoder import EthDecoder
-    
-    last_post_time = time.time()
-    post_pool = []
     
     synapse = Synapse(path = 'connection')
 
@@ -132,21 +105,18 @@ if __name__ == '__main__':
             try:
                 pkt_obj = decoder.decode(hwhdr + pkt)
                 pkt_params = getPacketParams(pkt_obj, direction)
-                if shouldLogPacket(pkt_params):
-                    notifyNewConnection(pkt_params)
+                if not ignorePacket(pkt_params):
+                    # TODO: Use NFLOG time
+                    pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                    synapse.postPoolAdd(pkt_params)
+                # Try submitting pool
+                synapse.submitPostPoolIfReady()
             except Exception as e:
                 # TODO: notify error to central manager...
                 print 'Exception: ', type(e), e
     finally:
         # Let request finish and send remaining connections, if any
-        http_code, result = synapse.get_result()
-        if http_code != 201 and http_code != 0:
-            # Todo: Raise alert back to CC
-            print "Error ", http_code, ': ', result
-        else:
-            post_pool = []
-        if post_pool:
-            synapse.post(post_pool)
+        synapse.flushPostPool()
 
 
 
