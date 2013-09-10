@@ -74,8 +74,8 @@ if __name__ == '__main__':
     fingerprints = {}
     post_pool = ()
         
-    fp_synapse = Synapse(path = 'devices/dhcp-fingerprint')
-    hn_synapse = Synapse(path = 'devices/dhcp-name')
+    fp_synapse = Synapse(path = 'device/dhcp-fingerprint')
+    hn_synapse = Synapse(path = 'device/dhcp-name')
 
     nflog = origin.libnflog_cffi.NFLOG().generator(DHCP_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
