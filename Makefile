@@ -13,8 +13,8 @@ install: python nginx
 
 .PHONY: python
 python: origin/*.py
-	install -d ${DESTDIR}/opt/origin/lib/python/origin
-	install -m 644 -t ${DESTDIR}/opt/origin/lib/python/origin origin/*.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 
 .PHONY: nginx
 nginx:

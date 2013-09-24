@@ -2,6 +2,8 @@ ifeq ($(PACKAGE-NAME),)
 $(error "Please define PACKAGE-NAME (and PACKAGE-DESC)")
 endif
 
+ORIGIN_PREFIX = /origin
+
 # Make sure that the MCN key exists in gpg configuration
 .PHONY: gpgkey
 gpgkey:
