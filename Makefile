@@ -20,17 +20,17 @@ install-suricata:
 	install -m 644 suricata/suricata.yaml ${DESTDIR}/etc/suricata/
 	install -m 644 suricata/reference.origin ${DESTDIR}/etc/suricata/
 	install -m 644 suricata/classification.origin ${DESTDIR}/etc/suricata/
-	install -d ${DESTDIR}/opt/origin/sbin
-	install rule-fetcher ${DESTDIR}/opt/origin/sbin/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/sbin
+	install rule-fetcher ${DESTDIR}${ORIGIN_PREFIX}/sbin/
 	install -d ${DESTDIR}/etc/cron.d
 	install -m 644 rule-fetcher.cron ${DESTDIR}/etc/cron.d/
 
 .PHONY: install-logger
 install-logger:
-	install -d ${DESTDIR}/opt/origin/sbin
-	install ids-loggerd ${DESTDIR}/opt/origin/sbin/
-	install -d ${DESTDIR}/opt/origin/lib/python/origin
-	install -m 644 -t ${DESTDIR}/opt/origin/lib/python/origin origin/*.py
-	rm -f ${DESTDIR}/opt/origin/lib/python/origin/__init__.py # this is added by core
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/sbin
+	install ids-loggerd ${DESTDIR}${ORIGIN_PREFIX}/sbin/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py # this is added by core
 
 
