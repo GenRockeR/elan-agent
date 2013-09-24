@@ -6,7 +6,7 @@ from origin.synapse import Synapse
 from origin.ids_tools import alert_from_fastlog
 
 with open('/var/run/suricata.alerts', 'r') as pipe:
-    synapse = Synapse('ids/alerts')
+    synapse = Synapse('alert')
     while True:
         line = pipe.readline()
         if line:

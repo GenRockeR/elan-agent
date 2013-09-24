@@ -12,7 +12,7 @@ os.chdir(conf['default-rule-path'])
 rules_updated = False
 
 # Get URL from Synapse so zsync can retrieve efficiently rules
-s = Synapse('ids/rules')
+s = Synapse('ids/rules/')
 base_url = s.get_url()
 
 for rule in conf['rule-files']:
