@@ -793,7 +793,7 @@ rule-files:
  - rbn-malvertisers.rules
  - rbn.rules
  #- tor.rules
- - decoder-events.rules # available in suricata sources under rules dir
+ #- decoder-events.rules # available in suricata sources under rules dir
  #- stream-events.rules  # available in suricata sources under rules dir
  #- http-events.rules    # available in suricata sources under rules dir
  #- smtp-events.rules    # available in suricata sources under rules dir
