@@ -67,4 +67,4 @@ debian/postrm: debian/postrm.in Makefile
 PACKAGE-VERSION = $(shell head -1 debian/changelog | cut -f 2 -d \( | cut -f 1 -d \))
 .PHONY: deploy-dev
 deploy-dev:
-	@(cd /srv/repositories; reprepro includedeb light-controller $$OLDPWD/../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb )
+	@(cd /srv/repositories; reprepro includedeb edge-agent $$OLDPWD/../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb )

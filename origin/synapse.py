@@ -1,18 +1,23 @@
 import json
 import pycurl
+import time
 
 class Synapse():
     """ Synapse is the interface to the Central Controller
         Calls can be synchronious (post()) or async (start_post, request_finished, get_result)
     """
-    def __init__(self, path=''):
+    MAX_POOL_SIZE = 50
+    MAX_SECS_BETWEEN_ADDS = 60
+    BASE_PATH = "127.0.0.1:80/api/"
+    
+    def __init__(self, path='', base_path = BASE_PATH):
         self.multi = pycurl.CurlMulti()
         self.ongoing_request = False
         
         self.output = ""
         
         c = pycurl.Curl()
-        c.setopt(pycurl.URL, "127.0.0.1:80/" + path + '/')
+        c.setopt(pycurl.URL, base_path + path )
         c.setopt(pycurl.HTTPHEADER, [
                 # TODO: Remove that token from somewhere as it will get added by synapse module
                 "Authorization: Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84",
@@ -22,6 +27,10 @@ class Synapse():
         c.setopt(pycurl.WRITEFUNCTION, self.__output)
         c.setopt(pycurl.POST, 1)
         self.connection = c 
+        
+        self.last_post_time = time.time()
+        self.post_pool = []
+
         
     def get_url(self):
         return 'http://' + self.connection.getinfo(pycurl.EFFECTIVE_URL)
@@ -76,3 +85,39 @@ class Synapse():
             self.ongoing_request = False
         
         return ( c.getinfo(pycurl.HTTP_CODE), self.output )
+    
+    def check_last_request(self):
+        # Check how last request went on
+        http_code, result = self.get_result()
+        if http_code != 201 and http_code != 0:
+            # Todo: Raise alert back to CC
+            print "Error ", http_code, ': ', result
+
+    def postPoolAdd(self, obj):
+        '''
+        Add object to POST pool
+        '''
+        self.post_pool.append(obj)
+
+    def submitPostPoolIfReady(self):
+        '''
+        Sumit POST pool asynchronously if ready (last request finished and (pool size over MAX_POOL_SIZE or MAX_SECS_BETWEEN_ADDS elapse since last post))
+        '''
+        if len(self.post_pool) >= self.MAX_POOL_SIZE or self.MAX_SECS_BETWEEN_ADDS <= (time.time() - self.last_post_time):
+            # check if last request finished
+            if self.request_finished():
+                self.check_last_request()
+                 
+                if self.post_pool:
+                    self.start_post(self.post_pool)
+                    self.last_post_time = time.time()
+                    self.post_pool = []
+
+
+    def flushPostPool(self):
+        self.check_last_request()
+        if self.post_pool:
+            self.start_post(self.post_pool)
+            self.check_last_request()
+
+        

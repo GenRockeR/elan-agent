@@ -1,8 +1,8 @@
 # Remove nginx start script as we use upstart
-if ! dpkg-divert --list "lc-core" | grep -F "/etc/init.d/nginx.diverted-lc-core"
+if ! dpkg-divert --list "ea-core" | grep -F "/etc/init.d/nginx.diverted-ea-core"
 then
-        dpkg-divert --package "lc-core" --add --rename \
-                --divert "/etc/init.d/nginx.diverted-lc-core " "/etc/init.d/nginx"
+        dpkg-divert --package "ea-core" --add --rename \
+                --divert "/etc/init.d/nginx.diverted-ea-core " "/etc/init.d/nginx"
 fi
 # get rid of rc.d symlinks for nginx
 update-rc.d -f nginx remove
