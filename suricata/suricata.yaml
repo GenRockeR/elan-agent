@@ -70,19 +70,19 @@ outputs:
 
   # a line based alerts log similar to Snort's fast.log
   - fast:
-      enabled: yes
+      enabled: no
       filename: /var/run/suricata.alerts
       append: yes
       #filetype: regular # 'regular', 'unix_stream' or 'unix_dgram'
 
   # alert output for use with Barnyard2
   - unified2-alert:
-      enabled: no
+      enabled: yes
       filename: unified2.alert
 
       # File size limit.  Can be specified in kb, mb, gb.  Just a number
       # is parsed as bytes.
-      #limit: 32mb
+      limit: 32mb
 
       # Sensor ID field of unified2 alerts.
       #sensor-id: 0

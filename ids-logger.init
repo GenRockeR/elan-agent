@@ -11,8 +11,8 @@ env PYTHONPATH=/origin/lib/python
 exec /origin/sbin/ids-loggerd
 
 pre-start script
-    if [ ! -e /var/run/suricata.alerts ]
+    if [ ! -e /var/log/suricata ]
     then
-        mkfifo /var/run/suricata.alerts
+        mkdir /var/log/suricata
     fi
 end script

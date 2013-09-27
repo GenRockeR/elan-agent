@@ -1,28 +1,80 @@
 #!/usr/bin/env python
 
-import sys
-import time
-from origin.synapse import Synapse
-from origin.ids_tools import alert_from_fastlog
+from __future__ import print_function
 
-with open('/var/run/suricata.alerts', 'r') as pipe:
+import sys
+import os
+import time
+import socket
+from idstools import spool
+from impacket.ImpactDecoder import EthDecoder
+from origin.synapse import Synapse
+
+def alert_from_event(event, packet_decoder):
+    alert = {
+             'src_port':    event['sport-itype'],
+             'dst_port':    event['dport-icode'],
+             'priority':    event['priority'],
+             'signature':   {
+                         'gid': event['generator-id'],
+                         'sid': event['signature-id'],
+                         'revision': event['signature-revision'],
+             },
+             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S.'+ str(event['event-microsecond']) +'Z', time.gmtime(event['event-second']))
+              #'vlan': event['vlan-id'],
+    }
+    # decode Ethernet packet to get mac addresses and protocol
+    packet = packet_decoder.decode( reduce(lambda x,y: x + y['data'], event['packets'], '') )
+    inet_family = None;
+    while packet:
+        if packet.__class__.__name__ == 'Ethernet':
+            alert['src_mac'] = packet.as_eth_addr(packet.get_ether_shost())
+            alert['dst_mac'] = packet.as_eth_addr(packet.get_ether_dhost())
+        elif packet.__class__.__name__ == 'IP' and not inet_family:
+            inet_family = socket.AF_INET
+        elif packet.__class__.__name__ == 'IP6' and not inet_family:
+            inet_family = socket.AF_INET6
+            
+        if packet.child().__class__.__name__ == 'Data':
+            alert['protocol'] = packet.__class__.__name__
+            break
+        
+        packet = packet.child()
+
+    alert['src_ip'] = socket.inet_ntop(inet_family, event['ip-source'])
+    alert['dst_ip'] = socket.inet_ntop(inet_family, event['ip-destination'])
+
+        
+    return alert
+
+def main():
+    directory = '/var/log/suricata'
+    prefix = 'unified2.alert'
+    
+    if not os.path.exists(directory):
+        print("error: directory %s does not exist" % (directory), 
+              file=sys.stderr)
+        return 1
+
+    reader = spool.Unified2EventSpoolReader(
+            directory, prefix,
+            bookmarking=True,
+            delete_on_close=True)
+
     synapse = Synapse('alert')
-    while True:
-        line = pipe.readline()
-        if line:
-             alert = alert_from_fastlog(line)
-             if alert:
-                 # Post alert by alert.
-                 #TODO: may want to post several async like Connection Tracker
-                 try:
-                     synapse.post(alert)
-                 except:
-                     #TODO: raise error
-                     print("Error:", sys.exc_info()[0])
-             else:
-                 #TODO: raise error
-                 print("Error: no alert from ", line)
-        else:
-            time.sleep(5)
+    decoder = EthDecoder()
+
+    for event in reader:
+        try:
+            alert = alert_from_event(event, decoder)
+            # Post alert by alert.
+            #TODO: may want to post several async like Connection Tracker
+            synapse.post(alert)
+        except:
+            #TODO: raise error
+            print("Error:", sys.exc_info()[0], file=sys.stderr)
+
+if __name__ == "__main__":
+    sys.exit(main())
     
     
