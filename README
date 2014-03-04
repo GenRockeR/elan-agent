@@ -1,5 +1,0 @@
-Usage:
-
-git remote add template git@git.origin-nexus.com:origin-nexus/debian-template.git
-git pull template master:template
-git branch -d template #optional cleanup: no need to keep the local branch "template"
