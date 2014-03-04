@@ -10,5 +10,5 @@ test:
 
 .PHONY: install
 install: *.py
-	install -d ${DESTDIR}/opt/origin/lib/python
-	install -t ${DESTDIR}/opt/origin/lib/python *.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python *.py
