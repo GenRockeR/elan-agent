@@ -1,0 +1,35 @@
+description "Captive Portal"
+ 
+start on starting nginx
+stop  on stopped  nginx
+
+exec uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
+
+pre-start script
+  mkdir -p /var/run/captive-portal
+  chown www-data:www-data /var/run/captive-portal
+end script
+
+post-start script
+  ebtables -t filter -P FORWARD DROP 
+  ebtables -t filter -A FORWARD -o eth0 -p arp -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 67 -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 53 -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
+  ebtables -t filter -A FORWARD -i eth0 -j ACCEPT
+  iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT
+  iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT
+end script
+
+pre-stop script
+  ebtables -t filter -P FORWARD ACCEPT
+  ebtables -t filter -D FORWARD -o eth0 -p arp -j ACCEPT
+  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 67 -j ACCEPT
+  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 53 -j ACCEPT
+  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
+  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
+  ebtables -t filter -D FORWARD -i eth0 -j ACCEPT
+  iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT
+  iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT
+end script

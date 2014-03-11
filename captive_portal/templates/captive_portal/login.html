@@ -1,0 +1,15 @@
+{% load i18n %}
+<h1>{% trans "Login" %}</h1>
+
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+
+<form action="{% url 'login' %}" method="post">
+{% csrf_token %}
+  <label for="user">{% trans "Username" %}:</label>
+  <input type="text" id="user" name="username" value="{{ username }}" />
+  <br />
+  <label for="pwd">{% trans "Password" %}:</label>
+  <input type="text" id="pwd" name="password" />
+  <br />
+<input type="submit" value="Login" />
+</form>

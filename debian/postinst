@@ -1,0 +1,11 @@
+cp -p /usr/bin/python /origin/captive-portal/bin/
+if [ ! -e /origin/captive-portal/bin/python2 ]
+then
+  ln -s python /origin/captive-portal/bin/python2
+fi
+if [ ! -e /origin/captive-portal/bin/python2.7 ]
+then
+  ln -s python /origin/captive-portal/bin/python2.7
+fi
+
+reload captive-portal || true

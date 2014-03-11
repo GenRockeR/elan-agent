@@ -1,0 +1,17 @@
+upstream portal {
+    server unix:///var/run/captive-portal/uwsgi.sock;
+}
+
+server {
+
+    listen 127.0.0.1:80;
+    server_name captive-portal;
+
+    # no need for logs
+    access_log off;
+    
+    location / {
+      uwsgi_pass  portal;
+      include uwsgi_params;
+    }
+}
