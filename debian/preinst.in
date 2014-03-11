@@ -2,10 +2,5 @@
 if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}"
 then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
-                --divert "/etc/init.d/nginx.diverted-%{PACKAGE-NAME} " "/etc/init.d/nginx"
+                --divert "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}" "/etc/init.d/nginx"
 fi
-# get rid of rc.d symlinks for nginx
-update-rc.d -f nginx remove
-
-# deconfigure default site
-rm -f /etc/nginx/sites-enabled/default

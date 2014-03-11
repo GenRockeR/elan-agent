@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx-light, python-pycurl
+PACKAGE-DEPENDS := nginx-full, python-pycurl
 
 include ../core/packaging.mk
 

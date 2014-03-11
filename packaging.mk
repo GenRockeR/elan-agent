@@ -12,7 +12,7 @@ gpgkey:
 $(HOME)/.dupload.conf: ../core/packaging/dupload.conf
 	cp $< $@
 
-gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s:%{PACKAGE-DESC}:${PACKAGE-DESC}:g; s:%{PACKAGE-DEPENDS}:${PACKAGE-DEPENDS}:g' $(1) > $(2)
+gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s:%{PACKAGE-DESC}:${PACKAGE-DESC}:g; s:%{PACKAGE-DEPENDS}:${PACKAGE-DEPENDS}:g; s:%{ORIGIN_PREFIX}:${ORIGIN_PREFIX}:g' $(1) > $(2)
 
 .PHONY: deb-stable
 deb-stable: ORIGIN_TARGET = stable
@@ -47,7 +47,7 @@ debian/changelog: debian/changelog.in Makefile
 	then \
 		perl -p -i -e 's:unstable:stable:g' $@;\
 	else \
-		# replace first line of change log with version followed by ~EPOCH (~ in deb-version ordering comes before anything, even nothing: version 1.0~whatevr is less that 1.0) \
+		# replace first line of change log with version followed by ~EPOCH (~ in deb-version ordering comes before anything, even nothing: version 1.0~whatever is less that 1.0) \
 		perl -p -i -e '$$now=time(); s:\((.*)\):($${1}~$$now): if 1 .. 1' $@ ;\
 	fi
 
@@ -69,4 +69,5 @@ debian/postrm: debian/postrm.in Makefile
 PACKAGE-VERSION = $(shell head -1 debian/changelog | cut -f 2 -d \( | cut -f 1 -d \))
 .PHONY: deploy-dev
 deploy-dev:
-	@(cd /srv/repositories; reprepro includedeb edge-agent $$OLDPWD/../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb )
+	@scp ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb itadmin@192.168.20.10:/home/itadmin/
+	@ssh itadmin@192.168.20.10 "cd repositories; reprepro --ask-passphrase includedeb edge-agent ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb; rm ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb"

@@ -8,7 +8,7 @@ class Synapse():
     """
     MAX_POOL_SIZE = 50
     MAX_SECS_BETWEEN_ADDS = 60
-    BASE_PATH = "127.0.0.1:80/api/"
+    BASE_PATH = "127.0.0.1:8000/api/"
     
     def __init__(self, path='', base_path = BASE_PATH):
         self.multi = pycurl.CurlMulti()
@@ -19,8 +19,6 @@ class Synapse():
         c = pycurl.Curl()
         c.setopt(pycurl.URL, base_path + path )
         c.setopt(pycurl.HTTPHEADER, [
-                # TODO: Remove that token from somewhere as it will get added by synapse module
-                "Authorization: Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84",
                 "Content-Type: application/json",
                 "Expect:", # Disable the 'Expect: 100-continue' default curl behavior with large bodies to post
          ])

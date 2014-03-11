@@ -1,0 +1,5 @@
+# get rid of rc.d symlinks for nginx
+update-rc.d -f nginx remove
+
+# deconfigure default site
+rm -f /etc/nginx/sites-enabled/default

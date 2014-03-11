@@ -2,10 +2,5 @@
 if ! dpkg-divert --list "ea-core" | grep -F "/etc/init.d/nginx.diverted-ea-core"
 then
         dpkg-divert --package "ea-core" --add --rename \
-                --divert "/etc/init.d/nginx.diverted-ea-core " "/etc/init.d/nginx"
+                --divert "/etc/init.d/nginx.diverted-ea-core" "/etc/init.d/nginx"
 fi
-# get rid of rc.d symlinks for nginx
-update-rc.d -f nginx remove
-
-# deconfigure default site
-rm -f /etc/nginx/sites-enabled/default
