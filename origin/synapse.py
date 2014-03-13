@@ -23,7 +23,6 @@ class Synapse():
                 "Expect:", # Disable the 'Expect: 100-continue' default curl behavior with large bodies to post
          ])
         c.setopt(pycurl.WRITEFUNCTION, self.__output)
-        c.setopt(pycurl.POST, 1)
         self.connection = c 
         
         self.last_post_time = time.time()
@@ -45,6 +44,16 @@ class Synapse():
         c.perform()
 
         return ( c.getinfo(pycurl.HTTP_CODE), self.output )
+    
+    def http_get(self):
+        '''Synchronious GET'''
+        self.output = ''
+
+        c = self.connection
+        c.setopt(pycurl.HTTPGET, 1)
+        c.perform()
+        
+        return ( c.getinfo(pycurl.HTTP_CODE), json.loads(self.output) )
     
     def start_post(self, data):
         ''' Asynchronious POST '''
@@ -99,7 +108,7 @@ class Synapse():
 
     def submitPostPoolIfReady(self):
         '''
-        Sumit POST pool asynchronously if ready (last request finished and (pool size over MAX_POOL_SIZE or MAX_SECS_BETWEEN_ADDS elapse since last post))
+        Submit POST pool asynchronously if ready (last request finished and (pool size over MAX_POOL_SIZE or MAX_SECS_BETWEEN_ADDS elapsed since last post))
         '''
         if len(self.post_pool) >= self.MAX_POOL_SIZE or self.MAX_SECS_BETWEEN_ADDS <= (time.time() - self.last_post_time):
             # check if last request finished

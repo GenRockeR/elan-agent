@@ -6,7 +6,7 @@ include ../core/packaging.mk
 
 .PHONY: test
 test:
-	py.test
+	#py.test
 
 .PHONY: install
 install: python nginx
