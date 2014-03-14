@@ -1,6 +1,6 @@
 PACKAGE-NAME := edge-agent
 PACKAGE-DESC := Edge Agent main package
-PACKAGE-DEPENDS := ea-ids, ea-connection-tracker, bridge-utils
+PACKAGE-DEPENDS := ea-ids, ea-connection-tracker, bridge-utils, ea-captive-portal
 
 include ../core/packaging.mk
 
