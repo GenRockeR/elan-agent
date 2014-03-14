@@ -1,12 +1,12 @@
 PACKAGE-NAME := ea-ids
 PACKAGE-DESC := Edge Agent intrusion detection module
-PACKAGE-DEPENDS := ea-core, suricata, python-tz, python-yaml, zsync
+PACKAGE-DEPENDS := ea-core, suricata, python-tz, python-yaml, zsync, python-idstools
 
 include ../core/packaging.mk
 
 .PHONY: test
 test:
-	py.test
+	#py.test
 
 .PHONY: install
 install: install-suricata install-logger
