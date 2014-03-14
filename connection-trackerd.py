@@ -73,6 +73,7 @@ def ignorePacket(pkt):
         return True
 
     # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml
+    # name is IANA_{integer}, integer being the number of prefixed bytes.
     IANA_6_prefix = ['00:00:5e', '01:00:5e', '02:00:5e', '03:00:5e']
     if pkt['wan_mac'][0:8] in IANA_6_prefix or pkt['lan_mac'][0:8] in IANA_6_prefix:
         return True
