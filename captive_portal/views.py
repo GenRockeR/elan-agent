@@ -1,6 +1,5 @@
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect
-from django.core.urlresolvers import reverse
 import subprocess, re
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
@@ -81,21 +80,13 @@ def ip2mac(ip):
         return str(m.group(0))
 
 def macAllowed(mac):
-    p = subprocess.Popen(['sudo', 'ebtables','-t', 'filter', '-L', 'FORWARD', '--Lx', '--Lmac2'], stdout=subprocess.PIPE)
-    output = p.communicate()[0]
-    m = re.search(mac, output)
-    if m:
-        return True
-    return False
+    return subprocess.call('sudo ebtables -t nat -L PREROUTING --Lx --Lmac2 | grep -qi {mac}'.format(mac=mac), shell=True) == 0
 
 def allowMAC(mac):
     if not macAllowed(mac):
-        subprocess.Popen(['sudo', 'ebtables','-t', 'filter', '-I', 'FORWARD', '-s', mac, '-o', 'eth0', '-j', 'ACCEPT'])
-        subprocess.Popen(['sudo', 'iptables','-t', 'nat', '-I', 'PREROUTING', '-m', 'mac', '--mac-source', mac, '-j', 'ACCEPT'])
+        subprocess.call('sudo ebtables -t nat -I PREROUTING -s {mac} -j mark --mark-set 0x9'.format(mac=mac), shell=True)
 
 def disallowMAC(mac):
     if macAllowed(mac):
-        subprocess.Popen(['sudo', 'ebtables','-t', 'filter', '-D', 'FORWARD', '-s', mac, '-o', 'eth0', '-j', 'ACCEPT'])
-        subprocess.Popen(['sudo', 'iptables','-t', 'nat', '-D', 'PREROUTING', '-m', 'mac', '--mac-source', mac, '-j', 'ACCEPT'])
-
+        subprocess.call('sudo ebtables -t nat -D PREROUTING -s {mac} -j mark --mark-set 0x9'.format(mac=mac), shell=True)
 

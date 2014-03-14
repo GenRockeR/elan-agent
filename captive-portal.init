@@ -1,35 +1,32 @@
 description "Captive Portal"
  
-start on starting nginx
+start on stopped access-control
+
 stop  on stopped  nginx
 
-exec uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
+respawn
+respawn limit 10 5
 
 pre-start script
   mkdir -p /var/run/captive-portal
   chown www-data:www-data /var/run/captive-portal
 end script
 
+exec uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
+
 post-start script
-  ebtables -t filter -P FORWARD DROP 
-  ebtables -t filter -A FORWARD -o eth0 -p arp -j ACCEPT
-  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 67 -j ACCEPT
-  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 53 -j ACCEPT
-  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
-  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
-  ebtables -t filter -A FORWARD -i eth0 -j ACCEPT
-  iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT
-  iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT
+  ebtables -t filter -F captive
+  ebtables -t filter -A captive -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
+  ebtables -t filter -A captive -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
+
+  iptables -t nat -F captive
+  iptables -t nat -A captive -m mark --mark 0x9 -j RETURN
+  iptables -t nat -A captive -p tcp --dport 80  -j REDIRECT
+  iptables -t nat -A captive -p tcp --dport 443 -j REDIRECT
 end script
 
-pre-stop script
-  ebtables -t filter -P FORWARD ACCEPT
-  ebtables -t filter -D FORWARD -o eth0 -p arp -j ACCEPT
-  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 67 -j ACCEPT
-  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 53 -j ACCEPT
-  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
-  ebtables -t filter -D FORWARD -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
-  ebtables -t filter -D FORWARD -i eth0 -j ACCEPT
-  iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT
-  iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT
+post-stop script
+  iptables -t nat -F captive
+
+  ebtables -t filter -F captive
 end script

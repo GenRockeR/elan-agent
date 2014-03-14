@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+import sys, subprocess
+from origin.synapse import Synapse
+
+s = Synapse('agent/self')
+resp_code, conf = s.http_get()
+
+if resp_code == 200:
+    if conf['access_control']:
+        # enable NAC
+        subprocess.call('ebtables -t filter -P FORWARD DROP', shell=True)
+        subprocess.call('iptables -t nat -C PREROUTING -j nac || iptables -t nat -A PREROUTING -j nac', shell=True)
+    else:
+        # disable NAC
+        subprocess.call('ebtables -t filter -P FORWARD ACCEPT', shell=True)
+        subprocess.call('iptables -t nat -D PREROUTING -j nac', shell=True)
+else:
+    sys.exit(1)
+
+sys.exit(0)

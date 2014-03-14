@@ -1,0 +1,33 @@
+description "Access Control"
+ 
+start on (filesystem and net-device-up IFACE=br0 and started nginx)
+
+env PYTHONPATH=/origin/lib/python
+
+task 
+respawn
+respawn limit 100 50
+
+script
+  # Hook for captive portal
+  ebtables -t filter -N captive -P RETURN || true
+  
+  ebtables -t filter -F FORWARD
+  ebtables -t filter -A FORWARD -o eth0 --mark 0x9 -j ACCEPT 
+  ebtables -t filter -A FORWARD -o eth0 -j captive
+  ebtables -t filter -A FORWARD -o eth0 -p arp -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 67 -j ACCEPT
+  ebtables -t filter -A FORWARD -o eth0 -p ipv4 --ip-protocol UDP --ip-destination-port 53 -j ACCEPT
+  ebtables -t filter -A FORWARD -i eth0 -j ACCEPT
+
+  
+  iptables -t nat -N nac || true
+  iptables -t nat -F nac
+
+  # Hook for captive portal
+  iptables -t nat -N captive || true
+  iptables -t nat -I nac -j captive
+
+  /origin/bin/start_stop_nac
+end script
+
