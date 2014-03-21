@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx-full, python-pycurl
+PACKAGE-DEPENDS := nginx, python-pycurl
 
 include ../core/packaging.mk
 
@@ -12,9 +12,10 @@ test:
 install: python nginx
 
 .PHONY: python
-python: origin/*.py
+python: origin/*.py websocket.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/ *.py
 
 .PHONY: nginx
 nginx:
