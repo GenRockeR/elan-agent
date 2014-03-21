@@ -45,4 +45,4 @@ access-control:
 	install -d ${DESTDIR}/etc/init
 	install -m 644 access-control.init ${DESTDIR}/etc/init/access-control.conf
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/start_stop_nac ${DESTDIR}${ORIGIN_PREFIX}/bin/
+	install -m 755 bin/start_stop_access-control ${DESTDIR}${ORIGIN_PREFIX}/bin/

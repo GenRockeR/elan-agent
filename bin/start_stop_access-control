@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import sys, subprocess, time
+from origin.synapse import Synapse
+
+class AccessControlConfigurator:
+    def __init__(self):
+        self.synapse = Synapse()
+        self.real_path = None
+        self.active = False
+
+        self.synapse.retrieve('agent/self')
+
+    def conf_updated(self, path, conf):
+        # subscribe to our conf updates
+        if not self.real_path:
+            self.real_path = path.replace('/self', '/' + str(conf['id']), 1)
+            self.synapse.subscribe(self.real_path)
+        
+        # Only do something if access_control has changed....
+        if conf['access_control'] != self.active:
+            if conf['access_control']:
+                subprocess.call('ebtables -t filter -P FORWARD DROP', shell=True)
+                subprocess.call('iptables -t nat -C PREROUTING -j nac || iptables -t nat -A PREROUTING -j nac', shell=True)
+            else:
+                # disable NAC
+                subprocess.call('ebtables -t filter -P FORWARD ACCEPT', shell=True)
+                subprocess.call('iptables -t nat -D PREROUTING -j nac', shell=True)
+
+    def ws_closed(self):
+        # sleep a bit and try reconnecting
+        time.sleep(30)
+        self.synapse.run_forever()
+
+    def run(self):
+        self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
+
+
+
+if __name__ == "__main__":
+    conf = AccessControlConfigurator()
+    conf.run()

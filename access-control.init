@@ -4,11 +4,9 @@ start on (filesystem and net-device-up IFACE=br0 and started nginx)
 
 env PYTHONPATH=/origin/lib/python
 
-task 
 respawn
-respawn limit 100 50
 
-script
+pre-start script
   # Hook for captive portal
   ebtables -t filter -N captive -P RETURN || true
   
@@ -28,6 +26,6 @@ script
   iptables -t nat -N captive || true
   iptables -t nat -I nac -j captive
 
-  /origin/bin/start_stop_nac
 end script
 
+exec  /origin/bin/start_stop_access-control

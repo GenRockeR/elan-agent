@@ -57,7 +57,8 @@ def logout(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip2mac(clientIP)
     disallowMAC(clientMAC)
-
+    #TODO: Flush connections with conntrack (get IPs of MAC and conntrack -D -s <IP>)
+    
     return redirect('login')
 
 def authenticate(user, pwd):
