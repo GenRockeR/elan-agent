@@ -19,11 +19,13 @@ class AccessControlConfigurator:
         
         # Only do something if access_control has changed....
         if conf['access_control'] != self.active:
+            self.active = conf['access_control']
             if conf['access_control']:
+                # enable Access Control
                 subprocess.call('ebtables -t filter -P FORWARD DROP', shell=True)
                 subprocess.call('iptables -t nat -C PREROUTING -j nac || iptables -t nat -A PREROUTING -j nac', shell=True)
             else:
-                # disable NAC
+                # disable Access Control
                 subprocess.call('ebtables -t filter -P FORWARD ACCEPT', shell=True)
                 subprocess.call('iptables -t nat -D PREROUTING -j nac', shell=True)
 
