@@ -1,0 +1,2 @@
+This module will take care of basic network configuration (main bridge with external intreface in it)
+and setting up the VLANs.
