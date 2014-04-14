@@ -1,0 +1,12 @@
+Source: %{PACKAGE-NAME}
+Section: main
+Priority: optional
+Maintainer: Origin Nexus <debian@origin-nexus.com>
+Homepage: http://origin-nexus.com
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>= 9)
+
+Package: %{PACKAGE-NAME}
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, %{PACKAGE-DEPENDS}
+Description: %{PACKAGE-DESC}
