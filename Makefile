@@ -1,6 +1,6 @@
-PACKAGE-NAME := 
-PACKAGE-DESC := 
-PACKAGE-DEPENDS :=
+PACKAGE-NAME := ea-network
+PACKAGE-DESC := Edge Agent Network module
+PACKAGE-DEPENDS := bridge-utils
 
 include ../core/packaging.mk
 
@@ -10,5 +10,6 @@ test:
 
 .PHONY: install
 install: *.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python *.py
+	install -d ${DESTDIR}/etc/network
+	install -m 644 interfaces ${DESTDIR}/etc/network/
+
