@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, ebtables, iptables
+PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, ebtables, iptables, freeradius
 
 include ../core/packaging.mk
 
@@ -37,12 +37,12 @@ www:
 	install -d ${DESTDIR}/etc/uwsgi
 	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
 	install -d ${DESTDIR}/etc/init
-	install -m 644 captive-portal.init ${DESTDIR}/etc/init/captive-portal.conf
+	install -m 644 captive-portal.upstart ${DESTDIR}/etc/init/captive-portal.conf
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
 
 access-control:
 	install -d ${DESTDIR}/etc/init
-	install -m 644 access-control.init ${DESTDIR}/etc/init/access-control.conf
+	install -m 644 access-control.upstart ${DESTDIR}/etc/init/access-control.conf
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/start_stop_access-control ${DESTDIR}${ORIGIN_PREFIX}/bin/
