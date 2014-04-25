@@ -1,0 +1,3 @@
+upstream portal {
+    server unix:///var/run/captive-portal/uwsgi.sock;
+}

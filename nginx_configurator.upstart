@@ -1,0 +1,12 @@
+description "Captive Portal"
+
+start on starting access-control
+stop  on stopped  nginx
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/captive-portal_nginx_configurator
+

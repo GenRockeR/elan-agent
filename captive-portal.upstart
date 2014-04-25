@@ -1,6 +1,6 @@
 description "Captive Portal"
  
-start on stopped access-control
+start on starting access-control
 
 stop  on stopped  nginx
 
@@ -10,23 +10,8 @@ respawn limit 10 5
 pre-start script
   mkdir -p /var/run/captive-portal
   chown www-data:www-data /var/run/captive-portal
+  
 end script
 
 exec uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
 
-post-start script
-  ebtables -t filter -F captive
-  ebtables -t filter -A captive -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 80 -j ACCEPT
-  ebtables -t filter -A captive -o eth0 -p ipv4 --ip-protocol TCP --ip-destination-port 443 -j ACCEPT
-
-  iptables -t nat -F captive
-  iptables -t nat -A captive -m mark --mark 0x9 -j RETURN
-  iptables -t nat -A captive -p tcp --dport 80  -j REDIRECT
-  iptables -t nat -A captive -p tcp --dport 443 -j REDIRECT
-end script
-
-post-stop script
-  iptables -t nat -F captive
-
-  ebtables -t filter -F captive
-end script

@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, ebtables, iptables, freeradius
+PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, freeradius
 
 include ../core/packaging.mk
 
@@ -9,7 +9,7 @@ test:
 	
 
 .PHONY: install
-install: nginx www access-control
+install: nginx www
 
 python: *.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
@@ -17,10 +17,14 @@ python: *.py
 
 .PHONY: nginx
 nginx:
-	install -d ${DESTDIR}/etc/nginx/sites-available
-	install -m 644 nginx.site.captive-portal ${DESTDIR}/etc/nginx/sites-available/captive-portal
-	install -d ${DESTDIR}/etc/nginx/sites-enabled
-	ln -s ../sites-available/captive-portal ${DESTDIR}/etc/nginx/sites-enabled/captive-portal
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx
+	install -m 644 nginx.captive-portal-servers-header ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx/servers-header
+	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx/server
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/nginx_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_nginx_configurator
+	install -d ${DESTDIR}/etc/init
+	install -m 644 nginx_configurator.upstart ${DESTDIR}/etc/init/captive-portal_nginx_onfigurator.conf
+  
 
 .PHONY: www
 www:
@@ -40,9 +44,3 @@ www:
 	install -m 644 captive-portal.upstart ${DESTDIR}/etc/init/captive-portal.conf
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
-
-access-control:
-	install -d ${DESTDIR}/etc/init
-	install -m 644 access-control.upstart ${DESTDIR}/etc/init/access-control.conf
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/start_stop_access-control ${DESTDIR}${ORIGIN_PREFIX}/bin/
