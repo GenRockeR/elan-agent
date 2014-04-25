@@ -2,11 +2,14 @@ import json
 import pycurl
 import websocket
 import time
+import redis
 
 class Synapse():
     """ synapse.REST is the interface to the Central Controller
         Calls can be synchronious (post(), http_get()) or async (start_post, request_finished, get_result)
         It is also able to queue objects to post in a pool and send then all at once (JSON array) with postPoolAdd and submitPostPoolIfReady
+        It is also the interface to local Redis DB that is used as a cache and for storing agent specific configuration that does not need to be sent to control center.
+        Redis commands are passed (almost) directly to python-redis...
     """
     MAX_POOL_SIZE = 50
     MAX_SECS_BETWEEN_ADDS = 60
@@ -42,6 +45,9 @@ class Synapse():
         self.ws_path = ws_path
         self.message_cb = None
         self.close_cb = None
+        
+        # for Redis
+        self.redis = redis.Redis()
         
     def get_url(self):
         return 'http://' + self.connection.getinfo(pycurl.EFFECTIVE_URL)
@@ -185,3 +191,16 @@ class Synapse():
                                                  on_message = self._ws_on_message )
 
         self.websocket.run_forever(ping_interval=3500)
+        
+    def hgetall(self, path):
+        return self.redis.hgetall(path)
+
+    def hget(self, path, key):
+        return self.redis.hget(path, key)
+
+    def hset(self, path, key, value):
+        return self.redis.hset(path, key, value)
+    
+    def transaction(self, func, *watches, **kwargs):
+        # create a specific pipeline each time...
+        return self.redis.pipeline().transaction(func, *watches, **kwargs)
