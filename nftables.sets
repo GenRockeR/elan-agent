@@ -1,0 +1,23 @@
+#!/usr/sbin/nft -f
+
+table bridge origin {
+  set allowed_macs {
+    type ether_addr; 
+  }
+  set dhcp_pt_ifs {
+    type iface_index; 
+  }
+  set dns_pt_ifs {
+    type iface_index; 
+  }
+  set ac_ifs {
+    type iface_index; 
+  }
+}
+
+table ip origin {
+  set allowed_macs {
+    type ether_addr; 
+  }
+}
+

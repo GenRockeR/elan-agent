@@ -1,7 +1,1 @@
-if ! dpkg-divert --list "edge-agent" | grep -F "/etc/network/interfaces.diverted-edge-agent"
-then
-        dpkg-divert --package "edge-agent" --add --rename \
-                --divert "/etc/network/interfaces.diverted-edge-agent " "/etc/network/interfaces"
-fi
-
-invoke-rc.d networking stop
+mv /etc/network/interfaces /etc/network/interfaces.orig

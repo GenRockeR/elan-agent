@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+import sys, subprocess, time, threading
+from origin.synapse import Synapse
+
+class AccessControlConfigurator:
+    internalNIC = 'eth1'
+    bridge = 'br0'
+    
+    def __init__(self):
+        self.synapse = Synapse()
+        self.agent_path = None
+        self.vlans_path = None
+        
+        self.active = None
+        self.vlans = {} # vlans by Vlan-ID
+
+        # TODO: Integrate retry this in Synapse...
+        thread = threading.Thread(target=self.get_my_id)
+        thread.setDaemon(True)
+        thread.start()
+    
+    def get_my_id(self):
+        while not self.agent_path:
+            self.synapse.retrieve('agent/self')
+            time.sleep(30)
+
+    def conf_updated(self, path, conf):
+        # subscribe to our conf updates
+        cmd = ''
+        if path == 'agent/self':
+            self.agent_path = path.replace('/self', '/' + str(conf['id']), 1)
+            self.synapse.subscribe(self.agent_path)
+            # get vlans to configure them.
+            self.vlans_path = self.agent_path + '/vlans'
+            self.synapse.subscribe(self.vlans_path)
+
+        elif self.agent_path and path == self.agent_path:
+            # Only do something if access_control has changed....
+            if conf['access_control'] != self.active:
+                self.active = conf['access_control']
+                for table_type in ['bridge', 'ip', 'ip6']:
+                    if conf['access_control']:
+                        # enable Access Control
+                        cmd += "nft flush chain {table_type} origin global_ac;".format(table_type=table_type)
+                    else:
+                        # disable Access Control
+                        cmd += "nft add rule {table_type} origin global_ac accept;".format(table_type=table_type)
+        elif self.vlans_path and path == self.vlans_path:
+            # conf if list of all VLANS -> when a Vlan is modified, all VLANs are sent
+            new_vlans = {}
+            for vlan in conf:
+                new_vlans[ vlan['vlan_id'] ] = vlan
+            
+            # Make sure internalNIC is up
+            cmd += 'ifconfig {nic} up;'.format(nic=self.internalNIC)
+            
+            # New VLANS
+            # TODO: separate this and make it more efficient...
+            for vlan_id in set(new_vlans.keys()) - set(self.vlans.keys()):
+                nic = self.internalNIC
+                if vlan_id:
+                    cmd += 'vconfig add {nic} {vlan_id}; ifconfig {nic}.{vlan_id} up;'.format(nic=nic, vlan_id=vlan_id)
+                    nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                cmd += 'brctl addif {bridge} {nic};'.format(bridge=self.bridge, nic=nic)
+            
+            # VLANs to delete
+            for vlan_id in set(self.vlans.keys()) - set(new_vlans.keys()):
+                nic = self.internalNIC
+                if vlan_id:
+                    nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                cmd += 'brctl delif {bridge} {nic};'.format(nic=nic, bridge=self.bridge) 
+                if vlan_id:
+                    cmd += 'ifconfig {nic} down; vconfig rem {nic};'.format(nic=nic)
+                cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+
+            # Create FW rules accordingly
+            for vlan_id in new_vlans:
+                nic = self.internalNIC
+                if vlan_id:
+                    nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                if new_vlans[vlan_id]['dhcp_passthrough']:
+                    cmd += 'nft add element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                else:
+                    cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                    
+                if new_vlans[vlan_id]['dns_passthrough']:
+                    cmd += 'nft add element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+                else:
+                    cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+
+            self.vlans = new_vlans
+
+        if cmd:
+            subprocess.call(cmd, shell=True)
+
+    def ws_closed(self):
+        # sleep a bit and try reconnecting
+        time.sleep(30)
+        self.synapse.run_forever()
+
+    def run(self):
+        self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
+
+
+
+if __name__ == "__main__":
+    conf = AccessControlConfigurator()
+    conf.run()

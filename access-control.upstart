@@ -1,0 +1,16 @@
+description "Access Control"
+ 
+start on (filesystem and net-device-up IFACE=br0 and started nginx)
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+
+pre-start script
+
+  nft -f /origin/network/nftables.sets
+  nft -f /origin/network/nftables.chains
+
+end script
+
+exec  /origin/bin/start_stop_access-control

@@ -1,0 +1,45 @@
+#!/usr/sbin/nft -f
+
+table bridge origin {
+  chain global_ac {
+  }
+  chain forward   { 
+    type filter hook forward priority -200;
+    iif eth0 accept 
+    oif eth0 jump global_ac
+    oif eth0 ether type 0x0806 accept
+    oif eth0 ether saddr @allowed_macs accept
+    oif eth0 iif @dhcp_pt_ifs ip protocol udp udp dport 67 accept
+    oif eth0 iif @dns_pt_ifs ip protocol udp udp dport 53 accept
+    oif eth0 iif @ac_ifs drop
+    oif eth0 accept
+    drop
+  }
+}
+
+table ip origin {
+  chain global_ac {
+  }
+  chain captive_portal  { 
+  }
+  chain prerouting  { 
+    type nat hook prerouting priority -150;
+    jump global_ac
+    ether saddr @allowed_macs accept
+    tcp dport {80, 443} goto captive_portal
+  }
+}
+
+table ip6 origin {
+  chain global_ac {
+  }
+  chain captive_portal  { 
+  }
+  chain prerouting  { 
+    type nat hook prerouting priority -150;
+    jump global_ac
+    ether saddr @allowed_macs accept
+    tcp dport {80, 443} goto captive_portal
+  }
+}
+
