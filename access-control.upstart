@@ -8,7 +8,7 @@ respawn
 
 pre-start script
 
-  nft -f /origin/network/nftables.sets
+  nft -f /origin/network/nftables.sets || true
   nft -f /origin/network/nftables.chains
 
 end script
