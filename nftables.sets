@@ -21,3 +21,9 @@ table ip origin {
   }
 }
 
+table ip6 origin {
+  set allowed_macs {
+    type ether_addr; 
+  }
+}
+
