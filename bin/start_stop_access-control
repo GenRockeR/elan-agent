@@ -14,16 +14,9 @@ class AccessControlConfigurator:
         
         self.active = None
         self.vlans = {} # vlans by Vlan-ID
-
-        # TODO: Integrate retry this in Synapse...
-        thread = threading.Thread(target=self.get_my_id)
-        thread.setDaemon(True)
-        thread.start()
-    
-    def get_my_id(self):
-        while not self.agent_path:
-            self.synapse.retrieve('agent/self')
-            time.sleep(30)
+        
+        # Retrieve Agent ID...
+        self.synapse.retrieve('agent/self')
 
     def conf_updated(self, path, conf):
         # subscribe to our conf updates
