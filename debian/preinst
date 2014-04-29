@@ -1,1 +1,4 @@
-mv /etc/network/interfaces /etc/network/interfaces.orig
+if [ upgrade != "$1" ]
+then
+    mv /etc/network/interfaces /etc/network/interfaces.orig
+fi
