@@ -3,6 +3,7 @@ import pycurl
 import websocket
 import time
 import redis
+import threading
 
 class Synapse():
     """ synapse.REST is the interface to the Central Controller
@@ -16,6 +17,8 @@ class Synapse():
     BASE_PATH = '127.0.0.1:8000'
     REST_PATH = '/api/'
     WEBSOCKET_PATH = '/ws'
+    WS_RESPONSE_TIMEOUT = 60.0 # seconds
+    PING_INTERVAL = 3500
     
     def __init__(self, path='', rest_path = BASE_PATH + REST_PATH, ws_path = BASE_PATH + WEBSOCKET_PATH):
         # TODO: separate (and delay) init whether using REST or Websocket
@@ -39,15 +42,19 @@ class Synapse():
         self.post_pool = []
         
         # for Websockets
-        self.subscriptions = []
-        self.retrieves = []
+        self.subscriptions = set()
+        self.retrieves = set()
         self.websocket = None
         self.ws_path = ws_path
         self.message_cb = None
         self.close_cb = None
-        
+        self.ws_awaited_paths = set()
+        self.ws_event_closed = threading.Event() # Event signal when ws is closed
         # for Redis
         self.redis = redis.Redis()
+        
+        
+    # REST
         
     def get_url(self):
         return 'http://' + self.connection.getinfo(pycurl.EFFECTIVE_URL)
@@ -146,36 +153,57 @@ class Synapse():
         if self.post_pool:
             self.start_post(self.post_pool)
             self.check_last_request()
+            
+    # WEB SOCKET
 
     def retrieve(self, path):
         if self.websocket:
             self.websocket.send('GET ' + self.REST_PATH + path)
-        elif path not in self.retrieves:
-            self.retrieves.append(path)
+            self.ws_awaited_paths.add(path)
+        else:
+            self.retrieves.add(path)
 
     def subscribe(self, path):
-        if path not in self.subscriptions:
-            self.subscriptions.append(path)
+        self.subscriptions.add(path)
         if self.websocket:
             self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
+            self.ws_awaited_paths.add(path)
         
     def _ws_on_open(self, ws):
         for path in self.retrieves:
             ws.send('GET ' + self.REST_PATH + path)
-        self.retrieves = []
+            self.ws_awaited_paths.add(path)
+        self.retrieves = set()
 
         for path in self.subscriptions:
             ws.send('SUBSCRIBE ' + self.REST_PATH + path)
+            self.ws_awaited_paths.add(path)
+        
+        # start Thread that will regularly query Control Center if no response has yet arrived
+        thread = threading.Thread(target=self._check_awaited_paths)
+        thread.setDaemon(True)
+        thread.start()
+        
+    def _check_awaited_paths(self):
+        while not self.ws_event_closed.wait(self.WS_RESPONSE_TIMEOUT):
+            for path in self.ws_awaited_paths:
+                if path in self.subscriptions:
+                    self.subscribe(path)
+                else:
+                    self.retrieve(path)
 
     def _ws_on_close(self, ws):
+        self.ws_event_closed.set() # Notify threads websocket has closed...
         self.websocket = None
         if self.close_cb:
             self.close_cb()
 
     def _ws_on_message(self, ws, message):
         response = json.loads(message)
-        response['path'] = response['path'].replace(self.REST_PATH, '', 1)
-        self.message_cb(response['path'], response['object'])
+        path = response['path'].replace(self.REST_PATH, '', 1)
+        # path received, no need to further query it if it was watched
+        self.ws_awaited_paths.discard(path)
+        self.message_cb(path, response['object'])
 
     def run_forever(self, message_cb = None, close_cb=None):
         """ Run configurator with all callbacks, if called without arguments, will reconnect websocket sith same callbacks, and register same subscriptions"""
@@ -185,12 +213,18 @@ class Synapse():
         if close_cb:
             self.close_cb = close_cb
 
+        self.ws_event_closed.clear() # make sure websocket closed Event is cleared before opening websocket
+
         self.websocket = websocket.WebSocketApp( "ws://{}".format(self.ws_path),
                                                  on_close = self._ws_on_close,
                                                  on_open = self._ws_on_open,
                                                  on_message = self._ws_on_message )
+        
 
-        self.websocket.run_forever(ping_interval=3500)
+        self.websocket.run_forever(ping_interval=self.PING_INTERVAL)
+        
+        
+    # REDIS
         
     def hgetall(self, path):
         return self.redis.hgetall(path)
