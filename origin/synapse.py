@@ -171,7 +171,7 @@ class Synapse():
 
         if self.websocket and (path not in self.subscriptions or path not in self.ws_awaited_paths):
             # Send request upstream if not already subscribed or no ongoing connection request is waiting
-            self._ws_subsribe(path)
+            self._ws_subscribe(path)
 
         self.subscriptions.add(path)
 
@@ -180,7 +180,7 @@ class Synapse():
         self.websocket.send('GET ' + self.REST_PATH + path)
         self.ws_awaited_paths.add(path)
 
-    def _ws_subsribe(self, path):
+    def _ws_subscribe(self, path):
         self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
         self.ws_awaited_paths.add(path)
 
@@ -194,7 +194,7 @@ class Synapse():
         self.retrieves = set()
 
         for path in self.subscriptions:
-            self._ws_subsribe(path)
+            self._ws_subscribe(path)
         
         # start Thread that will regularly query Control Center if no response has yet arrived
         thread = threading.Thread(target=self._check_awaited_paths)
@@ -205,9 +205,9 @@ class Synapse():
         while not self.ws_event_closed.wait(self.WS_RESPONSE_TIMEOUT):
             for path in self.ws_awaited_paths:
                 if path in self.subscriptions:
-                    self.subscribe(path)
+                    self._ws_subscribe(path)
                 else:
-                    self.retrieve(path)
+                    self._ws_get(path)
 
     def _ws_on_close(self, ws):
         self.ws_event_closed.set() # Notify threads websocket has closed...
