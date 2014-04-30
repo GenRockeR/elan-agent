@@ -154,9 +154,12 @@ class Synapse():
             self.start_post(self.post_pool)
             self.check_last_request()
             
-    # WEB SOCKET
-
+    # WEB SOCKET with redis cache.
+    # TODO: use redis for pub sub and have 1 daemon taking care of web socket
     def retrieve(self, path):
+        # retrieve from cache
+        self._cache_reply(path)
+
         if self.websocket:
             self.websocket.send('GET ' + self.REST_PATH + path)
             self.ws_awaited_paths.add(path)
@@ -165,10 +168,18 @@ class Synapse():
 
     def subscribe(self, path):
         self.subscriptions.add(path)
+        # retrieve from cache
+        self._cache_reply(path)
+
         if self.websocket:
+            # Send request upstream
             self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
             self.ws_awaited_paths.add(path)
-        
+
+    def _cache_reply(self, path):
+        if self.message_cb and self.exists('cache:' + path):
+            self.message_cb(path, self.jget('cache:' + path))
+            
     def _ws_on_open(self, ws):
         for path in self.retrieves:
             ws.send('GET ' + self.REST_PATH + path)
@@ -203,10 +214,12 @@ class Synapse():
         path = response['path'].replace(self.REST_PATH, '', 1)
         # path received, no need to further query it if it was watched
         self.ws_awaited_paths.discard(path)
+
+        self.jset('cache:' + path, response['object'])
         self.message_cb(path, response['object'])
 
     def run_forever(self, message_cb = None, close_cb=None):
-        """ Run configurator with all callbacks, if called without arguments, will reconnect websocket sith same callbacks, and register same subscriptions"""
+        """ Run configurator with all callbacks, if called without arguments, will reconnect websocket with same callbacks, and register same subscriptions"""
 
         if message_cb:
             self.message_cb = message_cb
@@ -214,6 +227,10 @@ class Synapse():
             self.close_cb = close_cb
 
         self.ws_event_closed.clear() # make sure websocket closed Event is cleared before opening websocket
+        
+        # retrieve from cache the values.
+        for path in self.subscriptions | self.retrieves:
+            self._cache_reply(path)
 
         self.websocket = websocket.WebSocketApp( "ws://{}".format(self.ws_path),
                                                  on_close = self._ws_on_close,
@@ -223,18 +240,86 @@ class Synapse():
 
         self.websocket.run_forever(ping_interval=self.PING_INTERVAL)
         
-        
     # REDIS
-        
-    def hgetall(self, path):
-        return self.redis.hgetall(path)
-
-    def hget(self, path, key):
-        return self.redis.hget(path, key)
-
-    def hset(self, path, key, value):
-        return self.redis.hset(path, key, value)
     
+    def jget(self, key):
+        ''' returns JSON decoded object in key '''
+        return json.loads(self.get(key))
+    def jset(self, key, value):
+        ''' JSON encodes object and stores it '''
+        return self.set( key, json.dumps(value, sort_keys=True) )
+    
+    def sget(self, key):
+        '''
+        Smart get: like get for strings but smarter, returns good type:
+            if redis hash, returns python dict
+            if redis array, returns python array
+            if redis set, return python set
+            if redis string, returns python string
+        '''
+        if not self.exists(key):
+            return None
+        return {
+                   'set': self.smembers,
+                   'hash': self.hgetall,
+                   'string': self.get,
+                   'list': self.lmembers,
+               }[self.type(key)](key)
+        
+    def sset(self, key, value):
+        '''
+        Smart set: like set but smarter, sets good type:
+            if python dict, uses redis hash
+            if python array, uses redis array 
+            if python set, uses redis set 
+            otherwise uses redis string
+        '''
+        with self.pipeline() as pipe:
+            pipe.delete(key)
+    
+            value_type = type(value).__name__
+            if value_type == 'set':
+                pipe.sadd(key, *value)
+            elif value_type == 'list':
+                pipe.rpush(key, *value)
+            elif value_type == 'dict':
+                pipe.hmset(key, value)
+            else:
+                pipe.set(key, value)
+    
+            pipe.execute()
+
+    def hgetall(self, key):
+        return self.redis.hgetall(key)
+
+    def hget(self, key, field):
+        return self.redis.hget(key, field)
+
+    def hset(self, key, field, value):
+        return self.redis.hset(key, field, value)
+    
+    def pipeline(self):
+        return self.redis.pipeline()
+
     def transaction(self, func, *watches, **kwargs):
         # create a specific pipeline each time...
-        return self.redis.pipeline().transaction(func, *watches, **kwargs)
+        return self.redis.transaction(func, *watches, **kwargs)
+    
+    def exists(self, key):
+        return self.redis.exists(key)
+
+    def type(self, key):
+        return self.redis.type(key)
+    
+    def smembers(self, key):
+        return self.redis.smembers(key)
+
+    def lmembers(self, key):
+        return self.redis.lrange(key, 0, -1)
+
+    def get(self, key):
+        return self.redis.get(key)
+
+    def set(self, key, value):
+        return self.redis.set(key, value)
+
