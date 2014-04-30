@@ -160,21 +160,29 @@ class Synapse():
         # retrieve from cache
         self._cache_reply(path)
 
-        if self.websocket:
-            self.websocket.send('GET ' + self.REST_PATH + path)
-            self.ws_awaited_paths.add(path)
-        else:
+        if not self.websocket:
             self.retrieves.add(path)
-
+        elif path not in self.ws_awaited_paths:
+            # send request if not already waiting for that path
+            self._ws_get(path)
     def subscribe(self, path):
-        self.subscriptions.add(path)
         # retrieve from cache
         self._cache_reply(path)
 
-        if self.websocket:
-            # Send request upstream
-            self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
-            self.ws_awaited_paths.add(path)
+        if self.websocket and (path not in self.subscriptions or path not in self.ws_awaited_paths):
+            # Send request upstream if not already subscribed or no ongoing connection request is waiting
+            self._ws_subsribe(path)
+
+        self.subscriptions.add(path)
+
+
+    def _ws_get(self, path):
+        self.websocket.send('GET ' + self.REST_PATH + path)
+        self.ws_awaited_paths.add(path)
+
+    def _ws_subsribe(self, path):
+        self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
+        self.ws_awaited_paths.add(path)
 
     def _cache_reply(self, path):
         if self.message_cb and self.exists('cache:' + path):
@@ -182,13 +190,11 @@ class Synapse():
             
     def _ws_on_open(self, ws):
         for path in self.retrieves:
-            ws.send('GET ' + self.REST_PATH + path)
-            self.ws_awaited_paths.add(path)
+            self._ws_get(path)
         self.retrieves = set()
 
         for path in self.subscriptions:
-            ws.send('SUBSCRIBE ' + self.REST_PATH + path)
-            self.ws_awaited_paths.add(path)
+            self._ws_subsribe(path)
         
         # start Thread that will regularly query Control Center if no response has yet arrived
         thread = threading.Thread(target=self._check_awaited_paths)
