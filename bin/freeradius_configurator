@@ -54,7 +54,7 @@ class CaptivePortalConfigurator:
             ldap_template = ldap_file.read()
         internal_auth_template = '''
             update request {{
-                CP-Auth-ID := {id}
+                Internal-Auth-ID := {id}
             }}
             internal-auth
         '''

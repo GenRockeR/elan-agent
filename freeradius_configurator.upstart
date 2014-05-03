@@ -10,3 +10,10 @@ respawn limit 10 5
 
 exec /origin/bin/captive-portal_freeradius_configurator
 
+
+pre-start script
+  if ! grep -q 'CP-Auth-ID' /etc/freeradius/dictionary
+  then
+    cat /origin/captive-portal/freeradius/dictionary >> /etc/freeradius/dictionary
+  fi
+end script

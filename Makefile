@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, freeradius, freeradius-ldap
+PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, freeradius, freeradius-ldap, python-pyrad
 
 include ../core/packaging.mk
 
@@ -28,6 +28,8 @@ nginx:
 .PHONY: freeradius
 freeradius:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius
+	install -m 644 freeradius.dictionary ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/dictionary
+	install -m 644 freeradius.dictionary.client ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/dictionary.client
 	install -m 644 freeradius.server ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/server
 	install -m 644 freeradius.rest-module ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/rest-module
 	install -m 644 freeradius.ldap-module ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/ldap-module

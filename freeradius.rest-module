@@ -2,7 +2,7 @@ rest internal-auth {
         connect_uri = "http://127.0.0.1:8000"
 
         authorize {
-                uri = "${..connect_uri}/api/authentication/%{CP-Auth-ID}/user/authorize/%{User-Name}"
+                uri = "${..connect_uri}/api/authentication/%{Internal-Auth-ID}/user/authorize/%{User-Name}"
                 method = "get"
         }
         pool {

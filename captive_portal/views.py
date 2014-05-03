@@ -6,6 +6,9 @@ from django.contrib.sites.models import get_current_site
 import socket
 import fcntl
 import struct
+import pyrad.packet
+from pyrad.client import Client
+from pyrad.dictionary import Dictionary
 
 def requirePortalURL(fn):
     '''
@@ -42,7 +45,7 @@ def login(request):
         except (KeyError):
             # Redisplay the login form.
             return render(request, 'captive_portal/login.html', { 'error_message': "'username' or 'password' missing.",})
-        if not authenticate(username, password):
+        if not authenticate(request.authenticator_id, username, password):
             return render(request, 'captive_portal/login.html', { 'error_message': "Invalid username or password.", 'username': username})
     
         clientIP = request.META['REMOTE_ADDR']
@@ -61,8 +64,17 @@ def logout(request):
     
     return redirect('login')
 
-def authenticate(user, pwd):
-    return user == pwd
+def authenticate(authenticator_id, user, pwd):
+    srv = Client(server="127.0.0.1", authport=18120, secret="a2e4t6u8qmlskdvcbxnw",
+                 dict=Dictionary("/origin/captive-portal/freeradius/dictionary.client"))
+    
+    req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
+              User_Name=user, Connect_Info='authenticator={}'.format(authenticator_id) )
+    req["User-Password"]=req.PwCrypt(pwd)
+    
+    reply = srv.SendPacket(req)
+    
+    return reply.code == pyrad.packet.AccessAccept
 
 # Temp Hack
 def get_ip_address(ifname):

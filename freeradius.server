@@ -35,24 +35,29 @@ server captive-portal {{
     }}
     
     authorize {{
-      preprocess
-    
-      switch "%{{Connect-Info}}" {{
-        
-        {inner_switch}
-    
-        case {{ 
-          update request {{
-            CP-Auth-ID := "%{{Connect-Info}}"
-          }}
-          internal-auth
-          update control {{
-            Cleartext-Password := &reply:Cleartext-Password
+        preprocess
+      
+        Connect-Info =~ /authenticator=([0-9]+)/
+        update request {{
+            CP-Auth-ID = "%{1}"
+        }}
+        switch "%{{CP-Auth-ID}}" {{
+          
+          {inner_switch}
+      
+          case {{ 
+            update request {{
+                Internal-Auth-ID := "%{{CP-Auth-ID}}"
+            }}
+            internal-auth
           }}
         }}
-      }}
-    
-      pap
+        if(reply:Cleartext-Password) {{
+            update control {{
+              Cleartext-Password := &reply:Cleartext-Password
+            }}
+        }}
+        pap
     }}
     
     
