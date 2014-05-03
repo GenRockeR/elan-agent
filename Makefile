@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, freeradius
+PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, freeradius, freeradius-ldap
 
 include ../core/packaging.mk
 
@@ -9,7 +9,7 @@ test:
 	
 
 .PHONY: install
-install: nginx www
+install: nginx www freeradius
 
 python: *.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
@@ -23,8 +23,19 @@ nginx:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/nginx_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_nginx_configurator
 	install -d ${DESTDIR}/etc/init
-	install -m 644 nginx_configurator.upstart ${DESTDIR}/etc/init/captive-portal_nginx_onfigurator.conf
+	install -m 644 nginx_configurator.upstart ${DESTDIR}/etc/init/captive-portal_nginx_configurator.conf
   
+.PHONY: freeradius
+freeradius:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius
+	install -m 644 freeradius.server ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/server
+	install -m 644 freeradius.rest-module ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/rest-module
+	install -m 644 freeradius.ldap-module ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/freeradius/ldap-module
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/freeradius_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_freeradius_configurator
+	install -d ${DESTDIR}/etc/init
+	install -m 644 freeradius_configurator.upstart ${DESTDIR}/etc/init/captive-portal_freeradius_configurator.conf
+
 
 .PHONY: www
 www:

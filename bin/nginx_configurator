@@ -12,14 +12,14 @@ class CaptivePortalConfigurator:
 
     def conf_updated(self, path, conf):
         # Grab templates
-        with open ("/origin/captive-portal/nginx/server", "r") as header_file:
-            server_template = header_file.read()
-        with open ("/origin/captive-portal/nginx/servers-header", "r") as server_file:
-            nginx_site_conf = server_file.read()
+        with open ("/origin/captive-portal/nginx/server", "r") as server_file:
+            server_template = server_file.read()
+        with open ("/origin/captive-portal/nginx/servers-header", "r") as header_file:
+            nginx_site_conf = header_file.read()
 
         # build nginx file
         for profile in conf:
-            port = self.get_port(profile.id)
+            port = self.get_port(profile['id'])
             nginx_site_conf += "\n" +  server_template % {'port': port, 'authenticator_id': profile['authentication']}
 
         with open ("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
@@ -35,7 +35,9 @@ class CaptivePortalConfigurator:
                 port = pipe.hget('portal_ports', prodile_id)
                 if not port:
                     port = self.get_available_port()
+                    pipe.multi() # so it is in a transaction
                     pipe.hset('portal_ports', prodile_id, port)
+        
         self.synapse.transaction(_get_port, 'portal_ports')
         return self.synapse.hget('portal_ports', prodile_id)
 

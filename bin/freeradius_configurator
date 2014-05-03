@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+
+import time, subprocess, re
+from origin.synapse import Synapse
+
+import logging
+logging.basicConfig()
+
+class CaptivePortalConfigurator:
+    
+    def __init__(self):
+        self.synapse = Synapse()
+        # subscribe to providers and group lists
+        self.synapse.subscribe('authentication/provider')
+        self.synapse.subscribe('authentication/group')
+
+        self.providers = []
+        self.provider_confs = {}
+        self.groups = []
+        self.group_authentications = {}
+
+    def conf_updated(self, path, conf):
+        # update local configuration cache
+        if path == 'authentication/provider':
+            new_providers = conf
+            if self.providers != new_providers:
+                self.providers = new_providers
+                for provider in new_providers:
+                    # subscribe to new providers conf
+                    if provider['id'] not in self.provider_confs:
+                        self.synapse.subscribe( 'authentication/provider/{}'.format(provider['id']) )
+
+        elif path == 'authentication/group':
+            new_groups = conf
+            if self.providers != new_groups:
+                self.groups = new_groups
+                for group in new_groups:
+                    # subscribe to new providers conf
+                    if group['id'] not in self.group_authentications:
+                        self.synapse.subscribe('authentication/group/{}/authentications'.format(group['id']))
+        elif re.match('authentication/provider/', path):
+            self.provider_confs[ conf['id'] ] = conf
+        else: 
+            m = re.match('authentication/group/(\d+)/authentications', path)
+            if m:
+                self.group_authentications[ int(m.group(1)) ] = conf
+
+        # Grab templates
+        with open ("/origin/captive-portal/freeradius/server", "r") as server_file:
+            server_template = server_file.read()
+        with open ("/origin/captive-portal/freeradius/rest-module", "r") as module_file:
+            module_conf = module_file.read()
+        with open ("/origin/captive-portal/freeradius/ldap-module", "r") as ldap_file:
+            ldap_template = ldap_file.read()
+        internal_auth_template = '''
+            update request {{
+                CP-Auth-ID := {id}
+            }}
+            internal-auth
+        '''
+
+        inner_switch_server_conf = ""
+        # Generate the files if we have all the information...
+        for provider in self.providers:
+            if provider['id'] not in self.provider_confs:
+                # we do not have all the info to generate conf file, abort
+                return
+            provider_conf = self.provider_confs[ provider['id'] ]
+            if provider_conf['type'] == 'LDAP':
+                module_conf += "\n" + ldap_template.format(**provider_conf)
+                inner_switch_server_conf += '''
+                    case {id} {{
+                        ldap-auth-{id}
+                    }}
+                '''.format(**provider_conf)
+        for group in self.groups:
+            if group['id'] not in self.group_authentications:
+                # wait until we get the info
+                return
+            first = True
+            inner_case = ""
+            for auth in self.group_authentications[ group['id'] ]:
+                if auth['authentication'] not in self.provider_confs:
+                    return
+                provider = self.provider_confs[ auth['authentication'] ]
+                if not first:
+                    inner_case += "if( notfound ) {\n"
+                if provider['type'] == 'LDAP':
+                    inner_case += "\nldap-auth-{id}\n".format(**provider)
+                else:
+                    inner_case += internal_auth_template.format(**provider)
+                if not first:
+                    inner_case += "\n}\n"
+                else :
+                    first = False
+            inner_switch_server_conf +=  '''
+                    case {id} {{
+                        {inner_case}
+                    }}
+                '''.format(id=group['id'], inner_case=inner_case)
+
+        with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
+            module_file.write( module_conf )
+        with open ("/etc/freeradius/sites-enabled/captive-portal", "w") as server_file:
+            server_file.write( server_template.format(inner_switch=inner_switch_server_conf) )
+
+        # Reload nginx
+        subprocess.call('/etc/init.d/freeradius restart', shell=True)
+
+        
+    def ws_closed(self):
+        # sleep a bit and try reconnecting
+        time.sleep(30)
+        self.synapse.run_forever()
+
+    def run(self):
+        self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
+
+
+
+if __name__ == "__main__":
+    conf = CaptivePortalConfigurator()
+    conf.run()

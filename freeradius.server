@@ -1,0 +1,113 @@
+server captive-portal {{
+    listen {{
+      type = auth
+      ipaddr = 127.0.0.1
+    # ipv6addr = :: # any.  ::1 == localhost
+      port = 18120
+    # interface = eth0
+    # clients = per_socket_clients
+      limit {{
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+      }}
+    }}
+    
+    listen {{
+      ipaddr = 127.0.0.1
+    # ipv6addr = ::
+      port = 18121
+      type = acct
+    # interface = eth0
+    # clients = per_socket_clients
+      limit {{
+    #   max_pps = 0
+    #   idle_timeout = 0
+    #   lifetime = 0
+    #   max_connections = 0
+      }}
+    }}
+    
+    client captive-portal {{
+           secret          = a2e4t6u8qmlskdvcbxnw
+           shortname       = captive-portal
+           ipaddr          = 127.0.0.1
+    }}
+    
+    authorize {{
+      preprocess
+    
+      switch "%{{Connect-Info}}" {{
+        
+        {inner_switch}
+    
+        case {{ 
+          update request {{
+            CP-Auth-ID := "%{{Connect-Info}}"
+          }}
+          internal-auth
+          update control {{
+            Cleartext-Password := &reply:Cleartext-Password
+          }}
+        }}
+      }}
+    
+      pap
+    }}
+    
+    
+    authenticate {{
+      Auth-Type PAP {{
+        pap
+      }}
+    }}
+    
+    
+    preacct {{
+      preprocess
+      
+      acct_counters64
+    
+      acct_unique
+    }}
+    
+    accounting {{
+      attr_filter.accounting_response
+    
+      Acct-Type Status-Server {{
+    
+      }}
+    }}
+    
+    
+    session {{
+    }}
+    
+    
+    post-auth {{
+      #  Uncomment the next few lines to copy the required data into
+      #  the EAP-Key-Name attribute
+      # if (reply:EAP-Session-Id) {{
+      #   update reply {{
+      #     EAP-Key-Name := "%{{reply:EAP-Session-Id}}"
+      #   }}
+      # }}
+    
+      remove_reply_message_if_eap
+    
+      Post-Auth-Type REJECT {{
+        attr_filter.access_reject
+    
+        eap
+    
+        remove_reply_message_if_eap
+      }}
+    }}
+    
+    pre-proxy {{
+    }}
+    
+    post-proxy {{
+      eap
+    }}
+}}
