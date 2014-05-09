@@ -2,6 +2,8 @@
 
 import time, subprocess, re
 from origin.synapse import Synapse
+from mako.template import Template
+
 
 import logging
 logging.basicConfig()
@@ -54,18 +56,18 @@ class AuthenticationConfigurator:
 
         if conf_changed:
             # Grab templates
-            with open ("/origin/authentication/freeradius/policy", "r") as policy_file:
-                policy_template = policy_file.read()
+            policy_template = Template(filename="/origin/authentication/freeradius/policy")
+            ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
+            internal_auth_template = Template('''
+                update request {
+                    Internal-Auth-ID := ${id}
+                }
+                internal-auth {
+                    fail = 1
+                }
+            ''')
             with open ("/origin/authentication/freeradius/rest-module", "r") as module_file:
                 module_conf = module_file.read()
-            with open ("/origin/authentication/freeradius/ldap-module", "r") as ldap_file:
-                ldap_template = ldap_file.read()
-            internal_auth_template = '''
-                update request {{
-                    Internal-Auth-ID := {id}
-                }}
-                internal-auth
-            '''
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
@@ -75,10 +77,12 @@ class AuthenticationConfigurator:
                     return
                 provider_conf = self.provider_confs[ provider['id'] ]
                 if provider_conf['type'] == 'LDAP':
-                    module_conf += "\n" + ldap_template.format(**provider_conf)
+                    module_conf += "\n" + ldap_template.render(**provider_conf)
                     inner_switch_server_conf += '''
                         case {id} {{
-                            ldap-auth-{id}
+                            ldap-auth-{id} {{
+                                fail = 1
+                            }}
                         }}
                     '''.format(**provider_conf)
             for group in self.groups:
@@ -92,11 +96,15 @@ class AuthenticationConfigurator:
                         return
                     provider = self.provider_confs[ auth['authentication'] ]
                     if not first:
-                        inner_case += "if( notfound ) {\n"
+                        inner_case += "if( notfound || fail ) {\n"
                     if provider['type'] == 'LDAP':
-                        inner_case += "\nldap-auth-{id}\n".format(**provider)
+                        inner_case += '''
+                        ldap-auth-{id} {{
+                            fail = 1
+                        }}
+                        '''.format(**provider)
                     else:
-                        inner_case += internal_auth_template.format(**provider)
+                        inner_case += internal_auth_template.render(**provider)
                     if not first:
                         inner_case += "\n}\n"
                     else :
@@ -110,7 +118,7 @@ class AuthenticationConfigurator:
             with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
                 module_file.write( module_conf )
             with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
-                policy_file.write( policy_template.format(inner_switch=inner_switch_server_conf) )
+                policy_file.write( policy_template.render(inner_switch=inner_switch_server_conf) )
     
             # Reload nginx
             subprocess.call('/etc/init.d/freeradius restart', shell=True)
