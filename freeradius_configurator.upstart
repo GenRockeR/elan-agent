@@ -1,0 +1,19 @@
+description "Authentications"
+
+start on starting access-control
+stop  on stopped  nginx
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/authentication_freeradius_configurator
+
+
+pre-start script
+  if ! grep -q 'Origin-Auth-ID' /etc/freeradius/dictionary
+  then
+    cat /origin/authentication/freeradius/dictionary >> /etc/freeradius/dictionary
+  fi
+end script

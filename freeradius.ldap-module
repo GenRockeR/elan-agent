@@ -1,0 +1,115 @@
+ldap ldap-auth-{id} {{
+  server = "{host}"
+  port = {port}
+
+  identity = "{bindDN}"
+  password = "{bindPwd}"
+
+  base_dn = "{baseDN}"
+
+  update {{
+    control:Password-With-Header  += 'userPassword'
+    control:NT-Password   := 'ntPassword'
+  }}
+
+  user {{
+    base_dn = "${{..base_dn}}"
+
+    filter = "({{UserAttr}}=%{{%{{Stripped-User-Name}}:-%{{User-Name}}}})"
+
+    scope = 'sub'
+  }}
+
+  group {{
+    base_dn = "${{..base_dn}}"
+    filter = "(objectClass=posixGroup)"
+    scope = 'sub'
+#   name_attribute = cn
+#   membership_filter = "(|(member=%{{control:Ldap-UserDn}})(memberUid=%{{%{{Stripped-User-Name}}:-%{{User-Name}}}}))"
+    membership_attribute = "memberOf"
+  }}
+  
+  profile {{
+#   filter = "(objectclass=radiusprofile)"
+#   default = "cn=radprofile,dc=example,dc=org"
+#   attribute = "radiusProfileDn"
+  }}
+  
+  client {{
+    base_dn = "${{..base_dn}}"
+    filter = '(objectClass=frClient)'
+    scope = 'sub'
+    attribute {{
+      identifier = 'radiusClientIdentifier'
+      secret = 'radiusClientSecret'
+#     shortname = 'radiusClientShortname'
+#     nas_type = 'radiusClientType'
+#     virtual_server = 'radiusClientVirtualServer'
+#     require_message_authenticator = 'radiusClientRequireMa'
+    }}
+  }}
+
+  read_clients = no
+
+  accounting {{
+    reference = "%{{tolower:type.%{{Acct-Status-Type}}}}"
+
+    type {{
+      start {{
+        update {{
+          description := "Online at %S"
+        }}
+      }}
+
+      interim-update {{
+        update {{
+          description := "Last seen at %S"
+        }}
+      }}
+
+      stop {{
+        update {{
+          description := "Offline at %S"
+        }}
+      }}
+    }}
+  }}
+
+  post-auth {{
+    update {{
+      description := "Authenticated at %S"
+    }}
+  }}
+
+  options {{
+    chase_referrals = yes
+    rebind = yes
+
+    timeout = 10
+    timelimit = 3
+    net_timeout = 1
+    idle = 60
+    probes = 3
+    interval = 3
+    ldap_debug = 0x0028
+  }}
+  tls {{
+#   start_tls = yes
+#   ca_file = ${{certdir}}/cacert.pem
+#   ca_path = ${{certdir}}
+#   certificate_file = /path/to/radius.crt
+#   private_key_file = /path/to/radius.key
+#   random_file = ${{certdir}}/random
+#   require_cert  = "demand"
+  }}
+
+  pool {{
+    start = 0
+    min = 4
+    max = ${{thread[pool].max_servers}}
+    spare = 3
+    uses = 0
+    lifetime = 0
+    idle_timeout = 60
+  }}
+}}
