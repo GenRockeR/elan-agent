@@ -12,6 +12,7 @@ exec /origin/bin/authentication_freeradius_configurator
 
 
 pre-start script
+  rm -f /etc/freeradius/sites-enabled/default
   if ! grep -q 'Origin-Auth-ID' /etc/freeradius/dictionary
   then
     cat /origin/authentication/freeradius/dictionary >> /etc/freeradius/dictionary
