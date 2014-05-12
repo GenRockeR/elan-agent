@@ -13,9 +13,11 @@ class AuthenticationConfigurator:
     def __init__(self):
         self.synapse = Synapse()
         # subscribe to providers and group lists
+        self.synapse.retrieve('agent/self')
         self.synapse.subscribe('authentication/provider')
         self.synapse.subscribe('authentication/group')
 
+        self.agent_id = None
         self.providers = []
         self.provider_confs = {}
         self.groups = []
@@ -24,7 +26,11 @@ class AuthenticationConfigurator:
     def conf_updated(self, path, conf):
         conf_changed = False
         # update local configuration cache
-        if path == 'authentication/provider':
+        if path == 'agent/self':
+            if self.agent_id != conf['id']:
+                self.agent_id = conf['id']
+                conf_changed = True
+        elif path == 'authentication/provider':
             new_providers = conf
             if self.providers != new_providers:
                 conf_changed = True
@@ -54,11 +60,11 @@ class AuthenticationConfigurator:
                     self.group_authentications[ int(m.group(1)) ] = conf
                     conf_changed = True
 
-        if conf_changed:
+        if self.agent_id and conf_changed:
             # Grab templates
             policy_template = Template(filename="/origin/authentication/freeradius/policy")
             ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
-            internal_auth_template = Template('''
+            cc_auth_template = Template('''
                 update request {
                     Internal-Auth-ID := ${id}
                 }
@@ -76,7 +82,7 @@ class AuthenticationConfigurator:
                     # we do not have all the info to generate conf file, abort
                     return
                 provider_conf = self.provider_confs[ provider['id'] ]
-                if provider_conf['type'] == 'LDAP':
+                if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
                     module_conf += "\n" + ldap_template.render(**provider_conf)
                     inner_switch_server_conf += '''
                         case {id} {{
@@ -94,17 +100,17 @@ class AuthenticationConfigurator:
                 for auth in self.group_authentications[ group['id'] ]:
                     if auth['authentication'] not in self.provider_confs:
                         return
-                    provider = self.provider_confs[ auth['authentication'] ]
+                    provider_conf = self.provider_confs[ auth['authentication'] ]
                     if not first:
                         inner_case += "if( notfound || fail ) {\n"
-                    if provider['type'] == 'LDAP':
+                    if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
                         inner_case += '''
                         ldap-auth-{id} {{
                             fail = 1
                         }}
-                        '''.format(**provider)
+                        '''.format(**provider_conf)
                     else:
-                        inner_case += internal_auth_template.render(**provider)
+                        inner_case += cc_auth_template.render(**provider_conf)
                     if not first:
                         inner_case += "\n}\n"
                     else :
