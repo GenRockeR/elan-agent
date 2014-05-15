@@ -27,8 +27,8 @@ nginx:
   
 .PHONY: freeradius
 freeradius:
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/etc/freeradius/sites-enabled
-	install -m644 freeradius.server ${DESTDIR}${ORIGIN_PREFIX}/etc/freeradius/sites-enabled
+	install -d ${DESTDIR}/etc/freeradius/sites-enabled
+	install -m644 freeradius.server ${DESTDIR}/etc/freeradius/sites-enabled/captive-portal
 
 .PHONY: www
 www:
@@ -48,3 +48,6 @@ www:
 	install -m 644 captive-portal.upstart ${DESTDIR}/etc/init/captive-portal.conf
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/radius
+	install -m 644 pyrad.dictionary ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/radius/dictionary
+  

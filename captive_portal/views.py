@@ -66,7 +66,7 @@ def logout(request):
 
 def authenticate(authenticator_id, user, pwd):
     srv = Client(server="127.0.0.1", authport=18120, secret="a2e4t6u8qmlskdvcbxnw",
-                 dict=Dictionary("/origin/captive-portal/freeradius/dictionary.client"))
+                 dict=Dictionary("/origin/captive-portal/radius/dictionary"))
     
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
               User_Name=user, Connect_Info='authenticator={}'.format(authenticator_id) )
