@@ -66,14 +66,15 @@ class AuthenticationConfigurator:
             ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
             cc_auth_template = Template('''
                 update request {
-                    Internal-Auth-ID := ${id}
+                    &Origin-Auth-Provider := ${id}
                 }
-                internal-auth {
+                cc-auth {
                     fail = 1
                 }
             ''')
-            with open ("/origin/authentication/freeradius/rest-module", "r") as module_file:
-                module_conf = module_file.read()
+            rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
+
+            module_conf = rest_conf.render(agent_id=self.agent_id)
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
@@ -86,6 +87,9 @@ class AuthenticationConfigurator:
                     module_conf += "\n" + ldap_template.render(**provider_conf)
                     inner_switch_server_conf += '''
                         case {id} {{
+                            update request {{
+                                &Origin-Auth-Provider := {id}
+                            }}
                             ldap-auth-{id} {{
                                 fail = 1
                             }}
@@ -105,6 +109,9 @@ class AuthenticationConfigurator:
                         inner_case += "if( notfound || fail ) {\n"
                     if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
                         inner_case += '''
+                        update request {{
+                            &Origin-Auth-Provider := ${id}
+                        }}
                         ldap-auth-{id} {{
                             fail = 1
                         }}

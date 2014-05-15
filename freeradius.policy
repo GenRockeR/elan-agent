@@ -1,18 +1,15 @@
 authentications.authorize {
-            switch "%{Origin-Auth-ID}" {
+            switch &Origin-Auth-Provider {
               
               ${inner_switch}
           
               case { 
-                update request {
-                    Internal-Auth-ID := "%{Origin-Auth-ID}"
-                }
-                internal-auth
+                cc-auth
               }
             }
             if(reply:Cleartext-Password) {
                 update control {
-                  Cleartext-Password := &reply:Cleartext-Password
+                  &Cleartext-Password := &reply:Cleartext-Password
                 }
             }
 }

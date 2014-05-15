@@ -1,9 +1,14 @@
-rest internal-auth {
+rest cc-auth {
         connect_uri = "http://127.0.0.1:8000"
 
         authorize {
-                uri = "${..connect_uri}/api/authentication/%{Internal-Auth-ID}/user/authorize/%{User-Name}"
+                uri = "<%text>$</%text>{..connect_uri}/api/authentication/%{Origin-Auth-Provider}/user/authorize/%{User-Name}"
                 method = "get"
+        }
+        post-auth {
+                uri = "<%text>$</%text>{..connect_uri}/api/agent/${agent_id}/post_auth"
+                method = "post"
+                body  = "json"
         }
         pool {
                 start = 0
