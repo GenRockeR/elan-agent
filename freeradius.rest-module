@@ -8,7 +8,7 @@ rest cc-auth {
         post-auth {
                 uri = "<%text>$</%text>{..connect_uri}/api/agent/${agent_id}/post_auth"
                 method = "post"
-                body  = "json"
+                body  = "post"
         }
         pool {
                 start = 0
