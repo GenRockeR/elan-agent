@@ -12,7 +12,7 @@ exec /origin/bin/authentication_freeradius_configurator
 
 
 pre-start script
-  rm -f /etc/freeradius/sites-enabled/default
+  rm -f /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
   if ! grep -q '/origin/authentication/freeradius/dictionary' /etc/freeradius/dictionary
   then
     echo '' >> /etc/freeradius/dictionary
