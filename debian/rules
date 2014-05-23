@@ -1,3 +1,7 @@
 #!/usr/bin/make -f
+override_dh_installinit:
+	dh_installinit --name=captive-portal
+	dh_installinit --name=captive-portal_nginx_configurator
+
 %:
 	dh $@

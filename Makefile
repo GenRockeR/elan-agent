@@ -22,13 +22,13 @@ nginx:
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx/server
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/nginx_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_nginx_configurator
-	install -d ${DESTDIR}/etc/init
-	install -m 644 nginx_configurator.upstart ${DESTDIR}/etc/init/captive-portal_nginx_configurator.conf
   
 .PHONY: freeradius
 freeradius:
+	install -d ${DESTDIR}/etc/freeradius/sites-available
 	install -d ${DESTDIR}/etc/freeradius/sites-enabled
-	install -m644 freeradius.server ${DESTDIR}/etc/freeradius/sites-enabled/captive-portal
+	install -m644 freeradius.server ${DESTDIR}/etc/freeradius/sites-available/captive-portal
+	ln -s ../sites-available/captive-portal ${DESTDIR}/etc/freeradius/sites-enabled
 
 .PHONY: www
 www:
@@ -44,8 +44,6 @@ www:
 	)
 	install -d ${DESTDIR}/etc/uwsgi
 	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
-	install -d ${DESTDIR}/etc/init
-	install -m 644 captive-portal.upstart ${DESTDIR}/etc/init/captive-portal.conf
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/radius
