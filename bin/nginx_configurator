@@ -34,7 +34,8 @@ class CaptivePortalConfigurator:
         def _get_port(pipe):
                 port = pipe.hget('portal_ports', prodile_id)
                 if not port:
-                    port = self.get_available_port()
+                    ports = pipe.hgetall('portal_ports').values()
+                    port = self.get_first_available_port(ports)
                     pipe.multi() # so it is in a transaction
                     pipe.hset('portal_ports', prodile_id, port)
         
@@ -42,8 +43,7 @@ class CaptivePortalConfigurator:
         return self.synapse.hget('portal_ports', prodile_id)
 
     
-    def get_available_port(self):
-        ports = self.synapse.hgetall('portal_ports').values()
+    def get_first_available_port(self, ports):
         port = 20001
         while True:
             # redis returns strings....
