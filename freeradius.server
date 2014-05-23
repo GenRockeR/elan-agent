@@ -2,10 +2,7 @@ server captive-portal {
     listen {
       type = auth
       ipaddr = 127.0.0.1
-    # ipv6addr = :: # any.  ::1 == localhost
-      port = 18120
-    # interface = eth0
-    # clients = per_socket_clients
+      port = 18122
       limit {
             max_connections = 16
             lifetime = 0
@@ -15,11 +12,8 @@ server captive-portal {
     
     listen {
       ipaddr = 127.0.0.1
-    # ipv6addr = ::
-      port = 18121
+      port = 18123
       type = acct
-    # interface = eth0
-    # clients = per_socket_clients
       limit {
     #   max_pps = 0
     #   idle_timeout = 0
