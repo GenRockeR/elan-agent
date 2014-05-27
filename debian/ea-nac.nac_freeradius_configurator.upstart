@@ -1,0 +1,10 @@
+description "Authentications"
+
+start on started authentication_freeradius_configurator
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/nac_freeradius_configurator

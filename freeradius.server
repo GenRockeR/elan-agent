@@ -1,0 +1,226 @@
+server nac {
+  listen {
+    type = auth
+    ipaddr = *
+    port = 0
+  }
+  listen {
+    type = auth
+    ipv6addr = ::
+    port = 0
+  }
+  
+  listen {
+    ipaddr = *
+    port = 0
+    type = acct
+  }
+  listen {
+    ipv6addr = ::
+    port = 0
+    type = acct
+  }
+  
+% if default_secret:
+  client allv4 {
+    ipaddr = 0.0.0.0
+    netmask = 0
+    secret = ${default_secret}
+  }
+  client allv6 {
+    ipv6addr = ::
+    netmask = 0
+    secret = ${default_secret}
+  }
+% endif
+  
+  authorize {
+    preprocess
+    nac-eap {
+      ok = return
+    }
+
+    update request {
+        &Origin-Auth-Provider := "${dot1x_authentication}"
+        &Origin-Auth-Type := "dot1x"
+        &Origin-MAC := &Calling-Station-ID
+    }
+  
+    authentications
+  }
+  
+  authenticate {
+    Auth-Type PAP {
+      pap
+    }
+    Auth-Type CHAP {
+      chap
+    }
+    Auth-Type MS-CHAP {
+      mschap
+    }
+  
+    nac-eap
+  }
+  
+  
+  preacct {
+    preprocess
+  
+    #
+    #  Merge Acct-[Input|Output]-Gigawords and Acct-[Input-Output]-Octets
+    #  into a single 64bit counter Acct-[Input|Output]-Octets64.
+    #
+    acct_counters64
+  
+  
+    update request {
+        FreeRADIUS-Acct-Session-Start-Time = "%{expr: %l - %{%{Acct-Session-Time}:-0} - %{%{Acct-Delay-Time}:-0}}"
+    }
+  
+    acct_unique
+  
+  # ntdomain
+  }
+  
+  accounting {
+  #  -sql
+  # sql_log
+  
+    attr_filter.accounting_response
+  
+  # Acct-Type Status-Server {
+  #
+  # }
+  }
+  
+  
+  session {
+  }
+  
+  
+  post-auth {
+  
+  # insert_acct_class
+  
+    cc-auth
+    if( &reply:Origin-VLAN-ID ) {
+      update reply {
+        Tunnel-Type := VLAN
+        Tunnel-Medium-Type := IEEE-802
+        Tunnel-Private-Group-Id := &reply:Origin-VLAN-ID
+        Extreme-Netlogin-Vlan := &reply:Origin-VLAN-ID
+      }
+    }
+  
+    #  MacSEC requires the use of EAP-Key-Name.  However, we don't
+    #  want to send it for all EAP sessions.  Therefore, the EAP
+    #  modules put required data into the EAP-Session-Id attribute.
+    #  This attribute is never put into a request or reply packet.
+    #
+    #  Uncomment the next few lines to copy the required data into
+    #  the EAP-Key-Name attribute
+  # if (reply:EAP-Session-Id) {
+  #   update reply {
+  #     EAP-Key-Name := "%{reply:EAP-Session-Id}"
+  #   }
+  # }
+  
+    remove_reply_message_if_eap
+  
+    Post-Auth-Type REJECT {
+      attr_filter.access_reject
+  
+      nac-eap
+  
+      remove_reply_message_if_eap
+    }
+  }
+  
+  pre-proxy {
+  }
+  
+  post-proxy {
+    nac-eap
+  # Post-Proxy-Type Fail {
+  #     detail
+  # }
+  }
+}
+
+
+server inner-eap-tunnel {
+  authorize {
+  
+    chap
+  
+    mschap
+  
+    update control {
+           Proxy-To-Realm := LOCAL
+    }
+  
+    nac-eap {
+      ok = return
+    }
+  
+    expiration
+    logintime
+  
+    update request {
+        &Origin-Auth-Provider := "${dot1x_authentication}"
+        &Origin-Auth-Type := "dot1x"
+        &Origin-MAC := &outer.Calling-Station-ID
+    }
+  
+    authentications
+  
+    pap
+  }
+  
+  
+  authenticate {
+    Auth-Type PAP {
+      pap
+    }
+  
+    Auth-Type CHAP {
+      chap
+    }
+  
+  
+    Auth-Type MS-CHAP {
+      mschap
+    }
+  
+    nac-eap
+  }
+  
+  session {
+  }
+  
+  
+  post-auth {
+    Post-Auth-Type REJECT {
+      # log failed authentications in SQL, too.
+      -sql
+      attr_filter.access_reject
+    }
+  
+  }
+  
+  pre-proxy {
+  }
+  
+  post-proxy {
+  # attr_filter.post-proxy
+    nac-eap
+  
+  # Post-Proxy-Type Fail {
+  #     detail
+  # }
+  }
+} # inner-tunnel server block
+
+
+

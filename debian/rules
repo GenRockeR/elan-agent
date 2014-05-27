@@ -1,3 +1,5 @@
 #!/usr/bin/make -f
+override_dh_installinit:
+	dh_installinit --name=nac_freeradius_configurator
 %:
 	dh $@
