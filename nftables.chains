@@ -26,7 +26,7 @@ table ip origin {
     type nat hook prerouting priority -150;
     jump global_ac
     ether saddr @allowed_macs accept
-    tcp dport {80, 443} goto captive_portal
+    tcp dport {80, 443} jump captive_portal
   }
 }
 
@@ -39,7 +39,7 @@ table ip6 origin {
     type nat hook prerouting priority -150;
     jump global_ac
     ether saddr @allowed_macs accept
-    tcp dport {80, 443} goto captive_portal
+    tcp dport {80, 443} jump captive_portal
   }
 }
 

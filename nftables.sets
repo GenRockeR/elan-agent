@@ -16,12 +16,19 @@ table bridge origin {
 }
 
 table ip origin {
+  map cp-if-ports {
+    type iface_index : inet_service;
+  }
+
   set allowed_macs {
     type ether_addr; 
   }
 }
 
 table ip6 origin {
+  map cp-if-ports {
+    type iface_index : inet_service;
+  }
   set allowed_macs {
     type ether_addr; 
   }

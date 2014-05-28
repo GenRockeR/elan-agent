@@ -73,6 +73,11 @@ class AccessControlConfigurator:
                 nic = self.internalNIC
                 if vlan_id:
                     nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                if new_vlans[vlan_id]['access_control']:
+                    cmd += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+                else:
+                    cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+                    
                 if new_vlans[vlan_id]['dhcp_passthrough']:
                     cmd += 'nft add element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
                 else:
