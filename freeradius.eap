@@ -92,7 +92,7 @@ eap nac-eap {
     tls = tls-common
     default_eap_type = md5
     copy_request_to_tunnel = no
-    use_tunneled_reply = no
+    use_tunneled_reply = yes
     virtual_server = "inner-eap-tunnel"
   # include_length = yes
   # require_client_cert = yes
@@ -104,7 +104,7 @@ eap nac-eap {
 
     default_eap_type = mschapv2
     copy_request_to_tunnel = no
-    use_tunneled_reply = no
+    use_tunneled_reply = yes
 
   # proxy_tunneled_request_as_eap = yes
 

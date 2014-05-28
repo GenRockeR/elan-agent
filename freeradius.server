@@ -40,13 +40,12 @@ server nac {
       ok = return
     }
 
-    update request {
-        &Origin-Auth-Provider := "${dot1x_authentication}"
-        &Origin-Auth-Type := "dot1x"
-        &Origin-MAC := &Calling-Station-ID
+    if( EAP-TYPE == MD5 ) {
+        update request {
+            &Origin-Auth-Provider := "${dot1x_authentication}"
+        }
+        authentications
     }
-  
-    authentications
   }
   
   authenticate {
@@ -102,8 +101,15 @@ server nac {
   post-auth {
   
   # insert_acct_class
+
+    update request {
+        &Origin-Auth-Provider := "%{%{reply:Origin-Auth-Provider}:-${dot1x_authentication}}"
+        &Origin-Auth-Type := "dot1x"
+        &Origin-MAC := &Calling-Station-ID
+    }
   
     cc-auth
+
     if( &reply:Origin-VLAN-ID ) {
       update reply {
         Tunnel-Type := VLAN
@@ -169,12 +175,10 @@ server inner-eap-tunnel {
   
     update request {
         &Origin-Auth-Provider := "${dot1x_authentication}"
-        &Origin-Auth-Type := "dot1x"
-        &Origin-MAC := &outer.Calling-Station-ID
     }
   
     authentications
-  
+    
     pap
   }
   
