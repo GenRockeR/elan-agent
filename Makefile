@@ -21,5 +21,3 @@ freeradius:
 	install -m 644 freeradius.ldap-module ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/freeradius_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/authentication_freeradius_configurator
-	install -d ${DESTDIR}/etc/init
-	install -m 644 freeradius_configurator.upstart ${DESTDIR}/etc/init/authentication_freeradius_configurator.conf
