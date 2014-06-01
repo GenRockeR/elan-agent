@@ -12,5 +12,5 @@ exec /usr/bin/suricata --af-packet
 pre-start script
     mkdir -p /var/log/suricata
     mkdir -p /etc/suricata/rules
-    PYTHONPATH=/origin/lib/python /origin/sbin/rule-fetcher --no-rule-reload || echo -n
+    PYTHONPATH=/origin/lib/python /origin/sbin/rule-fetcher --no-rule-reload || true
 end script
