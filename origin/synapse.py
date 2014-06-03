@@ -186,7 +186,7 @@ class Synapse():
 
     def _cache_reply(self, path):
         if self.message_cb and self.exists('cache:' + path):
-            self.message_cb(path, self.jget('cache:' + path))
+            self.message_cb(path, self.get('cache:' + path))
             
     def _ws_on_open(self, ws):
         for path in self.retrieves:
@@ -221,7 +221,7 @@ class Synapse():
         # path received, no need to further query it if it was watched
         self.ws_awaited_paths.discard(path)
 
-        self.jset('cache:' + path, response['object'])
+        self.set('cache:' + path, response['object'])
         self.message_cb(path, response['object'])
 
     def run_forever(self, message_cb = None, close_cb=None):
@@ -246,18 +246,21 @@ class Synapse():
 
         self.websocket.run_forever(ping_interval=self.PING_INTERVAL)
         
-    # REDIS
+    # REDIS: Wrapper for redis connection that ancodes and decodes object using JSON
     
-    def jget(self, key):
+    def get(self, key):
         ''' returns JSON decoded object in key '''
-        return json.loads(self.get(key))
-    def jset(self, key, value):
+        data = self.redis.get(key)
+        if data == None:
+            return None
+        return json.loads(data)
+    def set(self, key, value):
         ''' JSON encodes object and stores it '''
-        return self.set( key, json.dumps(value, sort_keys=True) )
+        return self.redis.set( key, json.dumps(value, sort_keys=True) )
     
     def sget(self, key):
         '''
-        Smart get: like get for strings but smarter, returns good type:
+        Smart get: like get but smarter, returns good type:
             if redis hash, returns python dict
             if redis array, returns python array
             if redis set, return python set
@@ -272,6 +275,7 @@ class Synapse():
                    'list': self.lmembers,
                }[self.type(key)](key)
         
+#   NOT TESTED AT ALL !!! TODO: test this !
     def sset(self, key, value):
         '''
         Smart set: like set but smarter, sets good type:
@@ -282,27 +286,41 @@ class Synapse():
         '''
         with self.pipeline() as pipe:
             pipe.delete(key)
-    
+     
             value_type = type(value).__name__
             if value_type == 'set':
-                pipe.sadd(key, *value)
+                pipe.sadd(key, *(json.dumps(v, sort_keys=True) for v in value) )
             elif value_type == 'list':
-                pipe.rpush(key, *value)
+                pipe.rpush(key, *(json.dumps(v, sort_keys=True) for v in value) )
             elif value_type == 'dict':
-                pipe.hmset(key, value)
+                pipe.hmset(key, {k: json.dumps(v, sort_keys=True) for k,v in value.items()})
             else:
-                pipe.set(key, value)
-    
+                pipe.set(key, json.dumps(value, sort_keys=True))
+     
             pipe.execute()
 
+    # Hashes
     def hgetall(self, key):
-        return self.redis.hgetall(key)
+        return { k: json.loads(v) for k, v in self.redis.hgetall(key).items() }
 
     def hget(self, key, field):
-        return self.redis.hget(key, field)
+        data = self.redis.hget(key, field)
+        if data == None:
+            return None
+        return json.loads(data)
 
     def hset(self, key, field, value):
-        return self.redis.hset(key, field, value)
+        return self.redis.hset(key, field, json.dumps(value, sort_keys=True))
+
+    # Sets
+    def sismember(self, key, value):
+        return self.redis.sismember(key, json.dumps(value, sort_keys=True))
+
+    def sadd(self, key, *args):
+        self.redis.sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+
+    def srem(self, key, *args):
+        self.redis.srem(key, *(json.dumps(v, sort_keys=True) for v in args))
     
     def pipeline(self):
         return self.redis.pipeline()
@@ -314,18 +332,17 @@ class Synapse():
     def exists(self, key):
         return self.redis.exists(key)
 
+    def publish(self, channel, msg):
+        return self.redis.publish(channel, json.dumps(msg, sort_keys=True))
+
     def type(self, key):
         return self.redis.type(key)
     
     def smembers(self, key):
-        return self.redis.smembers(key)
+        return set(json.loads(v) for v in self.redis.smembers(key))
 
     def lmembers(self, key):
-        return self.redis.lrange(key, 0, -1)
+        return [json.loads(v) for v in self.redis.lrange(key, 0, -1)]
 
-    def get(self, key):
-        return self.redis.get(key)
-
-    def set(self, key, value):
-        return self.redis.set(key, value)
-
+    def pubsub(self):
+        return self.redis.pubsub()
