@@ -34,7 +34,7 @@ class FirewallConfigurator:
                 for mac in data['macs']:
                     for vlan in data['vlans']:
                         for family in ['bridge', 'ip', 'ip6']:
-                            cmd += 'nft {command} element {family} origin a_v_{vlan} {mac};'.format(family=family, vlan=vlan, mac=mac, command=command) 
+                            cmd += 'nft {command} element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=vlan, mac=mac, command=command) 
                 subprocess.call(cmd, shell=True)
                 for vlan in data['vlans']:
                     if command == 'add':
