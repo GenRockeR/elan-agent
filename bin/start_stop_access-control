@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import sys, subprocess, time, threading
+import sys, subprocess, time, os, socket, fcntl, struct
 from origin.synapse import Synapse
+from mako.template import Template
 
 class AccessControlConfigurator:
     internalNIC = 'eth1'
@@ -32,13 +33,13 @@ class AccessControlConfigurator:
             # Only do something if access_control has changed....
             if conf['access_control'] != self.active:
                 self.active = conf['access_control']
-                for table_type in ['bridge', 'ip', 'ip6']:
+                for family in ['bridge', 'ip', 'ip6']:
                     if conf['access_control']:
                         # enable Access Control
-                        cmd += "nft flush chain {table_type} origin global_ac;".format(table_type=table_type)
+                        cmd += "nft flush chain {family} origin global_ac;".format(family=family)
                     else:
                         # disable Access Control
-                        cmd += "nft add rule {table_type} origin global_ac accept;".format(table_type=table_type)
+                        cmd += "nft add rule {family} origin global_ac accept;".format(family=family)
         elif self.vlans_path and path == self.vlans_path:
             # conf if list of all VLANS -> when a Vlan is modified, all VLANs are sent
             new_vlans = {}
@@ -69,25 +70,70 @@ class AccessControlConfigurator:
                 cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
 
             # Create FW rules accordingly
-            for vlan_id in new_vlans:
-                nic = self.internalNIC
-                if vlan_id:
-                    nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
-                if new_vlans[vlan_id]['access_control']:
-                    cmd += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
-                else:
-                    cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
-                    
-                if new_vlans[vlan_id]['dhcp_passthrough']:
-                    cmd += 'nft add element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
-                else:
-                    cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
-                    
-                if new_vlans[vlan_id]['dns_passthrough']:
-                    cmd += 'nft add element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
-                else:
-                    cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+            ebt_file = '/tmp/ea-network-ebt-{id}' . format(id=os.getpid())
+            
+            cmd += 'ebtables -t nat --atomic-file {} --atomic-init;'.format(ebt_file)
+            
+            ip = get_ip_address('br0')
+            ip6 = '2a01:e34:ee2e:e2a0:76ea:3aff:fe80:5e1'
+            
+            with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
+                nft_file.write('flush chain ip origin captive_portal\n')
+                nft_file.write('flush chain ip6 origin captive_portal\n')
 
+                nft_file.write('add rule ip origin captive_portal ip daddr != {ip} jump allowed_macs\n'.format(ip=ip))
+                #nft_file.write('add rule ip6 origin captive_portal ip6 daddr != {ip6} jump allowed_macs\n'.format(ip=ip6))
+                
+                for family in ['bridge', 'ip', 'ip6']:
+                    nft_file.write('flush chain {} origin allowed_macs\n'.format(family))
+
+                for vlan_id in new_vlans:
+                    nic = self.internalNIC
+                    if vlan_id:
+                        nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                        
+                    for family in ['bridge', 'ip', 'ip6']:
+                        cmd += "nft add set {family} origin a_v_{vlan} '{{type ether_addr;}}';".format(family=family, vlan=vlan_id) 
+    
+                    # configure Access Contol
+                    if new_vlans[vlan_id]['access_control']:
+                        cmd += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+
+                        nft_file.write('add rule bridge origin allowed_macs iif {nic} ether saddr @a_v_{vlan} accept\n'.format(nic=nic, vlan=vlan_id))
+                        for family in ['ip', 'ip6']:
+                            nft_file.write('add rule {family} origin allowed_macs mark {vlan} ether saddr @a_v_{vlan} accept\n'.format(family=family, nic=nic, vlan=vlan_id))
+                        
+                        # configure captive portal if access control is enabled
+                        if new_vlans[vlan_id]['captive_portal']:
+                            cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id)
+                            nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
+add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
+'''.format(mark = vlan_id, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))
+
+                        # configure DHCP passthrough
+                        if new_vlans[vlan_id]['dhcp_passthrough']:
+                            cmd += 'nft add element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                        else:
+                            cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                            
+                        # configure DNS passthrough
+                        if new_vlans[vlan_id]['dns_passthrough']:
+                            cmd += 'nft add element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+                        else:
+                            cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+    
+                    else:
+                        cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+                        
+                cmd += 'nft -f {};'.format(nft_file.name)
+                cmd += 'ebtables -t nat --atomic-file {} --atomic-commit;'.format(ebt_file)
+                            
+            # Set captive portals
+            nginx_captive_portals = Template(filename = '/origin/network/nginx/server')
+            with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
+                nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
+            cmd += 'reload nginx;'
+            
             self.vlans = new_vlans
 
         if cmd:
@@ -101,8 +147,19 @@ class AccessControlConfigurator:
     def run(self):
         self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
 
-
+# Temp Hack
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
 
 if __name__ == "__main__":
     conf = AccessControlConfigurator()
-    conf.run()
+    count = 1
+    while count < 100:
+        conf.run()
+        time.sleep(30)
+        count = count + 1
