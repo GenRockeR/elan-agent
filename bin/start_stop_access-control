@@ -73,6 +73,9 @@ class AccessControlConfigurator:
             ebt_file = '/tmp/ea-network-ebt-{id}' . format(id=os.getpid())
             
             cmd += 'ebtables -t nat --atomic-file {} --atomic-init;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 67 -j mark --set-mark 10067;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol udp --ip6-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
             
             ip = get_ip_address('br0')
             ip6 = '2a01:e34:ee2e:e2a0:76ea:3aff:fe80:5e1'

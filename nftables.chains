@@ -23,8 +23,8 @@ table bridge origin {
 
     oif eth0 jump allowed_macs
     
-    oif eth0 iif @dhcp_pt_ifs ip protocol udp udp dport 67 accept
-    oif eth0 iif @dns_pt_ifs ip protocol udp udp dport 53 accept
+    oif eth0 iif @dhcp_pt_ifs mark 10067 accept
+    oif eth0 iif @dns_pt_ifs mark 10053 accept
     oif eth0 iif @ac_ifs drop
 
     oif eth0 accept
