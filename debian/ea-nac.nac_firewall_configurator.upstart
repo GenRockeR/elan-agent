@@ -1,0 +1,10 @@
+description "Allow MACs on VLANs"
+
+start on started authentication_freeradius_configurator
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/nac_firewall_configurator
