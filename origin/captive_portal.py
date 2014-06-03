@@ -1,0 +1,1 @@
+CONF_PATH = 'conf:captive-portal'

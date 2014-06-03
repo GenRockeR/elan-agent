@@ -9,19 +9,16 @@ test:
 	
 
 .PHONY: install
-install: nginx www freeradius
+install: conf www freeradius python
 
-python: *.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python *.py
+python: origin/captive_portal.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/captive_portal.py
 
-.PHONY: nginx
-nginx:
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx
-	install -m 644 nginx.captive-portal-servers-header ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx/servers-header
-	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/nginx/server
+.PHONY: conf
+conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/nginx_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_nginx_configurator
+	install -m 755 bin/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
   
 .PHONY: freeradius
 freeradius:

@@ -8,5 +8,5 @@ env PYTHONPATH=/origin/lib/python
 respawn
 respawn limit 10 5
 
-exec /origin/bin/captive-portal_nginx_configurator
+exec /origin/bin/captive-portal_configuration_cacher
 

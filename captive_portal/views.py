@@ -9,6 +9,9 @@ import struct
 import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
+from origin.captive_portal import CONF_PATH
+from origin.synapse import Synapse
+from origin import nac
 
 def requirePortalURL(fn):
     '''
@@ -32,38 +35,46 @@ def redirect2status(request):
 def status(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip2mac(clientIP)
-    if not macAllowed(clientMAC):
+    if not nac.macAllowed(clientMAC, request.META['vlan_id']):
         return redirect('login')
     return HttpResponse('U R now connected !: ' + request.build_absolute_uri() + " -- " + str(get_current_site(request)) + " -- ")
 
 @requirePortalURL
 def login(request):
+    vlan_id = request.META['vlan_id'] #debug
     if request.method == 'POST':
         try:
             username = request.POST['username']
             password = request.POST['password']
         except (KeyError):
             # Redisplay the login form.
-            return render(request, 'captive_portal/login.html', { 'error_message': "'username' or 'password' missing.",})
-        if not authenticate(request.authenticator_id, username, password):
-            return render(request, 'captive_portal/login.html', { 'error_message': "Invalid username or password.", 'username': username})
+            return render(request, 'captive_portal/login.html', { 'vlan_id': vlan_id, 'error_message': "'username' or 'password' missing.",})
+        
+        # Retrieve authenticator
+        synapse = Synapse()
+        conf = synapse.hget(CONF_PATH, request.META['captive_portal_id'])
+        authenticator_id = conf['authentication']
+        
+        if not authenticate(authenticator_id, username, password):
+            return render(request, 'captive_portal/login.html', { 'vlan_id': vlan_id, 'error_message': "Invalid username or password.", 'username': username})
     
         clientIP = request.META['REMOTE_ADDR']
         clientMAC = ip2mac(clientIP)
-        allowMAC(clientMAC)
+        nac.allowMAC(clientMAC, request.META['vlan_id'])
         return redirect('status')
 
-    return render(request, 'captive_portal/login.html')
+    return render(request, 'captive_portal/login.html', {'vlan_id': vlan_id})
 
 @requirePortalURL
 def logout(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip2mac(clientIP)
-    disallowMAC(clientMAC)
+    nac.disallowMAC(clientMAC, request.META['vlan_id'])
     #TODO: Flush connections with conntrack (get IPs of MAC and conntrack -D -s <IP>)
     
     return redirect('login')
 
+# TODO: create a module in ea-uthentication for that...
 def authenticate(authenticator_id, user, pwd):
     srv = Client(server="127.0.0.1", authport=18122, secret="a2e4t6u8qmlskdvcbxnw",
                  dict=Dictionary("/origin/captive-portal/radius/dictionary"))
@@ -91,15 +102,4 @@ def ip2mac(ip):
     m = re.search(r'[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]', output)
     if m:
         return str(m.group(0))
-
-def macAllowed(mac):
-    return subprocess.call('sudo ebtables -t nat -L PREROUTING --Lx --Lmac2 | grep -qi {mac}'.format(mac=mac), shell=True) == 0
-
-def allowMAC(mac):
-    if not macAllowed(mac):
-        subprocess.call('sudo ebtables -t nat -I PREROUTING -s {mac} -j mark --mark-set 0x9'.format(mac=mac), shell=True)
-
-def disallowMAC(mac):
-    if macAllowed(mac):
-        subprocess.call('sudo ebtables -t nat -D PREROUTING -s {mac} -j mark --mark-set 0x9'.format(mac=mac), shell=True)
 
