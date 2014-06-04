@@ -322,6 +322,37 @@ class Synapse():
     def srem(self, key, *args):
         self.redis.srem(key, *(json.dumps(v, sort_keys=True) for v in args))
     
+    # Lists
+    def lpush(self, key, *args):
+        self.redis.lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+    
+    def lpop(self, key):
+        data = self.redis.lpop(key)
+        if data == None:
+            return None
+        return json.loads(data)
+
+    def blpop(self, key, timeout = 0):
+        data = self.redis.blpop(key, timeout)
+        if data == None:
+            return None
+        return (data[0], json.loads(data[1]))
+
+    def rpush(self, key, *args):
+        self.redis.rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+    
+    def rpop(self, key):
+        data = self.redis.rpop(key)
+        if data == None:
+            return None
+        return json.loads(data)
+
+    def brpop(self, key, timeout = 0):
+        data = self.redis.brpop(key, timeout)
+        if data == None:
+            return None
+        return (data[0], json.loads(data[1]))
+
     def pipeline(self):
         return self.redis.pipeline()
 
@@ -346,3 +377,6 @@ class Synapse():
 
     def pubsub(self):
         return self.redis.pubsub()
+
+    def keys(self, pattern):
+        return self.redis.keys(pattern)
