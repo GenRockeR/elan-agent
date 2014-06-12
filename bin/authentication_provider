@@ -3,12 +3,13 @@
 import time, subprocess, re
 from origin.synapse import Synapse
 from mako.template import Template
+from origin.authentication import pwd_authenticate
 
 
 import logging
 logging.basicConfig()
 
-class AuthenticationConfigurator:
+class AuthenticationProvider:
     
     def __init__(self):
         self.synapse = Synapse()
@@ -18,9 +19,9 @@ class AuthenticationConfigurator:
         self.synapse.subscribe('authentication/group')
 
         self.agent_id = None
-        self.providers = []
-        self.provider_confs = {}
-        self.groups = []
+        self.providers = [] # list of providers
+        self.provider_confs = {} # providers configuration by id
+        self.groups = [] # list of authentication groups 
         self.group_authentications = {}
 
     def conf_updated(self, path, conf):
@@ -78,6 +79,7 @@ class AuthenticationConfigurator:
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
+            new_provided_services = set()
             for provider in self.providers:
                 if provider['id'] not in self.provider_confs:
                     # we do not have all the info to generate conf file, abort
@@ -95,6 +97,8 @@ class AuthenticationConfigurator:
                             }}
                         }}
                     '''.format(**provider_conf)
+                    # also notify that we provide this auth
+                    new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=provider['id']) )
             for group in self.groups:
                 if group['id'] not in self.group_authentications:
                     # wait until we get the info
@@ -133,20 +137,33 @@ class AuthenticationConfigurator:
             with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
                 policy_file.write( policy_template.render(inner_switch=inner_switch_server_conf) )
     
+            # unprovide
+            for service_path in self.synapse.provided_services - new_provided_services:
+                self.synapse.unprovide(service_path)
+                
             # Reload nginx
             subprocess.call('/etc/init.d/freeradius restart', shell=True)
+            
+            # new provides
+            for service_path in new_provided_services:
+                self.synapse.provide(service_path)
 
-        
+    def service_called(self, req_id, path, data):
+        m = re.match(r'authentication/provider/(\d+)/authenticate', path)
+        if m:
+            # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
+            return  { 'success': pwd_authenticate(m.group(1), data['username'], data['password']) }
+            
     def ws_closed(self):
         # sleep a bit and try reconnecting
         time.sleep(30)
         self.synapse.run_forever()
 
     def run(self):
-        self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
+        self.synapse.run_forever(message_cb=self.conf_updated, call_cb=self.service_called, close_cb=self.ws_closed)
 
 
 
 if __name__ == "__main__":
-    conf = AuthenticationConfigurator()
+    conf = AuthenticationProvider()
     conf.run()

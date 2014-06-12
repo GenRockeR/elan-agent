@@ -8,7 +8,7 @@ env PYTHONPATH=/origin/lib/python
 respawn
 respawn limit 10 5
 
-exec /origin/bin/authentication_freeradius_configurator
+exec /origin/bin/authentication_provider
 
 
 pre-start script
