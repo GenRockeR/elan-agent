@@ -6,11 +6,9 @@ from django.contrib.sites.models import get_current_site
 import socket
 import fcntl
 import struct
-import pyrad.packet
-from pyrad.client import Client
-from pyrad.dictionary import Dictionary
 from origin.captive_portal import CONF_PATH
 from origin.synapse import Synapse
+from origin.authentication import pwd_authenticate
 from origin import nac
 
 def requirePortalURL(fn):
@@ -55,7 +53,7 @@ def login(request):
         conf = synapse.hget(CONF_PATH, request.META['captive_portal_id'])
         authenticator_id = conf['authentication']
         
-        if not authenticate(authenticator_id, username, password):
+        if not pwd_authenticate(authenticator_id, username, password):
             return render(request, 'captive_portal/login.html', { 'vlan_id': vlan_id, 'error_message': "Invalid username or password.", 'username': username})
     
         clientIP = request.META['REMOTE_ADDR']
@@ -74,20 +72,6 @@ def logout(request):
     
     return redirect('login')
 
-# TODO: create a module in ea-uthentication for that...
-def authenticate(authenticator_id, user, pwd):
-    srv = Client(server="127.0.0.1", authport=18122, secret="a2e4t6u8qmlskdvcbxnw",
-                 dict=Dictionary("/origin/captive-portal/radius/dictionary"))
-    
-    req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-              User_Name=user, Connect_Info='authenticator={}'.format(authenticator_id) )
-    req["User-Password"]=req.PwCrypt(pwd)
-    
-    reply = srv.SendPacket(req)
-    
-    return reply.code == pyrad.packet.AccessAccept
-
-# Temp Hack
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(
