@@ -9,6 +9,7 @@ class Synapse():
     """ synapse.REST is the interface to the Central Controller
         Calls can be synchronious (post(), http_get()) or async (start_post, request_finished, get_result)
         It is also able to queue objects to post in a pool and send then all at once (JSON array) with postPoolAdd and submitPostPoolIfReady
+        It communicates with control center via websockets (retrieve, subscribe, provide/call)
         It is also the interface to local Redis DB that is used as a cache and for storing agent specific configuration that does not need to be sent to control center.
         Redis commands are passed (almost) directly to python-redis...
     """
@@ -43,6 +44,7 @@ class Synapse():
         
         # for Websockets
         self.subscriptions = set()
+        self.provided_services = set()
         self.retrieves = set()
         self.websocket = None
         self.ws_path = ws_path
@@ -165,6 +167,7 @@ class Synapse():
         elif path not in self.ws_awaited_paths:
             # send request if not already waiting for that path
             self._ws_get(path)
+
     def subscribe(self, path):
         # retrieve from cache
         self._cache_reply(path)
@@ -175,6 +178,20 @@ class Synapse():
 
         self.subscriptions.add(path)
 
+    def provide(self, path):
+        if self.websocket and path not in self.provided_services:
+            # Send request upstream if not already subscribed or no ongoing connection request is waiting
+            self._ws_provide(path)
+
+        self.provided_services.add(path)
+
+    def unprovide(self, path):
+        self._ws_unprovide(path)
+        self.provided_services.discard(path)
+
+
+    def answer(self, req_id, answer):
+        self._ws_answer(req_id, answer)
 
     def _ws_get(self, path):
         self.websocket.send('GET ' + self.REST_PATH + path)
@@ -183,6 +200,16 @@ class Synapse():
     def _ws_subscribe(self, path):
         self.websocket.send('SUBSCRIBE ' + self.REST_PATH + path)
         self.ws_awaited_paths.add(path)
+
+    def _ws_provide(self, path):
+        self.websocket.send('PROVIDE ' + self.REST_PATH + path)
+
+    def _ws_unprovide(self, path):
+        self.websocket.send('UNPROVIDE ' + self.REST_PATH + path)
+
+    def _ws_answer(self, req_id, answer):
+        self.websocket.send('ANSWER {req_id}\n{data}'.format(req_id=req_id, data=json.dumps(answer, sort_keys=True)))
+
 
     def _cache_reply(self, path):
         if self.message_cb and self.exists('cache:' + path):
@@ -195,7 +222,10 @@ class Synapse():
 
         for path in self.subscriptions:
             self._ws_subscribe(path)
-        
+
+        for path in self.provided_services:
+            self._ws_provide(path)
+
         # start Thread that will regularly query Control Center if no response has yet arrived
         thread = threading.Thread(target=self._check_awaited_paths)
         thread.setDaemon(True)
@@ -216,19 +246,33 @@ class Synapse():
             self.close_cb()
 
     def _ws_on_message(self, ws, message):
-        response = json.loads(message)
-        path = response['path'].replace(self.REST_PATH, '', 1)
-        # path received, no need to further query it if it was watched
-        self.ws_awaited_paths.discard(path)
+        header, json_data = message.split('\n', 1)
+        command, args = header.split(None, 1)
+        data = json.loads(json_data)
 
-        self.set('cache:' + path, response['object'])
-        self.message_cb(path, response['object'])
+        if command == 'ANSWER':
+            path = args.replace(self.REST_PATH, '', 1)
+            # path received, no need to further query it if it was watched
+            self.ws_awaited_paths.discard(path)
+    
+            self.set('cache:' + path, data)
+            self.message_cb(path, data)
 
-    def run_forever(self, message_cb = None, close_cb=None):
+        elif command == 'CALL' and self.call_cb: # Ignore if no callback was defined
+            req_id, path = args.split(None, 1)
+            path = path.replace(self.REST_PATH, '', 1)
+            answer = self.call_cb(req_id, path, data)
+            if not answer:
+                answer = {'failure': True, 'reason': 'Callback returned empty answer for path ' + path}
+            self.answer(req_id, answer)
+
+    def run_forever(self, message_cb = None, call_cb=None, close_cb=None):
         """ Run configurator with all callbacks, if called without arguments, will reconnect websocket with same callbacks, and register same subscriptions"""
 
         if message_cb:
             self.message_cb = message_cb
+        if call_cb:
+            self.call_cb = call_cb
         if close_cb:
             self.close_cb = close_cb
 
