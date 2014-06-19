@@ -50,8 +50,8 @@ def login(request):
         
         # Retrieve authenticator
         synapse = Synapse()
-        conf = synapse.hget(CONF_PATH, request.META['captive_portal_id'])
-        authenticator_id = conf['authentication']
+        authenticator_id = synapse.hget(CONF_PATH, request.META['web_authentication'])
+        
         
         if not pwd_authenticate(authenticator_id, username, password):
             return render(request, 'captive_portal/login.html', { 'vlan_id': vlan_id, 'error_message': "Invalid username or password.", 'username': username})
