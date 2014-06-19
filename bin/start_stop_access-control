@@ -107,7 +107,7 @@ class AccessControlConfigurator:
                             nft_file.write('add rule {family} origin allowed_macs mark {vlan} ether saddr @a_v_{vlan} accept\n'.format(family=family, nic=nic, vlan=vlan_id))
                         
                         # configure captive portal if access control is enabled
-                        if new_vlans[vlan_id]['captive_portal']:
+                        if new_vlans[vlan_id]['web_authentication']:
                             cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id)
                             nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
 add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}

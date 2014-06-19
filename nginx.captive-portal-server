@@ -18,7 +18,7 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
-      uwsgi_param "captive_portal_id" "${vlans[vlan_id]['captive_portal']}";
+      uwsgi_param "web_authentication" "${vlans[vlan_id]['web_authentication']}";
       uwsgi_param "vlan_id" "${vlan_id}";
     }
 }
