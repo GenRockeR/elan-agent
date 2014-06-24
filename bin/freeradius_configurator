@@ -1,30 +1,32 @@
 #!/usr/bin/env python
 
 import time, subprocess
-from origin.synapse import Synapse
+from origin.neuron import Dendrite
 from mako.template import Template
 
 
 import logging
 logging.basicConfig()
 
-class AuthenticationConfigurator:
+class AuthenticationConfigurator(Dendrite):
     TRACKED_KEYS = ('dot1x_authentication', 'default_secret')
     
     def __init__(self):
-        self.synapse = Synapse()
-        # subscribe to providers and group lists
-        self.synapse.retrieve('agent/self')
-
+        self.__init__('freeradius-authentication')
+        
         self.agent_id = None
 
-    def conf_updated(self, path, conf):
+        # subscribe to providers and group lists
+        self.retrieve('agent/self')
+
+
+    def answer_cb(self, path, conf):
         conf_changed = False
         # update local configuration cache
         if path == 'agent/self':
             if self.agent_id != conf['id']:
                 self.agent_id = conf['id']
-                self.synapse.subscribe('agent/' + str(self.agent_id))
+                self.subscribe('agent/' + str(self.agent_id))
         # Don't use values retrieved by agent/self as they will not get updated in cache when changed on cc...
         # Id should not change so it is OK to use, but for the other values, only  'agent/' + str(self.agent_id) path gets updated
         # In case of CC down, value will flip from outdated value from 'agent/self' and up to date value from 'agent/<id>'
@@ -45,15 +47,11 @@ class AuthenticationConfigurator:
             # Reload freeradius
             subprocess.call('/etc/init.d/freeradius restart', shell=True)
 
-    def run(self):
-        self.synapse.run_forever(message_cb=self.conf_updated)
-
-
 
 if __name__ == "__main__":
     conf = AuthenticationConfigurator()
     count = 1
     while count < 100:
-        conf.run()
+        conf.run_for_ever()
         time.sleep(30)
         count = count + 1
