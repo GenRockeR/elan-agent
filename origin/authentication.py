@@ -2,7 +2,7 @@ import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import time, subprocess, re
-from origin.neuron import Dentrite
+from origin.neuron import Dendrite
 from mako.template import Template
 
 def pwd_authenticate(authenticator_id, user, pwd):
@@ -18,7 +18,7 @@ def pwd_authenticate(authenticator_id, user, pwd):
     return reply.code == pyrad.packet.AccessAccept
 
 
-class AuthenticationProvider(Dentrite):
+class AuthenticationProvider(Dendrite):
     
     def __init__(self):
         super().__init__('authentication')
