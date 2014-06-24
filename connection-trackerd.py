@@ -87,10 +87,10 @@ if __name__ == '__main__':
     import time
     import origin.libnflog_cffi
     import signal
-    from origin.synapse import Synapse
+    from origin.neuron import Dendrite
     from impacket.ImpactDecoder import EthDecoder
     
-    synapse = Synapse(path = 'connection')
+    dendrite = Dendrite('connection-tracker')
 
     nflog = origin.libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
@@ -98,29 +98,17 @@ if __name__ == '__main__':
     decoder = EthDecoder()
     
      
-    # catch TERM signal so final post can execute.
-    def noop(signum, frame):
-        pass
-    signal.signal(signal.SIGTERM, noop)
-    
-    
-    try:
-        for pkt, hwhdr, direction  in nflog:
-            try:
-                pkt_obj = decoder.decode(hwhdr + pkt)
-                pkt_params = getPacketParams(pkt_obj, direction)
-                if not ignorePacket(pkt_params):
-                    # TODO: Use NFLOG time
-                    pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                    synapse.postPoolAdd(pkt_params)
-                # Try submitting pool
-                synapse.submitPostPoolIfReady()
-            except Exception as e:
-                # TODO: notify error to central manager...
-                print 'Exception: ', type(e), e
-    finally:
-        # Let request finish and send remaining connections, if any
-        synapse.flushPostPool()
+    for pkt, hwhdr, direction  in nflog:
+        try:
+            pkt_obj = decoder.decode(hwhdr + pkt)
+            pkt_params = getPacketParams(pkt_obj, direction)
+            if not ignorePacket(pkt_params):
+                # TODO: Use NFLOG time
+                pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                dendrite.post('connection', pkt_params)
+        except Exception as e:
+            # TODO: notify error to central manager...
+            print 'Exception: ', type(e), e
 
 
 

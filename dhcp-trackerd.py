@@ -68,14 +68,13 @@ def isNewHostname(hostnames, opts):
 if __name__ == '__main__':
     import origin.libnflog_cffi
     import signal
-    from origin.synapse import Synapse
+    from origin.neuron import Dendrite
     from impacket.ImpactDecoder import EthDecoder
     
     fingerprints = {}
     post_pool = ()
         
-    fp_synapse = Synapse(path = 'device/dhcp-fingerprint')
-    hn_synapse = Synapse(path = 'device/dhcp-name')
+    dendrite = Dendrite('dhcp-tracker')
 
     nflog = origin.libnflog_cffi.NFLOG().generator(DHCP_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
@@ -83,36 +82,25 @@ if __name__ == '__main__':
     decoder = EthDecoder()
     
      
-    # catch TERM signal so final post can execute.
-    def noop(signum, frame):
-        pass
-    signal.signal(signal.SIGTERM, noop)
-    
-    
-    try:
-        fingerprints = {}
-        hostnames = {}
-        for pkt, hwhdr, direction  in nflog:
-            try:
-                pkt_obj = decoder.decode(hwhdr + pkt)
-                pkt_data_obj = getData(pkt_obj)
-                options = getDhcpOptions(pkt_data_obj)
+    fingerprints = {}
+    hostnames = {}
+    for pkt, hwhdr, direction  in nflog:
+        try:
+            pkt_obj = decoder.decode(hwhdr + pkt)
+            pkt_data_obj = getData(pkt_obj)
+            options = getDhcpOptions(pkt_data_obj)
 
-                if 'hostname' in options:
-                    if isNewHostname(hostnames, options):
-                        hn_synapse.postPoolAdd({'mac': options['mac'], 'name': options['hostname']})
-                    del options['hostname'] # delete it so it does not get posted with fingerprint
-                hn_synapse.submitPostPoolIfReady()
+            if 'hostname' in options:
+                if isNewHostname(hostnames, options):
+                    dendrite.post('device/dhcp-name', {'mac': options['mac'], 'name': options['hostname']})
+                del options['hostname'] # delete it so it does not get posted with fingerprint
 
-                if 'fingerprint' in options and isNewFingerprint(fingerprints, options):
-                    fp_synapse.postPoolAdd(options)
-                fp_synapse.submitPostPoolIfReady()
+            if 'fingerprint' in options and isNewFingerprint(fingerprints, options):
+                dendrite.post('device/dhcp-fingerprint', options)
 
-            except Exception as e:
-                # TODO: notify error to central manager...
-                print 'Exception: ', type(e), e
-    finally:
-        fp_synapse.flushPostPool()
+        except Exception as e:
+            # TODO: notify error to central manager...
+            print 'Exception: ', type(e), e
 
 
 
