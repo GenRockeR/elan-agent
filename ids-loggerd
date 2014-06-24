@@ -8,7 +8,7 @@ import time
 import socket
 from idstools import spool
 from impacket.ImpactDecoder import EthDecoder
-from origin.synapse import Synapse
+from origin.neuron import Dendrite
 
 def alert_from_event(event, packet_decoder):
     alert = {
@@ -61,7 +61,7 @@ def main():
             bookmarking=True,
             delete_on_close=True)
 
-    synapse = Synapse('alert')
+    dendrite = Dendrite()
     decoder = EthDecoder()
 
     for event in reader:
@@ -69,7 +69,7 @@ def main():
             alert = alert_from_event(event, decoder)
             # Post alert by alert.
             #TODO: may want to post several async like Connection Tracker
-            synapse.post(alert)
+            dendrite.post('alert', alert)
         except:
             #TODO: raise error
             print("Error:", sys.exc_info()[0], file=sys.stderr)
