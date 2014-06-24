@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 import sys, subprocess, time, os, socket, fcntl, struct
-from origin.synapse import Synapse
+from origin.neuron import Dendrite
 from mako.template import Template
 
-class AccessControlConfigurator:
+class AccessControlConfigurator(Dendrite):
     internalNIC = 'eth1'
     bridge = 'br0'
     
     def __init__(self):
-        self.synapse = Synapse()
+        super().__init__('access-control')
+        
         self.agent_path = None
         self.vlans_path = None
         
@@ -17,17 +18,17 @@ class AccessControlConfigurator:
         self.vlans = {} # vlans by Vlan-ID
         
         # Retrieve Agent ID...
-        self.synapse.retrieve('agent/self')
+        self.retrieve('agent/self')
 
-    def conf_updated(self, path, conf):
+    def answer_cb(self, path, conf):
         # subscribe to our conf updates
         cmd = ''
         if path == 'agent/self':
             self.agent_path = path.replace('/self', '/' + str(conf['id']), 1)
-            self.synapse.subscribe(self.agent_path)
+            self.subscribe(self.agent_path)
             # get vlans to configure them.
             self.vlans_path = self.agent_path + '/vlans'
-            self.synapse.subscribe(self.vlans_path)
+            self.subscribe(self.vlans_path)
 
         elif self.agent_path and path == self.agent_path:
             # Only do something if access_control has changed....
@@ -142,14 +143,6 @@ add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
         if cmd:
             subprocess.call(cmd, shell=True)
 
-    def ws_closed(self):
-        # sleep a bit and try reconnecting
-        time.sleep(30)
-        self.synapse.run_forever()
-
-    def run(self):
-        self.synapse.run_forever(message_cb=self.conf_updated, close_cb=self.ws_closed)
-
 # Temp Hack
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -163,6 +156,6 @@ if __name__ == "__main__":
     conf = AccessControlConfigurator()
     count = 1
     while count < 100:
-        conf.run()
+        conf.run_for_ever()
         time.sleep(30)
         count = count + 1
