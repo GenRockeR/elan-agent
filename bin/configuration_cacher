@@ -1,29 +1,27 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import time
-from origin.synapse import Synapse
-from origin.captive_portal import CONF_PATH
+from origin.neuron import Dentrite
+from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH
 
-class CaptivePortalConfiguration:
-    
-    def __init__(self):
-        self.synapse = Synapse()
-        self.synapse.subscribe('captive-portal')
+def conf_updated(dentrite, path, data):
+    if path == 'captive-portal':
+        for profile in conf:
+            dentrite.synapse.hset(CONF_PATH, profile['id'], profile)
+    elif path == 'guest-access':
+        for profile in conf:
+            dentrite.synapse.hset(GUEST_ACCESS_CONF_PATH, profile['id'], profile)
 
-    def conf_updated(self, path, conf):
-        if path == 'captive-portal':
-            for profile in conf:
-                self.synapse.hset(CONF_PATH, profile['id'], profile)
+conf = Dentrite('captive-portal', answer_cb = conf_updated)
+conf.subscribe('captive-portal')
+conf.subscribe('guest-access')
 
-    def run(self):
-        self.synapse.run_forever(message_cb=self.conf_updated)
-
-
-
-if __name__ == "__main__":
-    conf = CaptivePortalConfiguration()
-    count = 1
-    while count < 100:
-        conf.run()
-        time.sleep(30)
-        count = count + 1
+count = 1
+while count < 100:
+    try:
+        conf.run_for_ever()
+    except:
+        import traceback
+        traceback.print_exc()
+    time.sleep(30)
+    count = count + 1
