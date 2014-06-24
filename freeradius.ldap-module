@@ -16,12 +16,13 @@ ldap ldap-auth-${id} {
   update {
     control:Password-With-Header  += 'userPassword'
     control:NT-Password   := 'ntPassword'
+    control:NT-Password   := 'sambaNTPassword'
   }
 
   user {
     base_dn = <%text>"${..base_dn}"</%text>
 
-    filter = "({UserAttr}=%{%{Stripped-User-Name}:-%{User-Name}})"
+    filter = "(${UserAttr}=%{%{Stripped-User-Name}:-%{User-Name}})"
 
     scope = 'sub'
   }
