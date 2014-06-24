@@ -167,8 +167,8 @@ class Synapse(redis.StrictRedis):
         return super().keys(pattern)
 
 
-class Dentrite:
-    """ Dentrite is the interface to the Central Controller
+class Dendrite:
+    """ Dendrite is the interface to the Central Controller
         
         Subclass this or provide answer_cb and call_cb to constructor.
         
