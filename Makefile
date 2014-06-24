@@ -12,10 +12,26 @@ test:
 install: python nginx
 
 .PHONY: python
-python: origin/*.py websocket.py
+python: origin/*.py pylib bin/axon.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install bin/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/ *.py
+
+.PHONY: pylib
+pylib: tornadoredis tornado redis pyrad
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
+	# Although virtualenv was used to install tornado and co in this repository, it is deployed on edgeagent under /origin/lib/python
+	( cd lib/python3.4/site-packages; \
+		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
+	)
+
+.PHONY: tornadoredis
+.PHONY: tornado
+.PHONY: redis
+.PHONY: pyrad
 
 .PHONY: nginx
 nginx:
