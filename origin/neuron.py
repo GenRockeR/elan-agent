@@ -234,12 +234,11 @@ class Dendrite:
     # REST
         
     def post(self, path, data):
-        ''' ASynchronious POST '''
-        pass
-    
-    def http_get(self, path):
-        '''ASynchronious GET'''
-        pass
+        '''
+            ASynchronious POST
+            Implemented via CALL 
+        '''
+        self.call(path, data)
     
     
     def _send_command(self, **data):
