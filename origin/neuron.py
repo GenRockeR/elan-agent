@@ -18,17 +18,17 @@ class Synapse(redis.StrictRedis):
     '''
     # REDIS: Wrapper for redis connection that encodes and decodes object using JSON
     def __init__(self):
-        super().__init__(decode_responses=True)
+        super(Synapse, self).__init__(decode_responses=True)
 
     def get(self, key):
         ''' returns JSON decoded object in key '''
-        data = super().get(key)
+        data = super(Synapse, self).get(key)
         if data == None:
             return None
         return json.loads(data)
     def set(self, key, value):
         ''' JSON encodes object and stores it '''
-        return super().set( key, json.dumps(value, sort_keys=True) )
+        return super(Synapse, self).set( key, json.dumps(value, sort_keys=True) )
     
     def sget(self, key):
         '''
@@ -73,98 +73,98 @@ class Synapse(redis.StrictRedis):
 
     # Hashes
     def hgetall(self, key):
-        return { k: json.loads(v) for k, v in super().hgetall(key).items() }
+        return { k: json.loads(v) for k, v in super(Synapse, self).hgetall(key).items() }
 
     def hget(self, key, field):
-        data = super().hget(key, field)
+        data = super(Synapse, self).hget(key, field)
         if data == None:
             return None
         return json.loads(data)
 
     def hset(self, key, field, value):
-        return super().hset(key, field, json.dumps(value, sort_keys=True))
+        return super(Synapse, self).hset(key, field, json.dumps(value, sort_keys=True))
 
     # Sets
     def sismember(self, key, value):
-        return super().sismember(key, json.dumps(value, sort_keys=True))
+        return super(Synapse, self).sismember(key, json.dumps(value, sort_keys=True))
 
     def sadd(self, key, *args):
-        super().sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
 
     def srem(self, key, *args):
-        super().srem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).srem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def smembers(self, key):
-        return set(json.loads(v) for v in super().smembers(key))
+        return set(json.loads(v) for v in super(Synapse, self).smembers(key))
 
     # oredered sets
     def zadd(self, key, *args):
-        super().zadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).zadd(key, *(json.dumps(v, sort_keys=True) for v in args))
 
     def zrem(self, key, *args):
-        super().zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def zmembers(self, key):
-        return set(json.loads(v) for v in super().zrange(key, 0 -1))
+        return set(json.loads(v) for v in super(Synapse, self).zrange(key, 0 -1))
 
     def zscore(self, key):
-        return super().zscore(key)
+        return super(Synapse, self).zscore(key)
     
     # Lists
     def lmembers(self, key):
-        return [json.loads(v) for v in super().lrange(key, 0, -1)]
+        return [json.loads(v) for v in super(Synapse, self).lrange(key, 0, -1)]
 
     def lpush(self, key, *args):
-        super().lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
     
     def lpop(self, key):
-        data = super().lpop(key)
+        data = super(Synapse, self).lpop(key)
         if data == None:
             return None
         return json.loads(data)
 
     def blpop(self, key, timeout = 0):
-        data = super().blpop(key, timeout)
+        data = super(Synapse, self).blpop(key, timeout)
         if data == None:
             return None
         return (data[0], json.loads(data[1]))
 
     def rpush(self, key, *args):
-        super().rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        super(Synapse, self).rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
     
     def rpop(self, key):
-        data = super().rpop(key)
+        data = super(Synapse, self).rpop(key)
         if data == None:
             return None
         return json.loads(data)
 
     def brpop(self, key, timeout = 0):
-        data = super().brpop(key, timeout)
+        data = super(Synapse, self).brpop(key, timeout)
         if data == None:
             return None
         return (data[0], json.loads(data[1]))
 
     def pipeline(self):
-        return super().pipeline()
+        return super(Synapse, self).pipeline()
 
     def transaction(self, func, *watches, **kwargs):
         # create a specific pipeline each time...
-        return super().transaction(func, *watches, **kwargs)
+        return super(Synapse, self).transaction(func, *watches, **kwargs)
     
     def exists(self, key):
-        return super().exists(key)
+        return super(Synapse, self).exists(key)
 
     def publish(self, channel, msg):
-        return super().publish(channel, json.dumps(msg, sort_keys=True))
+        return super(Synapse, self).publish(channel, json.dumps(msg, sort_keys=True))
 
     def type(self, key):
-        return super().type(key)
+        return super(Synapse, self).type(key)
     
     def pubsub(self):
-        return super().pubsub()
+        return super(Synapse, self).pubsub()
 
     def keys(self, pattern):
-        return super().keys(pattern)
+        return super(Synapse, self).keys(pattern)
 
 
 class Dendrite:
