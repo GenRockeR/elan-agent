@@ -3,7 +3,6 @@ upstream portal {
 }
 
 % for vlan_id in vlans:
-  % if vlans[vlan_id]['captive_portal'] != None:
 server {
 
     listen 0.0.0.0:${vlan_id + 20000};
@@ -22,8 +21,7 @@ server {
       uwsgi_param "vlan_id" "${vlan_id}";
       uwsgi_param "web_authentication" "${vlans[vlan_id]['web_authentication']}";
       uwsgi_param "guest_access" "${vlans[vlan_id]['guest_access']}";
-      #uwsgi_param "captive_portal" "${vlans[vlan_id]['captive_portal']}";
+      #uwsgi_param "captive_portal" "$ {vlans[vlan_id]['captive_portal']}";
     }
 }
-  % endif
 % endfor
