@@ -14,14 +14,18 @@ server {
     # no need for logs
     access_log off;
     
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
       uwsgi_param "vlan" "${vlans[vlan_id]['id']}"; ## id of cc agent vlan object
       uwsgi_param "vlan_id" "${vlan_id}";
-      uwsgi_param "web_authentication" "${vlans[vlan_id]['web_authentication']}";
-      uwsgi_param "guest_access" "${vlans[vlan_id]['guest_access']}";
-      #uwsgi_param "captive_portal" "$ {vlans[vlan_id]['captive_portal']}";
+      uwsgi_param "web_authentication" "${vlans[vlan_id]['web_authentication'] or ''}";
+      uwsgi_param "guest_access" "${vlans[vlan_id]['guest_access'] or ''}";
+      #uwsgi_param "captive_portal" "$ {vlans[vlan_id]['captive_portal'] or ''}";
     }
 }
 % endfor
