@@ -5,12 +5,13 @@ import redis
 
 CACHE_PREFIX = 'cache:'
 
-SYNAPSE_COMMANDS = 'synapse:commands'
-SYNAPSE_ANSWERS = 'synapse:answers'
+DENDRITE_COMMANDS = 'synapse:commands'
+DENDRITE_ANSWERS = 'synapse:answers'
  
 AXON_ANSWERS = 'axon:answers:{name}'
 AXON_CALLS = 'axon:calls:{name}'
 
+POST_TIMEOUT = 60
 
 class Synapse(redis.StrictRedis):
     '''
@@ -26,9 +27,9 @@ class Synapse(redis.StrictRedis):
         if data == None:
             return None
         return json.loads(data)
-    def set(self, key, value):
+    def set(self, key, value, *args, **kwargs):
         ''' JSON encodes object and stores it '''
-        return super(Synapse, self).set( key, json.dumps(value, sort_keys=True) )
+        return super(Synapse, self).set( key, json.dumps(value, sort_keys=True), *args, **kwargs )
     
     def sget(self, key):
         '''
@@ -107,9 +108,6 @@ class Synapse(redis.StrictRedis):
     def zmembers(self, key):
         return set(json.loads(v) for v in super(Synapse, self).zrange(key, 0 -1))
 
-    def zscore(self, key):
-        return super(Synapse, self).zscore(key)
-    
     # Lists
     def lmembers(self, key):
         return [json.loads(v) for v in super(Synapse, self).lrange(key, 0, -1)]
@@ -175,15 +173,17 @@ class Dendrite:
         When subclassing, use add_callback(channel, callback_fn) to listen to other redis queues.
         By default,listens to answer queue and  call queue (that includes the name)
     """
+    POST_COUNTER_PATH = '{name}:post:counter'
+    POST_ANSWER_PATH = '{name}:post:{id}'
     
     def __init__(self, name, answer_cb=None, call_cb=None):
         self.name = name # self name used when communication with synapse.
-        self.channel_cb = [] # 2-tuple of channel, callback
+        self.channel_cb = [] # 2-tuple of (channel, callback)
         self.synapse = Synapse()
 
         def add_self_decorator(fn):
-            def wrapper(*args):
-                return fn(self, args)
+            def wrapper(*args, **kwargs):
+                return fn(self, *args, **kwargs)
             return wrapper
         
         if answer_cb:
@@ -235,18 +235,25 @@ class Dendrite:
         
     def post(self, path, data):
         '''
-            ASynchronious POST
-            Implemented via CALL 
+            Synchronious POST
+            Will block until an answer is received
         '''
-        self.call(path, data)
+        post_counter_path = self.POST_COUNTER_PATH.format(name=self.name)
+        post_id = self.synapse.incr(post_counter_path)
+        answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
+        self.call(path, data, answer_path)
+        answer_tuple = self.synapse.brpop(answer_path, POST_TIMEOUT)
+        if answer_tuple:
+            return answer_tuple[1]['data']
     
     
     def _send_command(self, **data):
-        data['requester'] = self.name
-        self.synapse.lpush(SYNAPSE_COMMANDS, data)
+        if 'answer_path' not in data:
+            data['answer_path'] = AXON_ANSWERS.format(name=self.name)
+        self.synapse.lpush(DENDRITE_COMMANDS, data)
 
     def _send_answer(self, **data):
-        self.synapse.lpush(SYNAPSE_ANSWERS, data)
+        self.synapse.lpush(DENDRITE_ANSWERS, data)
 
         
     def retrieve(self, path):
@@ -264,8 +271,8 @@ class Dendrite:
     def unprovide(self, path):
         self._send_command(cmd='UNPROVIDE', path=path)
 
-    def call(self, path, data):
-        self._send_command(cmd='CALL', path=path, data=data)
+    def call(self, path, data, answer_path=None):
+        self._send_command(cmd='CALL', path=path, data=data, answer_path=answer_path)
 
     def answer(self, req_id, answer):
         self._send_answer(req_id=req_id, answer=answer)
@@ -315,13 +322,13 @@ class Axon:
     @tornado.gen.coroutine
     def listen_commands(self):
         while True:
-            data = yield tornado.gen.Task(self.aredis.brpop, [SYNAPSE_ANSWERS, SYNAPSE_COMMANDS])
+            data = yield tornado.gen.Task(self.aredis.brpop, [DENDRITE_ANSWERS, DENDRITE_COMMANDS])
             try:
-                if SYNAPSE_ANSWERS in data:
-                    data = json.loads(data[SYNAPSE_ANSWERS])
+                if DENDRITE_ANSWERS in data:
+                    data = json.loads(data[DENDRITE_ANSWERS])
                     self.process_answer(data['req_id'], data['answer'])
                 else:
-                    data = json.loads(data[SYNAPSE_COMMANDS])
+                    data = json.loads(data[DENDRITE_COMMANDS])
                     self.process_command(data)
             except:
                 print('error occured:', traceback.format_exc() )
@@ -332,10 +339,10 @@ class Axon:
               
     def process_command(self, data):
         if data['cmd'] == 'SUBSCRIBE':
-            self.synapse.sadd('synapse:subscribers:'+data['path'], data['requester'])
+            self.synapse.sadd('synapse:subscribers:'+data['path'], data['answer_path'])
             #reply from cache if available!
             if self.synapse.exists(CACHE_PREFIX + data['path']):
-                self._answer_requester( data['requester'], 
+                self._answer_requester( data['answer_path'], 
                                         data=self.synapse.get(CACHE_PREFIX + data['path']), 
                                         path=data['path'] )
             self._ws_subscribe(data['path'])
@@ -343,25 +350,30 @@ class Axon:
         elif data['cmd'] == 'RETRIEVE':
             #reply from cache if available!
             if self.synapse.exists(CACHE_PREFIX + data['path']):
-                self._answer_requester( data['requester'], 
+                self._answer_requester( data['answer_path'], 
                                         data=self.synapse.get(CACHE_PREFIX + data['path']), 
                                         path=data['path'] )
             self._ws_retrieve(data['path'])
         
         elif data['cmd'] == 'PROVIDE':
-            self.synapse.hset('synapse:providers', data['path'], data['requester'])
+            self.synapse.hset('synapse:providers', data['path'], data['answer_path'])
             self._ws_provide(data['path'])
         
         elif data['cmd'] == 'UNPROVIDE':
             self.synapse.hdel('synapse:providers', data['path'])
             self._ws_unprovide(data['path'])
-          
+
+        elif data['cmd'] == 'CALL':
+            track_id = self.synapse.incr('axon:track_counter')
+            self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=POST_TIMEOUT) #If answer takes over POST_TIMEOUT sec, ignore it...
+            self._ws_call(data['path'], track_id, data['data'])
+            
             
     @check_awaited_path
     def _ws_subscribe(self, path, force_send = False):
         if path not in self.subscriptions or force_send:
             if self.ws:
-                self.ws.write_message('SUBSCRIBE ' + path)
+                self.ws.write_message('SUBSCRIBE 0 ' + path)
             self.subscriptions.add(path)
             self.awaited_paths.add(path)
 
@@ -369,20 +381,23 @@ class Axon:
     def _ws_retrieve(self, path, force_send = False):
         if path not in self.awaited_paths or force_send:
             if self.ws:
-                self.ws.write_message('RETRIEVE ' + path)
+                self.ws.write_message('RETRIEVE 0 ' + path)
             self.awaited_paths.add(path)
 
     def _ws_provide(self, path, force_send = False):
         if self.ws:
-            self.ws.write_message('PROVIDE ' + path)
+            self.ws.write_message('PROVIDE 0 ' + path)
 
     def _ws_unprovide(self, path, force_send = False):
         if self.ws:
-            self.ws.write_message('UNPROVIDE ' + path)
+            self.ws.write_message('UNPROVIDE 0 ' + path)
+       
+    def _ws_call(self, path, track_id, data):
+        if self.ws:
+            self.ws.write_message('CALL {id} {path}\n{data}'.format(path=path, id=track_id, data=json.dumps(data)))
 
-    
-    def _answer_requester(self, requester, **data):    
-        self.synapse.lpush(AXON_ANSWERS.format(name=requester), data)
+    def _answer_requester(self, answer_path, **data):
+        self.synapse.lpush(answer_path, data)
         
     def _open_cc_ws(self):    
         #ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(self.url), self.ws_open_cb)
@@ -398,7 +413,7 @@ class Axon:
     def ws_open_done(self, future):
         if future.exception():
             # TODO: log exception somewhere (console?)
-            print('Failed to open Webscoket to Control Center:', future.exception())
+            print('Failed to open Websocket to Control Center:', future.exception())
         else:
             result=future.result()
             self.ws = result
@@ -434,25 +449,29 @@ class Axon:
         header, json_data = message.split('\n', 1)
         data = json.loads(json_data)
         command, args = header.split(None, 1)
+        track_id, path = args.split(None, 1)
 
         if command == 'ANSWER':
-            path = args
-            # path received, no need to further query it if it was watched
-            self.awaited_paths.discard(path)
-    
-            if data != self.synapse.get(CACHE_PREFIX + path):
-                self.synapse.set(CACHE_PREFIX + path, data)
-                
-                for subscriber in self.synapse.smembers('synapse:subscribers:'+path):
-                    self._answer_requester(subscriber, path=path, data=data)
+            if track_id == '0':
+                # path received, no need to further query it if it was watched
+                self.awaited_paths.discard(path)
+        
+                if data != self.synapse.get(CACHE_PREFIX + path):
+                    self.synapse.set(CACHE_PREFIX + path, data)
+                    
+                    for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
+                        self._answer_requester(answer_path, path=path, data=data)
+            else:
+                # find answer path
+                answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
+                if answer_path:
+                    self._answer_requester(answer_path, path=path, data=data)
 
 
         elif command == 'CALL': # Ignore if no callback was defined
-            req_id, path = args.split(None, 1)
-
             provider = self.synapse.hget('synapse:providers', path)
             if provider:
-                self._call_provider(provider, req_id, path, data)
+                self._call_provider(provider, track_id, path, data)
 
     def _call_provider(self, provider, req_id, path, data):
         self.synapse.lpush( AXON_CALLS.format(name=provider), dict(data=data, req_id=req_id, path=path) )
