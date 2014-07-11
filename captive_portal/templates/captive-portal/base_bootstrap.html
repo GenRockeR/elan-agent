@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+{% load i18n %}
+{% load static from staticfiles %}
+
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{% block title %}Origin Nexus{% endblock %}</title>
+{# Header for child templates to override #}
+{% block head %}
+
+  {# Bootstrap #}
+  <link href="{% static "captive-portal/css/bootstrap-3.1.1.min.css" %}" rel="stylesheet" media="screen">
+
+  {# Font Awesome#}  
+  <link href="{% static "captive-portal/css/font-awesome-4.1.0.min.css" %}" rel="stylesheet" media="screen">
+  
+  {# our app #}
+  <link href="{% static "captive-portal/css/app.css" %}" rel="stylesheet">
+{% endblock %}
+</head>
+
+{% block body %}
+<body>
+  {% block bodytop %}
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="page-header">
+          <h1>Origin Nexus <small>Captive Portal</small></h1>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endblock %}
+
+  {% block body_main %}
+  {% endblock %}
+
+</body>
+{% endblock %}
+
+</html>

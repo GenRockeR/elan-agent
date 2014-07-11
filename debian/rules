@@ -2,6 +2,7 @@
 override_dh_installinit:
 	dh_installinit --name=captive-portal
 	dh_installinit --name=captive-portal_configuration_cacher
+	dh_installinit --name=guest-access-manager
 
 %:
 	dh $@

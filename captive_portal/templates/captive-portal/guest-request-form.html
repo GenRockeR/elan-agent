@@ -1,0 +1,30 @@
+{% load i18n %}
+
+  {% if guest_error_message %}<div class="alert alert-danger">{{ guest_error_message }}</div>{% endif %}
+  
+  <form action="{% url 'guest-access' %}" method="post" class="form-horizontal" role="form">
+    {% csrf_token %}
+
+    {% for field in guest_access.registration_fields %}
+    <div class="form-group">
+      <label for="field-{{forloop.counter}}" class="col-sm-3 control-label">{{field.display_name}}</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="field-{{forloop.counter}}" name="{{field.display_name}}" {% if field.required %}required{% endif %}>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="form-group">
+      <label for="field-sponsor-email" class="col-sm-3 control-label">{% trans 'Sponsor Email' %}</label>
+      <div class="col-sm-9">
+        <input type="email" class="form-control" id="field-sponsor-email" required="required">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <div class="col-sm-offset-3 col-sm-9">
+        <button type="submit" class="btn btn-default">{% trans 'Submit Request' %}</button>
+      </div>
+    </div>
+
+  </form>

@@ -1,0 +1,59 @@
+{% extends 'captive-portal/base_bootstrap.html' %}
+{% load i18n %}
+{% load static from staticfiles %}
+
+{% block body_main %}
+  <div class="container">
+    <div class="row">
+
+      {% if web_authentication %}
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+          <div class="panel-heading">{% trans "Login" %}</div>
+          <div class="panel-body"> 
+            {% if error_message %}<div class="alert alert-danger">{{ error_message }}</div>{% endif %}
+            
+            <form action="{% url 'login' %}" method="post" class="form-horizontal">
+              {% csrf_token %}
+              <div class="form-group">
+                <label for="field-login" class="col-sm-3 control-label">{% trans 'Username' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="field-login" required="required" name="username" value="{{ username }}">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-pwd" class="col-sm-3 control-label">{% trans 'Password' %}</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="field-pwd" required="required" name="password">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="col-sm-offset-3 col-sm-9">
+                  <button type="submit" class="btn btn-default">{% trans 'Login' %}</button>
+                </div>
+              </div>             
+              
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if guest_access %}
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">{% trans "Guest Access" %}</div>
+          <div class="panel-body"> 
+            {% include 'captive-portal/guest-request-form.html' %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      
+    </div>
+  </div>
+
+{% endblock %}
+

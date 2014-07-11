@@ -6,10 +6,10 @@ from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH
 
 def conf_updated(dendrite, path, data):
     if path == 'captive-portal':
-        for profile in conf:
+        for profile in data:
             dendrite.synapse.hset(CONF_PATH, profile['id'], profile)
     elif path == 'guest-access':
-        for profile in conf:
+        for profile in data:
             dendrite.synapse.hset(GUEST_ACCESS_CONF_PATH, profile['id'], profile)
 
 conf = Dendrite('captive-portal', answer_cb = conf_updated)

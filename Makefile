@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python, uwsgi-plugin-python, ea-authentication, python-pyrad, ea-network
+PACKAGE-DEPENDS := ea-core, python3, uwsgi-plugin-python3, ea-authentication, python-pyrad, ea-network, python3-dateutil
 
 include ../core/packaging.mk
 
@@ -19,7 +19,8 @@ python: origin/captive_portal.py
 conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
-  
+	install -m 755 bin/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
+    
 .PHONY: freeradius
 freeradius:
 	install -d ${DESTDIR}/etc/freeradius/sites-available
