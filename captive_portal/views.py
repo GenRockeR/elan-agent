@@ -6,7 +6,7 @@ from django.contrib.sites.models import get_current_site
 import socket
 import fcntl
 import struct
-from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request
+from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending
 from origin.neuron import Synapse, Dendrite
 from origin.authentication import pwd_authenticate
 from origin import nac
@@ -35,31 +35,50 @@ def status(request):
     clientMAC = ip2mac(clientIP)
     if not nac.macAllowed(clientMAC, request.META['vlan_id']):
         return redirect('login')
-    return HttpResponse('U R now connected !: ' + request.build_absolute_uri() + " -- " + str(get_current_site(request)) + " -- ")
-
-@requirePortalURL
-def login(request):
-    vlan_id = request.META['vlan_id'] #debug
+    
     guest_access = request.META['guest_access']
     guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
     web_authentication = request.META['web_authentication']
+    context={'guest_access': guest_access_conf, 'web_authentication': web_authentication}
+    
+    return render(request, 'captive-portal/status.html', context)
+
+@requirePortalURL
+def login(request):
+    clientIP = request.META['REMOTE_ADDR']
+    clientMAC = ip2mac(clientIP)
+    vlan_id = request.META['vlan_id']
+    
+    if nac.macAllowed(clientMAC, vlan_id):
+        return redirect('status')
+
+    
+    guest_access = request.META['guest_access']
+    guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
+    web_authentication = request.META['web_authentication']
+    context={ 'guest_access': guest_access_conf,
+              'guest_access_pending': is_authz_pending(clientMAC, vlan_id),
+              'web_authentication': web_authentication,
+            }
+    
     if request.method == 'POST':
         try:
             username = request.POST['username']
             password = request.POST['password']
         except (KeyError):
             # Redisplay the login form.
-            return render(request, 'captive-portal/login.html', { 'vlan_id': vlan_id, 'error_message': "'username' or 'password' missing.", 'guest_access': guest_access_conf, 'web_authentication': web_authentication})
+            context['error_message'] = "'username' or 'password' missing."
+            return render(request, 'captive-portal/login.html', context )
         
+        context['username'] = username
         if not pwd_authenticate(web_authentication, username, password):
-            return render(request, 'captive-portal/login.html', { 'vlan_id': vlan_id, 'error_message': "Invalid username or password.", 'username': username, 'guest_access': guest_access_conf, 'web_authentication': web_authentication})
+            context['error_message'] = "Invalid username or password."
+            return render(request, 'captive-portal/login.html', context)
     
-        clientIP = request.META['REMOTE_ADDR']
-        clientMAC = ip2mac(clientIP)
-        nac.allowMAC(clientMAC, request.META['vlan_id'])
+        nac.allowMAC(clientMAC, vlan_id)
         return redirect('status')
 
-    return render(request, 'captive-portal/login.html', {'vlan_id': vlan_id, 'guest_access': guest_access_conf, 'web_authentication': web_authentication})
+    return render(request, 'captive-portal/login.html', context)
 
 @requirePortalURL
 def logout(request):
@@ -84,17 +103,15 @@ def guest_access(request):
     guest_access_conf = synapse.hget(GUEST_ACCESS_CONF_PATH, guest_access)
     guest_registration_fields = guest_access_conf['registration_fields'] 
 
-    web_authentication = request.META['web_authentication']
-    
     guest_request_fields = request.POST
     
-    guest_request = dict(mac=clientMAC, vlan=vlan, fields=[])
+    guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], sponsor_email=guest_request_fields.get('sponsor_email', ''))
     for field in guest_registration_fields:
         guest_request['fields'].append( dict(display_name=field['display_name'], type=field['type'], value=guest_request_fields.get(field['display_name'], '')) )
     
-    request_id = submit_guest_request(guest_request)
+    submit_guest_request(guest_request)
 
-    return render(request, 'captive-portal/login.html', {'vlan_id': request_id, 'guest_access': guest_access_conf, 'web_authentication': web_authentication})
+    return redirect('status')
 
 
 def get_ip_address(ifname):

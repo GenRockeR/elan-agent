@@ -1,0 +1,23 @@
+{% extends 'captive-portal/base_bootstrap.html' %}
+{% load i18n %}
+
+{% block body_main %}
+  <div class="container">
+    <div class="row">
+
+      <div class="col-sm-8 col-sm-offset-2">
+        <div class="panel panel-default">
+          <div class="panel-heading">{% trans "Access Allowed" %}</div>
+          <div class="panel-body"> 
+            <p>{% trans 'You are now authorized to access the network...' %}</p>
+            <p>{% trans 'You can logout here:' %}</p><a href="{% url 'logout' %}" class="btn btn-default">{% trans 'Logout' %}</a>
+          </div>
+        </div>
+      </div>
+
+      
+    </div>
+  </div>
+
+{% endblock %}
+

@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite
+from origin.neuron import Dendrite, Synapse
 from origin import nac
 import dateutil.parser
 
@@ -12,15 +12,17 @@ def submit_guest_request(request):
     r = d.post('guest-request', request)
     request_id = r['id']
     
-    # Add request ID to mac -> done on retrieval of subscribe...
-    #d.synapse.sadd('guest-request:'+request['mac'], request_id)
+    d.synapse.sadd('guest-request:authz_pending:{vlan}'.format(vlan=r['vlan_id']),request['mac'])
+    d.synapse.rpush('guest-request:mac_request:'+request['mac'], request_id)
     
     # Subscribe to any changes
     d.subscribe('guest-request/' + request_id)
     
-    d.synapse.lpush('guest-request:'+request['mac'], request_id) # todo: treat expired...
     
     return request_id
+
+def is_authz_pending(mac, vlan):
+    return Synapse().sismember('guest-request:authz_pending:{vlan}'.format(vlan=vlan), mac)
 
 class GuestAccessManager(Dendrite):
     def __init__(self):
@@ -31,8 +33,16 @@ class GuestAccessManager(Dendrite):
             last_authz = answer['authorizations'][-1]
             mac = answer['mac']
             vlan_id = answer['vlan_id']
+            
+            # Authz not pending any more
+            self.synapse.srem('guest-request:authz_pending:{vlan}'.format(vlan=vlan_id), mac)
+            
             if last_authz['type'] == 'approval':
-                nac.allowMAC(mac, vlan_id, till_date=dateutil.parser.parse(last_authz['end_authorization']))
+                if last_authz['end_authorization']:
+                    till_date=dateutil.parser.parse(last_authz['end_authorization'])
+                else:
+                    till_date=None
+                nac.allowMAC(mac, vlan_id, till_date=till_date)
             else:
                 nac.disallowMAC(mac, vlan_id)
             
