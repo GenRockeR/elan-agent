@@ -7,4 +7,4 @@ env PYTHONPATH=/origin/lib/python
 respawn
 respawn limit 10 5
 
-exec /origin/bin/nac_firewall_configurator
+exec /origin/bin/mac_authz_manager

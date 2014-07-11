@@ -9,7 +9,7 @@ test:
 	py.test
 
 .PHONY: install
-install: python freeradius firewall
+install: python freeradius authz
 
 .PHONY: freeradius
 freeradius:
@@ -32,7 +32,7 @@ python: origin/nac.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
   
-.PHONY: firewall
-firewall:
+.PHONY: authz
+authz:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m755 bin/firewall_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_firewall_configurator
+	install -m 755 bin/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
