@@ -100,13 +100,32 @@ class Synapse(redis.StrictRedis):
 
     # oredered sets
     def zadd(self, key, *args):
-        super(Synapse, self).zadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+        json_args = []
+
+        a=iter(args)
+        for score, value in zip(a,a):
+            json_args.append( score )
+            json_args.append( json.dumps(value, sort_keys=True) )
+        
+        super(Synapse, self).zadd(key, *json_args)
 
     def zrem(self, key, *args):
         super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def zmembers(self, key):
-        return set(json.loads(v) for v in super(Synapse, self).zrange(key, 0 -1))
+        return set(json.loads(v) for v in super(Synapse, self).zrange(key, 0, -1))
+
+    def zrange(self, key, begin, end, withscores=False):
+        if withscores:
+            return [(json.loads(v[0]), v[1]) for v in super(Synapse, self).zrange(key, begin, end, withscores=True)]
+        else:
+            return [json.loads(v) for v in super(Synapse, self).zrange(key, begin, end, withscores=False)]
+
+    def zrangebyscore(self, key, begin, end, withscores=False):
+        if withscores:
+            return [(json.loads(v[0]), v[1]) for v in super(Synapse, self).zrangebyscore(key, begin, end, withscores=True)]
+        else:
+            return [json.loads(v) for v in super(Synapse, self).zrangebyscore(key, begin, end, withscores=False)]
 
     # Lists
     def lmembers(self, key):
@@ -176,10 +195,12 @@ class Dendrite:
     POST_COUNTER_PATH = '{name}:post:counter'
     POST_ANSWER_PATH = '{name}:post:{id}'
     
-    def __init__(self, name, answer_cb=None, call_cb=None):
+    def __init__(self, name, answer_cb=None, call_cb=None, timeout_cb=None):
         self.name = name # self name used when communication with synapse.
-        self.channel_cb = [] # 2-tuple of (channel, callback)
+        self.channel_cb = {}
         self.synapse = Synapse()
+
+        self.timeout = 0 # used to timeout wait on channels
 
         def add_self_decorator(fn):
             def wrapper(*args, **kwargs):
@@ -190,13 +211,15 @@ class Dendrite:
             self.answer_cb = add_self_decorator(answer_cb)
         if call_cb:
             self.call_cb = add_self_decorator(call_cb)
+        if timeout_cb:
+            self.timeout_cb = add_self_decorator(timeout_cb)
 
         # add in order, first one higher priority
         self.add_channel(AXON_CALLS.format(name=self.name), self.call_cb)
         self.add_channel(AXON_ANSWERS.format(name=self.name), self.answer_cb)
 
     def add_channel(self, channel, cb):
-        self.channel_cb.append((channel, cb))
+        self.channel_cb[channel] = cb
     
     def answer_cb(self, path, answer):
         # might as well unsubscribe as we do nothing about it...
@@ -206,23 +229,31 @@ class Dendrite:
         # might as well unprovide as we do known what to do with it......
         self.unprovide(path)
 
+    def timeout_cb(self):
+        pass # to be overridden
+    
     def run_for_ever(self):
         while True:
-            channel, data = self.synapse.brpop([item[0] for item in self.channel_cb])
-            # Special cases for common channels call and answer 
-            if channel == AXON_CALLS.format(name=self.name):
-                path = data['path']
-                request = data['data']
-                answer = self.call_cb(path, request)
-                self._send_answer(req_id = data['req_id'], answer = answer)
-                
-            elif channel == AXON_ANSWERS.format(name=self.name):
-                path = data['path']
-                answer = data['data']
-                self.answer_cb(path, answer)
-                
+            tuple = self.synapse.brpop(self.channel_cb.keys(), self.timeout)
+            
+            if tuple is None: # Timeout
+                self.timeout_cb()
             else:
-                self.channel_cb[channel](data)
+                channel, data = tuple
+                # Special cases for common channels call and answer 
+                if channel == AXON_CALLS.format(name=self.name):
+                    path = data['path']
+                    request = data['data']
+                    answer = self.call_cb(path, request)
+                    self._send_answer(req_id = data['req_id'], answer = answer)
+                    
+                elif channel == AXON_ANSWERS.format(name=self.name):
+                    path = data['path']
+                    answer = data['data']
+                    self.answer_cb(path, answer)
+                # user added channels    
+                else:
+                    self.channel_cb[channel](data)
         
     def get_provided_services(self):
         services = set()
@@ -289,10 +320,23 @@ class Dendrite:
 def check_awaited_path(fn):
     def wrapper(axon, path, *args, **kwargs):
         fn(axon, path, *args, **kwargs)
+        
         def check_answered():
             if path in axon.awaited_paths:
+                # Reply to requesters from cache if possible:
+                retrievers = axon.synapse.smembers('synapse:retrievers:'+path)
+                if retrievers and axon.synapse.exists(CACHE_PREFIX + path):
+                    for answer_path in retrievers:
+                        axon._answer_requester( answer_path, 
+                                                data=axon.synapse.get(CACHE_PREFIX + path), 
+                                                path=path )
+                        axon.synapse.srem('synapse:retrievers:'+path, answer_path)
+                    
+                # force Resend request
                 kwargs['force_send'] = True
                 wrapper(axon, path, *args, **kwargs)
+        
+        # arm timeout
         tornado.ioloop.IOLoop.instance().add_timeout( datetime.timedelta(seconds=axon.RETRY_INTERVAL), check_answered)
         
     return wrapper
@@ -348,11 +392,7 @@ class Axon:
             self._ws_subscribe(data['path'])
         
         elif data['cmd'] == 'RETRIEVE':
-            #reply from cache if available!
-            if self.synapse.exists(CACHE_PREFIX + data['path']):
-                self._answer_requester( data['answer_path'], 
-                                        data=self.synapse.get(CACHE_PREFIX + data['path']), 
-                                        path=data['path'] )
+            self.synapse.sadd('synapse:retrievers:'+data['path'], data['answer_path'])
             self._ws_retrieve(data['path'])
         
         elif data['cmd'] == 'PROVIDE':
@@ -457,10 +497,17 @@ class Axon:
                 self.awaited_paths.discard(path)
         
                 if data != self.synapse.get(CACHE_PREFIX + path):
+                    # data modified: update cache and notify subscribers
                     self.synapse.set(CACHE_PREFIX + path, data)
                     
                     for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
                         self._answer_requester(answer_path, path=path, data=data)
+
+                # answer retrievers
+                for answer_path in self.synapse.smembers('synapse:retrievers:'+path):
+                    self._answer_requester(answer_path, path=path, data=data)
+                    self.synapse.srem('synapse:retrievers:'+path, answer_path)
+                    
             else:
                 # find answer path
                 answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
