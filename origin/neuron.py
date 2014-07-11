@@ -113,7 +113,10 @@ class Synapse(redis.StrictRedis):
         super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def zmembers(self, key):
-        return set(json.loads(v) for v in super(Synapse, self).zrange(key, 0, -1))
+        return self.zrange(key, 0, -1)
+
+    def zscore(self, key, value):
+        return super(Synapse, self).zscore(key, json.dumps(value, sort_keys=True))
 
     def zrange(self, key, begin, end, withscores=False):
         if withscores:
