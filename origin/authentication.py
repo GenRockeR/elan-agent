@@ -5,9 +5,11 @@ import time, subprocess, re
 from origin.neuron import Dendrite
 from mako.template import Template
 
+
+
 def pwd_authenticate(authenticator_id, user, pwd):
-    srv = Client(server="127.0.0.1", authport=18122, secret="a2e4t6u8qmlskdvcbxnw",
-                 dict=Dictionary("/origin/captive-portal/radius/dictionary"))
+    srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
+                 dict=Dictionary("/origin/authentication/pyradius/dictionary"))
     
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
               User_Name=user, Connect_Info='authenticator={}'.format(authenticator_id) )
@@ -15,8 +17,12 @@ def pwd_authenticate(authenticator_id, user, pwd):
     
     reply = srv.SendPacket(req)
     
+    if 'Reply-Message' in reply:
+        # TODO: this should send event to CC loggin the fact there was an error...
+        # This does not always mean authentication failed (in an auth group the following auth provider may have succeeded) 
+        pass
+    
     return reply.code == pyrad.packet.AccessAccept
-
 
 class AuthenticationProvider(Dendrite):
     
@@ -105,6 +111,14 @@ class AuthenticationProvider(Dendrite):
                             ldap-auth-{id} {{
                                 fail = 1
                             }}
+                            if(fail) {{
+                                update reply {{
+                                    Reply-Message += &Module-Failure-Message
+                                }}
+                                update request {{
+                                    Module-Failure-Message !* ''
+                                }}
+                            }}
                         }}
                     '''.format(**provider_conf)
                     # also notify that we provide this auth
@@ -124,10 +138,18 @@ class AuthenticationProvider(Dendrite):
                     if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
                         inner_case += '''
                         update reply {{
-                            &Origin-Auth-Provider := ${id}
+                            &Origin-Auth-Provider := {id}
                         }}
                         ldap-auth-{id} {{
                             fail = 1
+                        }}
+                        if(fail) {{
+                            update reply {{
+                                Reply-Message += &Module-Failure-Message
+                            }}
+                            update request {{
+                                Module-Failure-Message !* ''
+                            }}
                         }}
                         '''.format(**provider_conf)
                     else:

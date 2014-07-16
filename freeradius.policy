@@ -1,4 +1,7 @@
 authentications.authorize {
+            update request {
+                Module-Failure-Message !* ''
+            }
             switch &Origin-Auth-Provider {
               
               ${inner_switch}

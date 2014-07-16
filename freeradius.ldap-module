@@ -15,14 +15,18 @@ ldap ldap-auth-${id} {
 
   update {
     control:Password-With-Header  += 'userPassword'
-    control:NT-Password   := 'ntPassword'
-    control:NT-Password   := 'sambaNTPassword'
+    control:NT-Password   += 'ntPassword'
+    control:NT-Password   += 'sambaNTPassword'
   }
 
   user {
     base_dn = <%text>"${..base_dn}"</%text>
 
-    filter = "(${UserAttr}=%{%{Stripped-User-Name}:-%{User-Name}})"
+    % if userFilter:
+    filter = "(&(${userAttr}=%{%{Stripped-User-Name}:-%{User-Name}})(${userFilter}))"
+    % else:
+    filter = "(${userAttr}=%{%{Stripped-User-Name}:-%{User-Name}})"
+    % endif
 
     scope = 'sub'
   }
@@ -31,8 +35,8 @@ ldap ldap-auth-${id} {
     base_dn = <%text>"${..base_dn}"</%text>
     filter = "(objectClass=posixGroup)"
     scope = 'sub'
-#   name_attribute = cn
-#   membership_filter = "(|(member=%{control:Ldap-UserDn})(memberUid=%{%{Stripped-User-Name}:-%{User-Name}}))"
+    name_attribute = cn
+    membership_filter = "(|(member=%{control:Ldap-UserDn})(memberUid=%{%{Stripped-User-Name}:-%{User-Name}}))"
     membership_attribute = "memberOf"
   }
   
