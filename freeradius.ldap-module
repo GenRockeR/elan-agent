@@ -38,6 +38,11 @@ ldap ldap-auth-${id} {
     name_attribute = cn
     membership_filter = "(|(member=%{control:Ldap-UserDn})(memberUid=%{%{Stripped-User-Name}:-%{User-Name}}))"
     membership_attribute = "memberOf"
+    
+    # Cache group name
+    cacheable_name = "yes"
+    cacheable_dn = "no"
+    cache_attribute = "Origin-Group"  # wait for 3.0.4
   }
   
   profile {
@@ -63,33 +68,9 @@ ldap ldap-auth-${id} {
   read_clients = no
 
   accounting {
-    reference = "%{tolower:type.%{Acct-Status-Type}}"
-
-    type {
-      start {
-        update {
-          description := "Online at %S"
-        }
-      }
-
-      interim-update {
-        update {
-          description := "Last seen at %S"
-        }
-      }
-
-      stop {
-        update {
-          description := "Offline at %S"
-        }
-      }
-    }
   }
 
   post-auth {
-    update {
-      description := "Authenticated at %S"
-    }
   }
 
   options {
