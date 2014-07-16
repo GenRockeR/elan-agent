@@ -44,6 +44,4 @@ www:
 	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/radius
-	install -m 644 pyrad.dictionary ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/radius/dictionary
   
