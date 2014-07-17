@@ -101,28 +101,29 @@ class AuthenticationProvider(Dendrite):
                     # we do not have all the info to generate conf file, abort
                     return
                 provider_conf = self.provider_confs[ provider['id'] ]
-                if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
-                    module_conf += "\n" + ldap_template.render(**provider_conf)
-                    inner_switch_server_conf += '''
-                        case {id} {{
-                            update reply {{
-                                &Origin-Auth-Provider := {id}
-                            }}
-                            ldap-auth-{id} {{
-                                fail = 1
-                            }}
-                            if(fail) {{
+                if provider_conf['type'] == 'LDAP':
+                    if self.agent_id in provider_conf['agents']:
+                        module_conf += "\n" + ldap_template.render(**provider_conf)
+                        inner_switch_server_conf += '''
+                            case {id} {{
                                 update reply {{
-                                    Reply-Message += &Module-Failure-Message
+                                    &Origin-Auth-Provider := {id}
                                 }}
-                                update request {{
-                                    Module-Failure-Message !* ''
+                                ldap-auth-{id} {{
+                                    fail = 1
+                                }}
+                                if(fail) {{
+                                    update reply {{
+                                        Reply-Message += &Module-Failure-Message
+                                    }}
+                                    update request {{
+                                        Module-Failure-Message !* ''
+                                    }}
                                 }}
                             }}
-                        }}
-                    '''.format(**provider_conf)
-                    # also notify that we provide this auth
-                    new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=provider['id']) )
+                        '''.format(**provider_conf)
+                        # also notify that we provide this auth
+                        new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=provider['id']) )
             for group in self.groups:
                 if group['id'] not in self.group_authentications:
                     # wait until we get the info
@@ -168,6 +169,12 @@ class AuthenticationProvider(Dendrite):
                 module_file.write( module_conf )
             with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
                 policy_file.write( policy_template.render(inner_switch=inner_switch_server_conf) )
+            
+            # CAs
+            for provider in self.provider_confs.values():
+                if provider.get('server_ca', None):
+                    with open ("/etc/freeradius/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
+                        server_ca_file.write(provider['server_ca'])
     
             # unprovide
             for service_path in self.get_provided_services() - new_provided_services:

@@ -86,13 +86,23 @@ ldap ldap-auth-${id} {
     ldap_debug = 0x0028
   }
   tls {
-#   start_tls = yes
-#   ca_file = <%text>${certdir}/cacert.pem</%text>
+  % if encryption == 'start_tls':
+    start_tls = yes
+  % else:
+    start_tls = no
+  % endif
+  
+  % if server_ca and (encryption == 'start_tls' or encryption == 'ssl'):
+    ca_file = /etc/freeradius/certs/server_CA/auth-${id}.pem
+    require_cert  = "demand"
+  % else:
+    require_cert  = "allow"
+  % endif
+
 #   ca_path = <%text>${certdir}</%text>
 #   certificate_file = /path/to/radius.crt
 #   private_key_file = /path/to/radius.key
 #   random_file = <%text>${certdir}/random</%text>
-#   require_cert  = "demand"
   }
 
   pool {
