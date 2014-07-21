@@ -4,6 +4,7 @@ DHCP_NFLOG_QUEUE = 5
 
 from pydhcplib.dhcp_packet import DhcpPacket
 import struct
+from origin.neuron import Synapse
 
 def getData(pkt_obj):
     if pkt_obj.__class__.__name__ == 'Data':
@@ -50,19 +51,29 @@ def getDhcpOptions(dhcp_data_obj):
 
     return options
 
-def isNewFingerprint(fps, opts):
-    mac = opts['mac']
-    if (mac in fps and fps[mac] != opts) or (mac not in fps):
-        fps[mac] = opts
-        return True
-    return False
-
-def isNewHostname(hostnames, opts):
-    mac = opts['mac']
-    if (mac in hostnames and hostnames[mac] != opts['hostname']) or (mac not in hostnames):
-        hostnames[mac] = opts['hostname']
-        return True
-    return False
+class TrackedDHCPOptions():
+    REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
+    synapse = Synapse()
+    
+    @classmethod
+    def isNewFingerprint(cls, mac, options):
+        key = 'dhcp:fingerprint:{mac}'.format(mac=mac)
+        if cls.synapse.get(key) == options:
+            cls.synapse.expire(key, cls.REDIS_LIFETIME)
+            return False
+        else:
+            cls.synapse.set(key, options, ex=cls.REDIS_LIFETIME)
+            return True
+        
+    @classmethod
+    def isNewHostname(cls, mac, hostname):
+        key = 'dhcp:hostname:{mac}'.format(mac=mac)
+        if cls.synapse.get(key) == hostname:
+            cls.synapse.expire(key, cls.REDIS_LIFETIME)
+            return False
+        else:
+            cls.synapse.set(key, hostname, ex=cls.REDIS_LIFETIME)
+            return True
 
 
 if __name__ == '__main__':
@@ -71,9 +82,6 @@ if __name__ == '__main__':
     from origin.neuron import Dendrite
     from impacket.ImpactDecoder import EthDecoder
     
-    fingerprints = {}
-    post_pool = ()
-        
     dendrite = Dendrite('dhcp-tracker')
 
     nflog = origin.libnflog_cffi.NFLOG().generator(DHCP_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
@@ -90,12 +98,14 @@ if __name__ == '__main__':
             pkt_data_obj = getData(pkt_obj)
             options = getDhcpOptions(pkt_data_obj)
 
-            if 'hostname' in options:
-                if isNewHostname(hostnames, options):
-                    dendrite.post('device/dhcp-name', {'mac': options['mac'], 'name': options['hostname']})
+            mac = options.get('mac')
+            hostname = options.get('hostname', None)
+            if hostname:
+                if TrackedDHCPOptions.isNewHostname(mac, hostname):
+                    dendrite.post('device/dhcp-name', {'mac': mac, 'name': hostname})
                 del options['hostname'] # delete it so it does not get posted with fingerprint
 
-            if 'fingerprint' in options and isNewFingerprint(fingerprints, options):
+            if 'fingerprint' in options and TrackedDHCPOptions.isNewFingerprint(mac, options):
                 dendrite.post('device/dhcp-fingerprint', options)
 
         except Exception as e:
