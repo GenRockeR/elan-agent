@@ -11,10 +11,12 @@ table bridge origin {
   
   chain input {
     type filter hook input priority -200;
+    iifname != "eth0" log group 10
   }
   
   chain forward { 
     type filter hook forward priority -200;
+    iifname != "eth0" log group 10
     iif eth0 accept 
     
     oif eth0 ether type 0x0806 accept
