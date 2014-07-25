@@ -90,10 +90,10 @@ class Synapse(redis.StrictRedis):
         return super(Synapse, self).sismember(key, json.dumps(value, sort_keys=True))
 
     def sadd(self, key, *args):
-        super(Synapse, self).sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
 
     def srem(self, key, *args):
-        super(Synapse, self).srem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).srem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def smembers(self, key):
         return set(json.loads(v) for v in super(Synapse, self).smembers(key))
@@ -107,10 +107,10 @@ class Synapse(redis.StrictRedis):
             json_args.append( score )
             json_args.append( json.dumps(value, sort_keys=True) )
         
-        super(Synapse, self).zadd(key, *json_args)
+        return super(Synapse, self).zadd(key, *json_args)
 
     def zrem(self, key, *args):
-        super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
         
     def zmembers(self, key):
         return self.zrange(key, 0, -1)
@@ -135,7 +135,7 @@ class Synapse(redis.StrictRedis):
         return [json.loads(v) for v in super(Synapse, self).lrange(key, 0, -1)]
 
     def lpush(self, key, *args):
-        super(Synapse, self).lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
     
     def lpop(self, key):
         data = super(Synapse, self).lpop(key)
@@ -150,7 +150,7 @@ class Synapse(redis.StrictRedis):
         return (data[0], json.loads(data[1]))
 
     def rpush(self, key, *args):
-        super(Synapse, self).rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
     
     def rpop(self, key):
         data = super(Synapse, self).rpop(key)
@@ -269,6 +269,13 @@ class Dendrite:
         
     def post(self, path, data):
         '''
+            POST and forget
+        '''
+        self.call(path, data)
+
+
+    def sync_post(self, path, data):
+        '''
             Synchronious POST
             Will block until an answer is received
         '''
@@ -300,12 +307,16 @@ class Dendrite:
         self._send_command(cmd='SUBSCRIBE', path=path)
 
     def provide(self, path):
-        self._send_command(cmd='PROVIDE', path=path)
+        self._send_command(cmd='PROVIDE', path=path, answer_path=AXON_CALLS.format(name=self.name))
 
     def unprovide(self, path):
         self._send_command(cmd='UNPROVIDE', path=path)
 
     def call(self, path, data, answer_path=None):
+        ''' 
+            POST data to path
+            if answer_path is None, No answer will be sent  back to requester, but will retry to send it on failure
+        '''
         self._send_command(cmd='CALL', path=path, data=data, answer_path=answer_path)
 
     def answer(self, req_id, answer):
@@ -346,7 +357,7 @@ def check_awaited_path(fn):
 
 
 class Axon:
-    RETRY_INTERVAL = 5 #seconds
+    RETRY_INTERVAL = 30 #seconds
 
     def __init__(self, url='ws://127.0.0.1:8000/ws'):
         self.url = url
@@ -407,8 +418,10 @@ class Axon:
             self._ws_unprovide(data['path'])
 
         elif data['cmd'] == 'CALL':
+            # TODO: track Calls to resend then in case of failure (connection pb, etc...)
             track_id = self.synapse.incr('axon:track_counter')
-            self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=POST_TIMEOUT) #If answer takes over POST_TIMEOUT sec, ignore it...
+            if data['answer_path']:
+                self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=POST_TIMEOUT) #If answer takes over POST_TIMEOUT sec, ignore it...
             self._ws_call(data['path'], track_id, data['data'])
             
             
@@ -444,13 +457,7 @@ class Axon:
         
     def _open_cc_ws(self):    
         #ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(self.url), self.ws_open_cb)
-        tornado.ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(
-                tornado.httpclient.HTTPRequest(
-                       self.url,
-                       headers = { 'Authorization': 'Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84'
-                       }
-                )),
-                self.ws_open_done)
+        tornado.ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(tornado.httpclient.HTTPRequest(self.url)), self.ws_open_done)
 
     @tornado.gen.coroutine
     def ws_open_done(self, future):
@@ -519,12 +526,12 @@ class Axon:
 
 
         elif command == 'CALL': # Ignore if no callback was defined
-            provider = self.synapse.hget('synapse:providers', path)
-            if provider:
-                self._call_provider(provider, track_id, path, data)
+            provider_path = self.synapse.hget('synapse:providers', path)
+            if provider_path:
+                self._call_provider(provider_path, track_id, path, data)
 
-    def _call_provider(self, provider, req_id, path, data):
-        self.synapse.lpush( AXON_CALLS.format(name=provider), dict(data=data, req_id=req_id, path=path) )
+    def _call_provider(self, provider_path, req_id, path, data):
+        self.synapse.lpush( provider_path, dict(data=data, req_id=req_id, path=path) )
     
     def run(self):
         tornado.ioloop.IOLoop.instance().start()
