@@ -1,0 +1,11 @@
+description "DHCP fingerprinter and Host gatherer"
+
+start on started access-control
+stop on stopping access-control
+
+respawn
+respawn limit 10 5
+
+env PYTHONPATH=/origin/lib/python
+
+exec /origin/bin/device-trackerd

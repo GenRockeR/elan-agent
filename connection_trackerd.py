@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-POST_EVERY_X_CONNECTIONS = 100
-POST_EVERY_X_SECONDS = 60
- 
-
 def getPacketParams(packet, direction):
     """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
     """

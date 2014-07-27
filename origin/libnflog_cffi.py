@@ -186,7 +186,14 @@ class NFLOG(object):
                         elif attr == 'prefix':
                             prefix = self.nflog_get_prefix(nfad, no_check=True)
                             result.append(self.ffi.string(prefix)[:])
-                        else: raise NotImplementedError('Unknown nflog attribute: {}'.format(attr))
+                        elif attr == 'indev':
+                            indev = self.nflog_get_indev(nfad, no_check=True)
+                            result.append(indev)
+                        elif attr == 'physindev':
+                            physindev = self.nflog_get_physindev(nfad, no_check=True)
+                            result.append(physindev)
+                        else:
+                            raise NotImplementedError('Unknown nflog attribute: {}'.format(attr))
                 cb_results.append(result)
             except:
                 cb_results.append(StopIteration) # breaks the generator
