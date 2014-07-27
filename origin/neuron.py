@@ -198,12 +198,13 @@ class Dendrite:
     POST_COUNTER_PATH = '{name}:post:counter'
     POST_ANSWER_PATH = '{name}:post:{id}'
     
-    def __init__(self, name, answer_cb=None, call_cb=None, timeout_cb=None):
+    #TODO: Once everything runs on python3, replace this by asyncio loop
+
+    def __init__(self, name, answer_cb=None, call_cb=None, timeout_cb=None, timeout=0):
         self.name = name # self name used when communication with synapse.
         self.channel_cb = {}
         self.synapse = Synapse()
-
-        self.timeout = 0 # used to timeout wait on channels
+        self.timeout = timeout # used to timeout wait on channels
 
         def add_self_decorator(fn):
             def wrapper(*args, **kwargs):
