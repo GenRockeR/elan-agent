@@ -20,20 +20,12 @@ def macAuthz(mac, vlan):
     s = Synapse()
     return datetime.datetime.fromtimestamp(s.zscore(ALLOWED_MACS_PATH_PATTERN.format(vlan=vlan), mac)),  s.ismember(DISALLOWED_MACS_ON_DISCONNECT_PATH_PATTERN.format(vlan=vlan), mac)
 
-def allowMAC(mac, vlan, till_date=None, disallow_mac_on_disconnect=None):
+def allowMAC(mac, vlan, till_date=None, disallow_mac_on_disconnect=False):
     '''
         Allow Mac on VLAN.
-        if none of till_date and disallow_mac_on_disconnect present, default is to disallow mac on disconnect
-        if till_date and disallow_mac_on_disconnect not present, MAC will not be disallowed on disconnection
         if both, till_date and disallow_mac_on_disconnect, first one that occurs disallow mac.
         till_date MUST be a timezone AWARE datetime
     '''
-    if disallow_mac_on_disconnect is None:
-        if till_date is None:
-            disallow_mac_on_disconnect = True
-        else:
-            disallow_mac_on_disconnect = False
-    
     params = { 'mac' : mac, 'vlan': vlan, 'action': 'allow', 'disallow_mac_on_disconnect': disallow_mac_on_disconnect }
     if till_date:
         params['till_date'] = tzaware_datetime_to_epoch(till_date) # Pass as EPOCH
