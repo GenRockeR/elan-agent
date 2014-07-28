@@ -82,16 +82,16 @@ def check_session(dendrite):
 
     # Expire all objects
     # Don't send expire if object level up has expire as it will be done on its own
-    mac_expired = set()
-    vlan_expired = set()
-    ip_expired = set()
+    mac_expired = []
+    vlan_expired = []
+    ip_expired = []
     for obj in synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER):
         if 'ip' in obj:
-            ip_expired.add(obj)
+            ip_expired.append(obj)
         elif 'vlan' in obj:
-            vlan_expired.add(obj)
+            vlan_expired.append(obj)
         else:
-            mac_expired.add(obj)
+            mac_expired.append(obj)
 
     for obj in ip_expired:
         if {'mac': obj['mac'], 'vlan': obj['vlan']} not in vlan_expired and {'mac': obj['mac']} not in mac_expired:
@@ -113,7 +113,7 @@ def check_session(dendrite):
             pass # Can not ping a MAC without an IP. MAC, VLAN are just there to know that the session has ended...
         
     # Set Timeout for next  check
-    dendrite.timeout = getSecondsBeforeNextCheck(dendrite.now)
+    dendrite.timeout = getSecondsBeforeNextCheck(now)
     
 
 def process_notification(dendrite):
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     import datetime, time, traceback
     from origin.neuron import Dendrite
     
-    dendrite = Dendrite('session-tracker', timeout_cb=check_session)
+    dendrite = Dendrite('session-tracker', timeout_cb=check_session, timeout=1) # make it run almost straight away
     dendrite.add_channel(SESSION_NOTIFICATION_PATH, process_notification)
     
     count = 0
