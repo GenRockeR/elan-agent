@@ -113,19 +113,20 @@ if __name__ == '__main__':
             args = [ now, dict(mac=pkt_params['mac']), 
                      now, dict(mac=pkt_params['mac'],vlan=pkt_params['vlan'])
                    ]
+            
+            use_ip = False
             if 'ip' in pkt_params and not ignoreIP(pkt_params['ip']):
-                args.extend( (now, pkt_params) )
+                    use_ip = True
+                    args.extend( (now, pkt_params) )
             
             nb_added = dendrite.synapse.zadd(LAST_SEEN_PATH, *args)
             
             if nb_added: # new session(s) created: inform Control Center
                 now_str = datetime.datetime.utcfromtimestamp(now).strftime('%Y-%m-%dT%H:%M:%SZ')
-                print ('session starting ' + now_str + 'for', pkt_params)
-                if 'ip' not in pkt_params:
-                    # Vlan Session Created 
-                    dendrite.post('mac/{mac}/session/current/vlan/{vlan}'.format(**pkt_params), {'start': now_str})
-                else:
+                if use_ip:
                     dendrite.post('mac/{mac}/session/current/vlan/{vlan}/current/ip/{ip}'.format(**pkt_params), {'start': now_str})
+                else:
+                    dendrite.post('mac/{mac}/session/current/vlan/{vlan}'.format(**pkt_params), {'start': now_str})
 
         except:
             traceback.print_exc()
