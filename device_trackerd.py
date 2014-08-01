@@ -87,10 +87,11 @@ if __name__ == '__main__':
     import signal
     import datetime
     import traceback
-    from origin.neuron import Dendrite
+    from origin.neuron import Synapse
+    from origin import session
     from impacket.ImpactDecoder import EthDecoder
     
-    dendrite = Dendrite('device-tracker')
+    synapse = Synapse()
 
     nflog = origin.libnflog_cffi.NFLOG().generator(NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'physindev'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
@@ -119,14 +120,13 @@ if __name__ == '__main__':
                     use_ip = True
                     args.extend( (now, pkt_params) )
             
-            nb_added = dendrite.synapse.zadd(LAST_SEEN_PATH, *args)
+            nb_added = synapse.zadd(LAST_SEEN_PATH, *args)
             
             if nb_added: # new session(s) created: inform Control Center
-                now_str = datetime.datetime.utcfromtimestamp(now).strftime('%Y-%m-%dT%H:%M:%SZ')
                 if use_ip:
-                    dendrite.post('mac/{mac}/session/current/vlan/{vlan}/current/ip/{ip}'.format(**pkt_params), {'start': now_str})
+                    session.start_IP_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], start=now)
                 else:
-                    dendrite.post('mac/{mac}/session/current/vlan/{vlan}'.format(**pkt_params), {'start': now_str})
+                    session.start_VLAN_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], start=now)
 
         except:
             traceback.print_exc()
