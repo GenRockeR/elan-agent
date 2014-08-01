@@ -1,22 +1,21 @@
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect
-import subprocess, re
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
-import socket
-import fcntl
-import struct
+from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending
-from origin.neuron import Synapse, Dendrite
+from origin.neuron import Synapse
 from origin.authentication import pwd_authenticate
-from origin import nac
+from origin.utils import get_ip4_address, ip4_to_mac
+from origin import nac, session
+import datetime
 
 def requirePortalURL(fn):
     '''
     View decorator to make sure url used is the one of the agent and not the target URL 
     '''
     def wrapper(request, *args, **kwargs):
-        agent_ip = get_ip_address('br0')
+        agent_ip = get_ip4_address('br0')
         if str(get_current_site(request)) != agent_ip:
             return HttpResponseRedirect( 'http://' + agent_ip)
         return fn(request, *args, **kwargs)
@@ -32,7 +31,7 @@ def redirect2status(request):
 @never_cache
 def status(request):
     clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip2mac(clientIP)
+    clientMAC = ip4_to_mac(clientIP)
     if not nac.macAllowed(clientMAC, request.META['vlan_id']):
         return redirect('login')
     
@@ -46,7 +45,7 @@ def status(request):
 @requirePortalURL
 def login(request):
     clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip2mac(clientIP)
+    clientMAC = ip4_to_mac(clientIP)
     vlan_id = request.META['vlan_id']
     
     if nac.macAllowed(clientMAC, vlan_id):
@@ -61,29 +60,35 @@ def login(request):
               'web_authentication': web_authentication,
             }
     
-    if request.method == 'POST':
-        try:
-            username = request.POST['username']
-            password = request.POST['password']
-        except (KeyError):
-            # Redisplay the login form.
-            context['error_message'] = "'username' or 'password' missing."
-            return render(request, 'captive-portal/login.html', context )
-        
-        context['username'] = username
-        if not pwd_authenticate(web_authentication, username, password):
-            context['error_message'] = "Invalid username or password."
-            return render(request, 'captive-portal/login.html', context)
+    if request.method != 'POST':
+        return render(request, 'captive-portal/login.html', context)
     
-        nac.allowMAC(clientMAC, vlan_id)
-        return redirect('status')
+    # POST
+    try:
+        username = request.POST['username']
+        password = request.POST['password']
+    except (KeyError):
+        # Redisplay the login form.
+        context['error_message'] = _("'username' or 'password' missing.")
+        return render(request, 'captive-portal/login.html', context )
+    
+    context['username'] = username
+    if not pwd_authenticate(web_authentication, username, password):
+        context['error_message'] = _("Invalid username or password.")
+        return render(request, 'captive-portal/login.html', context)
 
-    return render(request, 'captive-portal/login.html', context)
+    # start session
+    # TODO: use effective auth_provider, this one could be a group 
+    session.start_authorization_session(mac=clientMAC, vlan=vlan_id, type='web', login=username, authentication_provider=web_authentication, till_disconnect=True)
+    nac.allowMAC(clientMAC, vlan_id, disallow_mac_on_disconnect=True)
+    
+    return redirect('status')
+
 
 @requirePortalURL
 def logout(request):
     clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip2mac(clientIP)
+    clientMAC = ip4_to_mac(clientIP)
     nac.disallowMAC(clientMAC, request.META['vlan_id'])
     
     return redirect('login')
@@ -96,7 +101,7 @@ def guest_access(request):
     vlan = request.META['vlan'] # cc agent vlan *object* ID
     guest_access = request.META['guest_access'] 
     clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip2mac(clientIP)
+    clientMAC = ip4_to_mac(clientIP)
     synapse = Synapse()
 
     # Guest access fields
@@ -113,19 +118,4 @@ def guest_access(request):
 
     return redirect('status')
 
-
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', bytes(ifname[:15], encoding='utf8'))
-    )[20:24])
-    
-def ip2mac(ip):
-    p = subprocess.Popen(['ip','neigh', 'show', ip], stdout=subprocess.PIPE)
-    output = str(p.communicate()[0])
-    m = re.search(r'[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]', output)
-    if m:
-        return str(m.group(0))
 

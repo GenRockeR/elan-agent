@@ -9,11 +9,11 @@ GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
 def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
     d = GuestAccessManager()
-    r = d.post('guest-request', request)
+    r = d.sync_post('guest-request', request)
     request_id = r['id']
     
     d.synapse.sadd('guest-request:authz_pending:{vlan}'.format(vlan=r['vlan_id']),request['mac'])
-    d.synapse.rpush('guest-request:mac_request:'+request['mac'], request_id)
+    #d.synapse.rpush('guest-request:mac_request:'+request['mac'], request_id)
     
     # Subscribe to any changes
     d.subscribe('guest-request/' + request_id)
@@ -37,12 +37,12 @@ class GuestAccessManager(Dendrite):
             # Authz not pending any more
             self.synapse.srem('guest-request:authz_pending:{vlan}'.format(vlan=vlan_id), mac)
             
-            if last_authz['type'] == 'approval':
+            if not last_authz['end']:
                 if last_authz['end_authorization']:
                     till_date=dateutil.parser.parse(last_authz['end_authorization'])
                 else:
                     till_date=None
                 nac.allowMAC(mac, vlan_id, till_date=till_date)
-            else:
-                nac.disallowMAC(mac, vlan_id)
+            elif last_authz['termination_reason'] == 'revoked':
+                nac.disallowMAC(mac, vlan_id, reason='revoked')
             
