@@ -2,6 +2,7 @@
 
 import sys, subprocess, time, os, socket, fcntl, struct
 from origin.neuron import Dendrite
+from origin.utils import get_ip4_address, get_ip6_address
 from mako.template import Template
 
 class AccessControlConfigurator(Dendrite):
@@ -78,8 +79,8 @@ class AccessControlConfigurator(Dendrite):
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol udp --ip6-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
             
-            ip = get_ip_address('br0')
-            ip6 = '2a01:e34:ee2e:e2a0:76ea:3aff:fe80:5e1'
+            ip = get_ip4_address('br0')
+            ip6 = get_ip6_address('br0')
             
             with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
                 nft_file.write('flush chain ip origin captive_portal\n')
@@ -143,14 +144,6 @@ add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
         if cmd:
             subprocess.call(cmd, shell=True)
 
-# Temp Hack
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack( '256s', bytes(ifname[:15], encoding='utf8') )
-    )[20:24])
 
 if __name__ == "__main__":
     conf = AccessControlConfigurator()
