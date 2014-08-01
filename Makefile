@@ -9,7 +9,7 @@ test:
 	
 
 .PHONY: install
-install: conf www freeradius python
+install: conf www python
 
 python: origin/captive_portal.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
@@ -21,13 +21,6 @@ conf:
 	install -m 755 bin/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
 	install -m 755 bin/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
     
-.PHONY: freeradius
-freeradius:
-	install -d ${DESTDIR}/etc/freeradius/sites-available
-	install -d ${DESTDIR}/etc/freeradius/sites-enabled
-	install -m644 freeradius.server ${DESTDIR}/etc/freeradius/sites-available/captive-portal
-	ln -s ../sites-available/captive-portal ${DESTDIR}/etc/freeradius/sites-enabled
-
 .PHONY: www
 www:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal
