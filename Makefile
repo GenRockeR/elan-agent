@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netiface
+PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces
 
 include ../core/packaging.mk
 

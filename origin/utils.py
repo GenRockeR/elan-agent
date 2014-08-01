@@ -1,4 +1,4 @@
-import netifaces
+import netifaces, subprocess, re
 
 def get_ip6_address(if_name):
     ''' returns first ip6 address found as string, None if not found'''
