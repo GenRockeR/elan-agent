@@ -419,13 +419,34 @@ class Axon:
             self._ws_unprovide(data['path'])
 
         elif data['cmd'] == 'CALL':
-            # TODO: track Calls to resend then in case of failure (connection pb, etc...)
-            track_id = self.synapse.incr('axon:track_counter')
+            track_id = str(self.synapse.incr('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
             if data['answer_path']:
+                # TODO: maybe calls (ie sync posts) should be HTTP directly no added value here to go through websocket, except maybe to use cache when no answer or WS down?
                 self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=POST_TIMEOUT) #If answer takes over POST_TIMEOUT sec, ignore it...
-            self._ws_call(data['path'], track_id, data['data'])
-            
-            
+                self._ws_call(data['path'], track_id, data['data'])
+            else:
+                # it is our responsibility to get and answer
+                self.synapse.hset('axon:awaited_post_answers:data', track_id, data['data'])
+                self.synapse.hset('axon:awaited_post_answers:path', track_id, data['path'])
+                self.synapse.zadd('axon:awaited_post_answers', track_id, track_id) # use sorted set so that track_ids are ordered...
+                self._check_post_answered(track_id)
+
+    def _check_post_answered(self, track_id):
+        if self.ws:
+            # if websocket closed, retrieval will be make on opening of ws....
+            if self.synapse.zscore('axon:awaited_post_answers', track_id):
+                # still waiting for answer...
+                self._ws_call(
+                          self.synapse.hget('axon:awaited_post_answers:path', track_id), 
+                          track_id, 
+                          self.synapse.hget('axon:awaited_post_answers:data', track_id)
+                )
+                
+                def check_post_answered():
+                    self._check_post_answered(track_id)
+                
+                tornado.ioloop.IOLoop.instance().add_timeout( datetime.timedelta(seconds=self.RETRY_INTERVAL), check_post_answered)
+                
     @check_awaited_path
     def _ws_subscribe(self, path, force_send = False):
         if path not in self.subscriptions or force_send:
@@ -472,11 +493,13 @@ class Axon:
             # TODO subscribe to all that needs subscribed...
             #self.subscribe('agent/3/vlans')
             #self.subscribe('agent/')
-            for key in self.synapse.keys('synapse:subscribers:*'):
+            for key in self.synapse.keys('synapse:subscribers:*'): # register subscriptions
                 path = key.replace('synapse:subscribers:', '')
                 self._ws_subscribe(path, force_send=True)
-            for path in self.synapse.hgetall('synapse:providers'):
+            for path in self.synapse.hgetall('synapse:providers'): # register what we provide
                 self._ws_provide(path, force_send=True)
+            for track_id in self.synapse.zrange('axon:awaited_post_answers', 0, -1): # send waiting posts
+                self._check_post_answered(track_id)
                 
             while True:
                 try:
@@ -520,6 +543,11 @@ class Axon:
                     self.synapse.srem('synapse:retrievers:'+path, answer_path)
                     
             else:
+                # remove from awaited POSTS
+                self.synapse.zrem('axon:awaited_post_answers', track_id) 
+                self.synapse.hdel('axon:awaited_post_answers:data', track_id)
+                self.synapse.hdel('axon:awaited_post_answers:path', track_id)
+
                 # find answer path
                 answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
                 if answer_path:
