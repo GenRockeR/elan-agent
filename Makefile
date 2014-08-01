@@ -28,4 +28,9 @@ freeradius:
 	install -m 755 bin/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
 	install -m 644 pyrad.dictionary ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
+	install -d ${DESTDIR}/etc/freeradius/sites-available
+	install -d ${DESTDIR}/etc/freeradius/sites-enabled
+	install -m 644 freeradius.server ${DESTDIR}/etc/freeradius/sites-available/authentication
+	ln -s ../sites-available/authentication ${DESTDIR}/etc/freeradius/sites-enabled
+
 
