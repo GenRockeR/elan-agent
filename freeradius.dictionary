@@ -2,5 +2,5 @@ ATTRIBUTE Origin-Auth-Type        3601  string
 ATTRIBUTE Origin-Auth-Provider    3602  string
 ATTRIBUTE Origin-MAC              3603  string
 ATTRIBUTE Origin-VLAN-ID          3604  string
-ATTRIBUTE Origin-Authenticated    3605  string
+ATTRIBUTE Origin-Authorized       3605  string
 ATTRIBUTE Origin-Group            3606  string

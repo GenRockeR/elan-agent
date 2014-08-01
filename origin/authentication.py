@@ -18,8 +18,10 @@ def pwd_authenticate(authenticator_id, user, pwd):
     reply = srv.SendPacket(req)
     
     if 'Reply-Message' in reply:
-        # TODO: this should send event to CC loggin the fact there was an error...
-        # This does not always mean authentication failed (in an auth group the following auth provider may have succeeded) 
+        # TODO: this should send event to CC login the fact there was an error...
+        # This does not always mean authentication failed (in an auth group the following auth provider may have succeeded)
+        # Or do this directly from FR....
+        # TODO: In reply Message (or other ?), there should be the the auth provider ID that will be returned by this function... None in case of failure !   
         pass
     
     return reply.code == pyrad.packet.AccessAccept
