@@ -14,4 +14,4 @@ pre-start script
   echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/7
 end script
 
-exec  /origin/bin/start_stop_access-control
+exec  /origin/bin/access-control-configurator

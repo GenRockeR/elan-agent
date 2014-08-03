@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, subprocess, time, os, socket, fcntl, struct
+import subprocess, time, os
 from origin.neuron import Dendrite
 from origin.utils import get_ip4_address, get_ip6_address
 from mako.template import Template
@@ -75,10 +75,12 @@ class AccessControlConfigurator(Dendrite):
             ebt_file = '/tmp/ea-network-ebt-{id}' . format(id=os.getpid())
             
             cmd += 'ebtables -t nat --atomic-file {} --atomic-init;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 67 -j mark --set-mark 10067;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-source-port 68 --ip-destination-port 67 -j mark --set-mark 10067;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-source fe80::0/10 --ip6-destination ff02::1:2 --ip6-protocol udp --ip6-source-port 546 --ip6-destination-port 547 -j mark --set-mark 10067;'.format(ebt_file)
+            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol ipv6-icmp --ip6-icmp-type router-solicitation -j mark --set-mark 10067;'.format(ebt_file)
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol udp --ip6-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
-            
+           
             ip = get_ip4_address('br0')
             ip6 = get_ip6_address('br0')
             
@@ -106,11 +108,11 @@ class AccessControlConfigurator(Dendrite):
 
                         nft_file.write('add rule bridge origin allowed_macs iif {nic} ether saddr @a_v_{vlan} accept\n'.format(nic=nic, vlan=vlan_id))
                         for family in ['ip', 'ip6']:
-                            nft_file.write('add rule {family} origin allowed_macs mark {vlan} ether saddr @a_v_{vlan} accept\n'.format(family=family, nic=nic, vlan=vlan_id))
+                            nft_file.write('add rule {family} origin allowed_macs mark {mark} ether saddr @a_v_{vlan} accept\n'.format(family=family, nic=nic, vlan=vlan_id, mark=vlan_id+1000))
                         
                         # configure captive portal if access control is enabled
                         if new_vlans[vlan_id]['web_authentication'] or new_vlans[vlan_id]['guest_access']:
-                            cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id)
+                            cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id+1000)
                             nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
 add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
 '''.format(mark = vlan_id, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))

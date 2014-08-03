@@ -27,6 +27,14 @@ table bridge origin {
     
     oif eth0 iif @dhcp_pt_ifs mark 10067 accept
     oif eth0 iif @dns_pt_ifs mark 10053 accept
+    
+    #oif eth0 iif @dhcp_pt_ifs ip protocol udp udp sport bootpc udp dport bootps accept
+    #oif eth0 iif @dhcp_pt_ifs ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server accept
+    #oif eth0 iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-router-solicit accept
+
+    #oif eth0 iif @dns_pt_ifs ip protocol udp udp dport domain accept
+    #oif eth0 iif @dns_pt_ifs ip6 nexthdr udp udp dport domain accept
+
     oif eth0 iif @ac_ifs drop
 
     oif eth0 accept
