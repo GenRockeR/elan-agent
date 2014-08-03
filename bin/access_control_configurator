@@ -115,7 +115,7 @@ class AccessControlConfigurator(Dendrite):
                             cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id+1000)
                             nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
 add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
-'''.format(mark = vlan_id, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))
+'''.format(mark = vlan_id+1000, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))
 
                         # configure DHCP passthrough
                         if new_vlans[vlan_id]['dhcp_passthrough']:
