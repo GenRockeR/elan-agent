@@ -9,11 +9,6 @@ table bridge origin {
   chain allowed_macs  { 
   }
   
-  chain input {
-    type filter hook input priority -200;
-    iifname != "eth0" log group 10
-  }
-  
   chain forward { 
     type filter hook forward priority -200;
 
