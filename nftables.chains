@@ -16,10 +16,11 @@ table bridge origin {
   
   chain forward { 
     type filter hook forward priority -200;
-    iifname != "eth0" log group 10
+
     iif eth0 accept 
     
     oif eth0 ether type 0x0806 accept
+    oif eth0 iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-neighbor-solicit accept
 
     oif eth0 jump global_ac
 
