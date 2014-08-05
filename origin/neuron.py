@@ -490,9 +490,6 @@ class Axon:
             result=future.result()
             self.ws = result
             
-            # TODO subscribe to all that needs subscribed...
-            #self.subscribe('agent/3/vlans')
-            #self.subscribe('agent/')
             for key in self.synapse.keys('synapse:subscribers:*'): # register subscriptions
                 path = key.replace('synapse:subscribers:', '')
                 self._ws_subscribe(path, force_send=True)
