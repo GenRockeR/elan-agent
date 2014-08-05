@@ -1,32 +1,10 @@
 #!/usr/bin/env python
+from origin.utils import if_indextoname
+import os
 
-NFLOG_QUEUE = 10
+DEVICE_NFLOG_QUEUE = int(os.environ.get('DEVICE_NFLOG_QUEUE', 10))
 LAST_SEEN_PATH = 'device:last_seen' # TODO factorize somewhere
 
-import ctypes
-import ctypes.util
- 
-libc = ctypes.CDLL(ctypes.util.find_library('c'))
- 
-def if_nametoindex (name):
-    if not isinstance (name, str):
-        raise TypeError ('name must be a string.')
-    ret = libc.if_nametoindex (name)
-    if not ret:
-        raise RuntimeError("Invalid Name")
-    return ret
-     
-def if_indextoname (index):
-    if not isinstance (index, int):
-        raise TypeError ('index must be an int.')
-    libc.if_indextoname.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
-    libc.if_indextoname.restype = ctypes.c_char_p
-     
-    ifname = ctypes.create_string_buffer (32)
-    ifname = libc.if_indextoname (index, ifname)
-    if not ifname:
-        raise RuntimeError ("Inavlid Index")
-    return ifname
 
 def getPacketParams(packet):
     '''
@@ -93,7 +71,7 @@ if __name__ == '__main__':
     
     synapse = Synapse()
 
-    nflog = origin.libnflog_cffi.NFLOG().generator(NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'physindev'], nlbufsiz=2**24, handle_overflows = False)
+    nflog = origin.libnflog_cffi.NFLOG().generator(DEVICE_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'physindev'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
     
     decoder = EthDecoder()

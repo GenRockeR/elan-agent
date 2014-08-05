@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import os
+
+CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))
 
 def getPacketParams(packet, direction):
     """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
@@ -85,23 +88,32 @@ if __name__ == '__main__':
     import signal
     from origin.neuron import Dendrite
     from impacket.ImpactDecoder import EthDecoder
-    
+    from origin.utils  import if_indextoname
+
     dendrite = Dendrite('connection-tracker')
 
-    nflog = origin.libnflog_cffi.NFLOG().generator(0, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
+    nflog = origin.libnflog_cffi.NFLOG().generator(CONNECTION_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix', 'physindev'], nlbufsiz=2**24, handle_overflows = False)
     fd = next(nflog)
     
     decoder = EthDecoder()
     
      
-    for pkt, hwhdr, direction  in nflog:
+    for pkt, hwhdr, direction, physindev  in nflog:
         try:
             pkt_obj = decoder.decode(hwhdr + pkt)
             pkt_params = getPacketParams(pkt_obj, direction)
+
             if not ignorePacket(pkt_params):
                 # TODO: Use NFLOG time
                 pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+                pkt_params['vlan'] = 0
+                iface = if_indextoname(physindev)
+                if '.' in iface:
+                    pkt_params['vlan'] = iface.split('.')[1]
+
                 dendrite.post('connection', pkt_params)
+
         except Exception as e:
             # TODO: notify error to central manager...
             print 'Exception: ', type(e), e

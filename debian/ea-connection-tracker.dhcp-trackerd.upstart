@@ -7,15 +7,16 @@ respawn
 respawn limit 10 5
 
 env PYTHONPATH=/origin/lib/python
+env DHCP_NFLOG_QUEUE=15
 
 exec /origin/bin/dhcp-trackerd
 
 pre-start script
 	# eth0 is wan interface
 	# eth1 is lan interface
-	if ! iptables-save | grep -q -- '-A *FORWARD *-p *udp *-m *physdev *--physdev-is-bridged *-m *udp *--dport *67 *-j *NFLOG *--nflog-group *5'
+	if ! iptables-save | grep -q -- "-A *FORWARD *-p *udp *-m *physdev *--physdev-is-bridged *-m *udp *--dport *67 *-j *NFLOG *--nflog-group *$DHCP_NFLOG_QUEUE"
 	then
     # we are only interested in client DHCP requests
-		iptables -I FORWARD -m physdev --physdev-is-bridged --protocol udp --dport 67 -j NFLOG --nflog-group 5
+		iptables -I FORWARD -m physdev --physdev-is-bridged --protocol udp --dport 67 -j NFLOG --nflog-group $DHCP_NFLOG_QUEUE
 	fi
 end script

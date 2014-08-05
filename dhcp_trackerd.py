@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+import os
 
-DHCP_NFLOG_QUEUE = 5
+DHCP_NFLOG_QUEUE = int(os.environ.get('DHCP_NFLOG_QUEUE', 15))
 
 from pydhcplib.dhcp_packet import DhcpPacket
 import struct
