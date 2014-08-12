@@ -5,6 +5,9 @@ from origin.neuron import Dendrite
 from origin.utils import get_ip4_address, get_ip6_address
 from mako.template import Template
 
+STATUS_IP = '8.8.8.8'
+STATUS_IP6 = '2001:41d0:2:ba47::1000:1000'
+
 class AccessControlConfigurator(Dendrite):
     internalNIC = 'eth1'
     bridge = 'br0'
@@ -18,18 +21,28 @@ class AccessControlConfigurator(Dendrite):
         self.active = None
         self.vlans = {} # vlans by Vlan-ID
         
-        # Retrieve Agent ID...
-        self.retrieve('agent/self')
+        if not self.is_registered():            
+            # Retrieve Agent ID... once registered
+            self.retrieve('agent/self')
+            # DEFAULT CONF
+            self.vlans[0] = {'access_control': False} # just so that once registered, this knows it has untagged vlan configured
+            cmd = 'brctl addif {bridge} {nic};'.format(bridge=self.bridge, nic=self.internalNIC)
+            subprocess.call(cmd, shell=True)
+        else:
+            self._init_subscriptions()
+            
+    def _init_subscriptions(self):
+        self.agent_path = 'agent/' + self.synapse.get('agent:id')
+        self.subscribe(self.agent_path)
+        # get vlans to configure them.
+        self.vlans_path = self.agent_path + '/vlans'
+        self.subscribe(self.vlans_path)
 
     def answer_cb(self, path, conf):
         # subscribe to our conf updates
         cmd = ''
         if path == 'agent/self':
-            self.agent_path = path.replace('/self', '/' + str(conf['id']), 1)
-            self.subscribe(self.agent_path)
-            # get vlans to configure them.
-            self.vlans_path = self.agent_path + '/vlans'
-            self.subscribe(self.vlans_path)
+            self._init_subscriptions()
 
         elif self.agent_path and path == self.agent_path:
             # Only do something if access_control has changed....
@@ -87,9 +100,13 @@ class AccessControlConfigurator(Dendrite):
             with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
                 nft_file.write('flush chain ip origin captive_portal\n')
                 nft_file.write('flush chain ip6 origin captive_portal\n')
+                
+                # Agent Status
+                nft_file.write('add rule ip  origin captive_portal ip  daddr {status_ip} dnat {ip}\n'.format(ip=ip, status_ip=STATUS_IP))
+                nft_file.write('add rule ip6 origin captive_portal ip6 daddr {status_ip} dnat {ip}\n'.format(ip=ip6, status_ip=STATUS_IP6))
 
-                nft_file.write('add rule ip origin captive_portal ip daddr != {ip} jump allowed_macs\n'.format(ip=ip))
-                #nft_file.write('add rule ip6 origin captive_portal ip6 daddr != {ip6} jump allowed_macs\n'.format(ip=ip6))
+                nft_file.write('add rule ip  origin captive_portal ip  daddr != {ip}  jump allowed_macs\n'.format(ip=ip))
+                nft_file.write('add rule ip6 origin captive_portal ip6 daddr != {ip} jump allowed_macs\n'.format(ip=ip6))
                 
                 for family in ['bridge', 'ip', 'ip6']:
                     nft_file.write('flush chain {} origin allowed_macs\n'.format(family))
@@ -115,6 +132,8 @@ class AccessControlConfigurator(Dendrite):
                             cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id+1000)
                             nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
 add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
+add rule ip6 origin captive_portal tcp dport 80 mark {mark} dnat {ip6}:{http}
+add rule ip6 origin captive_portal tcp dport 443 mark {mark} dnat {ip6}:{https}
 '''.format(mark = vlan_id+1000, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))
 
                         # configure DHCP passthrough

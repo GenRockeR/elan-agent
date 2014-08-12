@@ -2,10 +2,29 @@ upstream portal {
     server unix:///var/run/captive-portal/uwsgi.sock;
 }
 
+server {
+
+    listen 0.0.0.0:80;
+    listen [::]:80;
+    server_name dashboard;
+
+    # no need for logs
+    access_log off;
+    
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    location / {
+      uwsgi_pass portal;
+      include uwsgi_params;
+    }
+}
+
 % for vlan_id in vlans:
 server {
 
     listen 0.0.0.0:${vlan_id + 20000};
+    listen [::]:${vlan_id + 20000};
     server_name captive-portal;
 
     # Disable keep-alives: once authenticated the browser may reuse the connection when going to the initial site.
