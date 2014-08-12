@@ -1,0 +1,197 @@
+{% extends 'captive-portal/base_bootstrap.html' %}
+{% load i18n %}
+
+{% block body_header %}<h1>Origin Nexus <small>Edge Agent Dashboard</small></h1>{% endblock %}
+
+{% block body_main %}
+  <div class="container">
+    <div class="row">
+
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+
+          <div class="panel-heading">{% trans "Status" %}</div>
+
+          <ul class="list-group">
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not is_connected %}
+                          {% trans 'Disconnected' %}
+                        {% elif is_registered %}
+                          {% trans 'Connected' %}
+                        {% else %}
+                          {% trans 'Connected but Not Registered' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "Control Center Connection" %}
+              <span class="fa {% spaceless %}
+                        {% if not is_connected %}
+                          fa-warning text-danger pull-right
+                        {% elif is_registered %}
+                          fa-circle text-success pull-right
+                        {% else %}
+                          fa-warning text-warning
+                        {% endif%}
+                    {% endspaceless %} pull-right">
+              </span>
+            </li>
+
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not wan_up %}
+                          {% trans 'Disconnected' %}
+                        {% elif ipsv4 or ipsv6 %}
+                          {% trans 'Connected' %}
+                        {% else %}
+                          {% trans 'Connected but No IP' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "WAN Connection (Internet)" %}
+              <span class="fa {% spaceless %}
+                        {% if not wan_up %}
+                          fa-warning text-danger
+                        {% elif ipsv4 or ipsv6 %}
+                          fa-circle text-success
+                        {% else %}
+                          fa-warning text-warning
+                        {% endif%}
+                   {% endspaceless %} pull-right">
+               </span>
+            </li>
+            
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not lan_up %}
+                          {% trans 'Disconnected' %}
+                        {% else %}
+                          {% trans 'Connected' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "LAN Connection (Local Network)" %}
+              <span class="fa {% spaceless %}
+                        {% if not lan_up %}
+                          fa-warning text-danger
+                        {% else %}
+                          fa-circle text-success
+                        {% endif %}
+                    {% endspaceless %} pull-right">
+              </span>
+            </li>
+          </ul>
+
+        </div>
+      </div>
+
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% if is_registered %}
+              {% trans 'Administrator Login' %}
+            {% else %}
+              {% trans 'Register' %}
+            {% endif %}
+          </div>
+          
+          <div class="panel-body">
+            {% if not is_connected and not is_registered %}
+            <div class="alert alert-warning" role="alert">
+              {% trans 'Registration requires an IP address and to be connected with the Control Center.' %}
+            </div>
+            {% endif %}
+            {% if 'all_fields' in registration_errors %}
+            <div class="alert alert-danger" role="alert">
+              <ul class="list-unstyled"> 
+                {% for msg in registration_errors.all_fields %}
+                <li>{{msg}}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            <form class="form-horizontal" role="form" method="post">
+              {% csrf_token %}
+              {% if not is_registered %}
+              <div class="form-group{% if 'location' in registration_errors %} has-error{% endif %}">
+                <label for="inputLocation" class="col-sm-3 control-label">{% trans 'Location' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="inputLocation" name="location" value="{{location}}" required>
+                  {% for msg in registration_errors.location %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group{% if 'default_secret' in registration_errors %} has-error{% endif %}">
+                <label for="inputSecret" class="col-sm-3 control-label small">{% trans 'Default Secret' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="inputSecret" name="default_secret">
+                  {% for msg in registration_errors.default_secret %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              <div class="form-group{% if 'account' in registration_errors or 'login' in registration_errors%} has-error{% endif %}">
+                <label for="inputLogin" class="col-sm-3 control-label">{% trans 'Login' %}</label>
+                <div class="col-sm-9">
+                  <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required>
+                  {% for msg in registration_errors.account %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                  {% for msg in registration_errors.login %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group{% if 'password' in registration_errors %} has-error{% endif %}">
+                <label for="inputPassword" class="col-sm-3 control-label">{% trans 'Password' %}</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" required>
+                  {% for msg in registration_errors.password %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="col-sm-offset-3 col-sm-9">
+                  <button type="submit" class="btn btn-default" {% if not is_connected and not is_registered %}disabled{% endif %}>Sign in</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>            
+      </div>
+    </div>
+
+    {% if not is_registered or is_loggedin %}
+    <div class="row">
+
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% trans 'IPv4 Configuration' %}
+          </div>
+          <div class="panel-body">
+            {% for ip in ipsv4 %}
+            <span class="badge">{{ip}}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% trans 'IPv6 Configuration' %}
+          </div>
+          <div class="panel-body">
+            {% for ip in ipsv6 %}
+            <span class="badge">{{ip}}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+    {% endif %}
+
+  </div>
+
+
+{% endblock %}
+

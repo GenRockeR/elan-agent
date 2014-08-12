@@ -6,5 +6,6 @@ urlpatterns = patterns('',
     url(r'^logout$', views.logout, name='logout' ),
     url(r'^status$', views.status, name='status' ),
     url(r'^guest-access$', views.guest_access, name='guest-access' ),
+    url(r'^dashboard$', views.dashboard, name='dashboard' ),
     url(r'', views.redirect2status ),
 )

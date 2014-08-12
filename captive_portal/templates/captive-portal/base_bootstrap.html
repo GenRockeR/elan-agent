@@ -25,12 +25,12 @@
 
 {% block body %}
 <body>
-  {% block bodytop %}
+  {% block body_top %}
   <div class="container">
     <div class="row">
       <div class="col-md-12">
         <div class="page-header">
-          <h1>Origin Nexus <small>Captive Portal</small></h1>
+          {% block body_header %}<h1>Origin Nexus <small>Captive Portal</small></h1>{% endblock %}
         </div>
       </div>
     </div>
