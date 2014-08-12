@@ -81,5 +81,3 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.file'
-SESSION_SAVE_EVERY_REQUEST = True
-SESSION_COOKIE_AGE = 300

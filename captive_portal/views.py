@@ -9,6 +9,8 @@ from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_address, ip4_to_mac, is_iface_up
 from origin import nac, session, utils
 
+ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
+
 def requirePortalURL(fn):
     '''
     View decorator to make sure url used is the one of the agent and not the target URL 
@@ -118,6 +120,24 @@ def guest_access(request):
 
     return redirect('status')
 
+
+# Session function helpers
+def admin_session_login(session, login):
+    session['admin'] = login
+    session.set_expiry(ADMIN_SESSION_IDLE_TIMEOUT)
+
+def admin_session_logout(session):
+    del session['admin']
+    session.set_expiry(None)
+
+def save_session_decorator(fn):
+    def wrapper(request, *args, **kwargs):
+        request.session.modified = True
+        return fn(request, *args, **kwargs)
+    return wrapper
+
+
+@save_session_decorator
 def dashboard(request, context={}):
     context.update(
                is_connected = Axon.is_connected(),
@@ -135,11 +155,11 @@ def dashboard(request, context={}):
     return render(request, 'captive-portal/dashboard.html', context)
 
 def admin_logout(request):
-    del request.session['admin']
-    request.session.flush()
+    admin_session_logout(request.session)
     
     return redirect('dashboard')
-    
+
+
 def admin_login(request):
     if request.method != 'POST':
         return redirect('dashboard')
@@ -157,7 +177,7 @@ def admin_login(request):
                 context['errors'] = context['field_errors']['__all__']
         else:
             # Registration succeeded -> redirect to same to avoid repost
-            request.session['admin'] = post_dict['login']
+            admin_session_login(request.session, post_dict['login'])
             return redirect('dashboard')
     else:
         # Authenticate admin
@@ -165,7 +185,7 @@ def admin_login(request):
         if login:
             admin = Administrator.get(login)
             if admin and admin.check_password(request.POST.get('password', None)):
-                request.session['admin'] = login
+                admin_session_login(request.session, login)
                 return redirect('dashboard')
         
         context['errors'] = [_('Invalid Credentials')]
