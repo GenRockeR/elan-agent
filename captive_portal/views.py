@@ -127,8 +127,8 @@ def admin_session_login(session, login):
     session.set_expiry(ADMIN_SESSION_IDLE_TIMEOUT)
 
 def admin_session_logout(session):
-    del session['admin']
-    session.set_expiry(None)
+    session.clear()
+    session.flush()
 
 def save_admin_session_decorator(fn):
     def wrapper(request, *args, **kwargs):

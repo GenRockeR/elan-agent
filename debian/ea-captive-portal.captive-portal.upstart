@@ -10,6 +10,8 @@ respawn limit 10 5
 pre-start script
   mkdir -p /var/run/captive-portal
   chown www-data:www-data /var/run/captive-portal
+  mkdir -p /tmp/captive-portal/sessions
+  chown -R www-data:www-data /tmp/captive-portal
 end script
 
 exec uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
