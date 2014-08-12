@@ -130,14 +130,15 @@ def admin_session_logout(session):
     del session['admin']
     session.set_expiry(None)
 
-def save_session_decorator(fn):
+def save_admin_session_decorator(fn):
     def wrapper(request, *args, **kwargs):
-        request.session.modified = True
+        if request.session.get('admin', None):
+            request.session.modified = True
         return fn(request, *args, **kwargs)
     return wrapper
 
 
-@save_session_decorator
+@save_admin_session_decorator
 def dashboard(request, context={}):
     context.update(
                is_connected = Axon.is_connected(),
