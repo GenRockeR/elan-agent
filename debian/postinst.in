@@ -1,0 +1,2 @@
+perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
+  
