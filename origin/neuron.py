@@ -18,9 +18,10 @@ class Synapse(redis.StrictRedis):
     '''
         Wrapper to Redis that JSON en/decodes all values
     '''
-    # REDIS: Wrapper for redis connection that encodes and decodes object using JSON
+    pool = redis.ConnectionPool(decode_responses=True)
+    
     def __init__(self):
-        super(Synapse, self).__init__(decode_responses=True)
+        super(Synapse, self).__init__(connection_pool=self.pool)
 
     def get(self, key):
         ''' returns JSON decoded object in key '''
@@ -470,7 +471,7 @@ class Axon:
                 
     def process_answer(self, req_id, answer):
         self._ws_send('ANSWER {id}\n{answer}'.format(id=req_id, answer=json.dumps(answer)))
-              
+            
     def process_command(self, data):
         if data['cmd'] == 'SUBSCRIBE':
             self.synapse.sadd('synapse:subscribers:'+data['path'], data['answer_path'])
@@ -558,8 +559,7 @@ class Axon:
         self.synapse.lpush(answer_path, data)
         
     def _open_cc_ws(self):    
-        #ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(self.url), self.ws_open_cb)
-        tornado.ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(tornado.httpclient.HTTPRequest(self.url)), self.ws_open_done)
+        tornado.ioloop.IOLoop.instance().add_future(tornado.websocket.websocket_connect(self.url), self.ws_open_done)
 
     @tornado.gen.coroutine
     def ws_open_done(self, future):
