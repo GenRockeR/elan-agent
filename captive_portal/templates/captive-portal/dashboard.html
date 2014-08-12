@@ -79,6 +79,7 @@
         </div>
       </div>
 
+      {% if not is_admin %}
       <div class="col-sm-7">
         <div class="panel panel-default">
           <div class="panel-heading">
@@ -95,70 +96,76 @@
               {% trans 'Registration requires an IP address and to be connected with the Control Center.' %}
             </div>
             {% endif %}
-            {% if 'all_fields' in registration_errors %}
+            {% if errors %}
             <div class="alert alert-danger" role="alert">
               <ul class="list-unstyled"> 
-                {% for msg in registration_errors.all_fields %}
+                {% for msg in errors %}
                 <li>{{msg}}</li>
                 {% endfor %}
               </ul>
             </div>
             {% endif %}
-            <form class="form-horizontal" role="form" method="post">
+            <form class="form-horizontal" role="form" method="post" action="{% url 'admin-login' %}">
               {% csrf_token %}
               {% if not is_registered %}
-              <div class="form-group{% if 'location' in registration_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'location' in field_errors %} has-error{% endif %}">
                 <label for="inputLocation" class="col-sm-3 control-label">{% trans 'Location' %}</label>
                 <div class="col-sm-9">
                   <input type="text" class="form-control" id="inputLocation" name="location" value="{{location}}" required>
-                  {% for msg in registration_errors.location %}                 
+                  {% for msg in field_errors.location %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
-              <div class="form-group{% if 'default_secret' in registration_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'default_secret' in field_errors %} has-error{% endif %}">
                 <label for="inputSecret" class="col-sm-3 control-label small">{% trans 'Default Secret' %}</label>
                 <div class="col-sm-9">
-                  <input type="text" class="form-control" id="inputSecret" name="default_secret">
-                  {% for msg in registration_errors.default_secret %}                 
+                  <input type="text" class="form-control" id="inputSecret" name="default_secret" value={{default_secret}}>
+                  {% for msg in field_errors.default_secret %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
               {% endif %}
-              <div class="form-group{% if 'account' in registration_errors or 'login' in registration_errors%} has-error{% endif %}">
+              <div class="form-group{% if 'account' in field_errors or 'login' in field_errors%} has-error{% endif %}">
                 <label for="inputLogin" class="col-sm-3 control-label">{% trans 'Login' %}</label>
                 <div class="col-sm-9">
-                  <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required>
-                  {% for msg in registration_errors.account %}                 
+                  <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required  value={{login}}>
+                  {% for msg in field_errors.account %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
-                  {% for msg in registration_errors.login %}                 
+                  {% for msg in field_errors.login %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
-              <div class="form-group{% if 'password' in registration_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'account' in field_errors or 'password' in field_errors %} has-error{% endif %}">
                 <label for="inputPassword" class="col-sm-3 control-label">{% trans 'Password' %}</label>
                 <div class="col-sm-9">
                   <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" required>
-                  {% for msg in registration_errors.password %}                 
+                  {% for msg in field_errors.password %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
               <div class="form-group">
                 <div class="col-sm-offset-3 col-sm-9">
-                  <button type="submit" class="btn btn-default" {% if not is_connected and not is_registered %}disabled{% endif %}>Sign in</button>
+                  <button type="submit" class="btn btn-default">{% trans 'Sign in' %}</button>
                 </div>
               </div>
             </form>
           </div>
         </div>            
       </div>
+      {% else %}
+      <div class="col-sm-offset-6 col-sm-1">
+        <a href="{% url 'admin-logout' %}" class='btn btn-default'>{% trans 'Logout' %}</a>
+      </div>
+      {% endif %}
+
     </div>
 
-    {% if not is_registered or is_loggedin %}
+    {% if not is_registered or is_admin %}
     <div class="row">
 
       <div class="col-sm-5">

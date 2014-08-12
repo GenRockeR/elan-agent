@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
-from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending
+from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator
 from origin.neuron import Synapse, Axon, Dendrite
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_address, ip4_to_mac, is_iface_up
@@ -118,33 +118,57 @@ def guest_access(request):
 
     return redirect('status')
 
-def dashboard(request):
-    context = {}
-    
-    if request.method == 'POST':
-        if not Axon.is_registered():
-            dendrite = Dendrite('dashboard')
-            response = dendrite.sync_register(
-                          { k:request.POST.get(k, '') for k in ('location', 'login', 'password', 'radius_secret') }
-            )
-            if response['error']:
-                context.update(registration_errors = response['data'])
-                if '__all__' in context['registration_errors']:
-                    # Template Engine does not like variable sstart with doubl eunderscore (__)
-                    context['registration_errors']['all_fields'] = context['registration_errors']['__all__']
-        else:
-            # TODO: Login ...
-            pass
-    
+def dashboard(request, context={}):
     context.update(
                is_connected = Axon.is_connected(),
+               is_admin = bool(request.session.get('admin', False)),
                wan_up = is_iface_up('eth0'),
                lan_up = is_iface_up('eth1'),
                is_registered = Axon.is_registered(),
-               location = Axon.agent_location() or '',
                ipsv4 = [utils.get_ip4_address('br0')],
                ipsv6 = utils.get_ip6_global_addresses('br0')
-   )
+    )
+    if not context.get('location', ''):
+        context['location'] = Axon.agent_location() or ''
+
     
     return render(request, 'captive-portal/dashboard.html', context)
+
+def admin_logout(request):
+    del request.session['admin']
+    request.session.flush()
     
+    return redirect('dashboard')
+    
+def admin_login(request):
+    if request.method != 'POST':
+        return redirect('dashboard')
+
+    context = {}                    
+    post_dict = request.POST.dict()
+
+    if not Axon.is_registered():
+        dendrite = Dendrite('dashboard')
+        response = dendrite.sync_register(post_dict)
+        if response['error']:
+            context.update(field_errors = response['data'])
+            if '__all__' in context['field_errors']:
+                # Template Engine does not like variables starting with double underscores (__)
+                context['errors'] = context['field_errors']['__all__']
+        else:
+            # Registration succeeded -> redirect to same to avoid repost
+            request.session['admin'] = post_dict['login']
+            return redirect('dashboard')
+    else:
+        # Authenticate admin
+        login = post_dict.get('login', None)
+        if login:
+            admin = Administrator.get(login)
+            if admin and admin.check_password(request.POST.get('password', None)):
+                request.session['admin'] = login
+                return redirect('dashboard')
+        
+        context['errors'] = [_('Invalid Credentials')]
+
+    context.update(**post_dict)
+    return dashboard(request, context)

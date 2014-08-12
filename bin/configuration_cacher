@@ -2,7 +2,7 @@
 
 import time
 from origin.neuron import Dendrite
-from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH
+from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH, Administrator
 
 def conf_updated(dendrite, path, data):
     if path == 'captive-portal':
@@ -11,10 +11,15 @@ def conf_updated(dendrite, path, data):
     elif path == 'guest-access':
         for profile in data:
             dendrite.synapse.hset(GUEST_ACCESS_CONF_PATH, profile['id'], profile)
-
+    elif path == 'administrator':
+        Administrator.delete_all()
+        for profile in data:
+            Administrator.add(**profile)
+            
 conf = Dendrite('captive-portal', answer_cb = conf_updated)
 conf.subscribe('captive-portal')
 conf.subscribe('guest-access')
+conf.subscribe('administrator')
 
 count = 1
 while count < 100:

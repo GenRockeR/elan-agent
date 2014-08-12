@@ -1,10 +1,8 @@
 from origin.neuron import Dendrite, Synapse
 from origin import nac
-import dateutil.parser
 
 CONF_PATH = 'conf:captive-portal'
 GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
-
 
 def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
@@ -24,6 +22,39 @@ def submit_guest_request(request):
 def is_authz_pending(mac, vlan):
     return Synapse().sismember('guest-request:authz_pending:{vlan}'.format(vlan=vlan), mac)
 
+class Administrator:
+    ADMINISTRATOR_CONF_PATH = 'conf:administrator'
+    synapse = Synapse()
+    @classmethod
+    def get(cls, login):
+        params = cls.synapse.hget(cls.ADMINISTRATOR_CONF_PATH, login)
+        if not params:
+            return None
+        return cls(login=login, **params)
+    
+    @classmethod
+    def add(cls, **kwargs):
+        if 'email' in kwargs and 'password' in kwargs:
+            login = kwargs.pop('email')
+            cls.synapse.hset(cls.ADMINISTRATOR_CONF_PATH, login, kwargs)
+            return True
+        return False
+
+    @classmethod
+    def delete_all(cls):
+        cls.synapse.delete(cls.ADMINISTRATOR_CONF_PATH)
+
+
+    def __init__(self, login, password, **kwargs):
+        self.login = login
+        self.password = password
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+        
+    def check_password(self, password):
+        from django.contrib.auth.hashers import check_password
+        return check_password(password, self.password)
+        
 class GuestAccessManager(Dendrite):
     def __init__(self):
         super().__init__('guest-access-manager')
@@ -39,6 +70,7 @@ class GuestAccessManager(Dendrite):
             
             if not last_authz['end']:
                 if last_authz['end_authorization']:
+                    import dateutil.parser
                     till_date=dateutil.parser.parse(last_authz['end_authorization'])
                 else:
                     till_date=None
