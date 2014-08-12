@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces
+PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, linux-image-3.15.8-031508-generic, linux-headers-3.15.8-031508-generic
 
 include ../core/packaging.mk
 
@@ -35,9 +35,7 @@ pylib: tornadoredis tornado redis pyrad
 
 .PHONY: nginx
 nginx:
-	install -d ${DESTDIR}/etc/init
-	install -m 644 nginx.init ${DESTDIR}/etc/init/nginx.conf
-	install -d ${DESTDIR}/etc/nginx/sites-available
-	install -m 644 nginx.site.synapse ${DESTDIR}/etc/nginx/sites-available/synapse
 	install -d ${DESTDIR}/etc/nginx/sites-enabled
-	ln -s ../sites-available/synapse ${DESTDIR}/etc/nginx/sites-enabled/synapse
+	ln -s ../sites-available/axon ${DESTDIR}/etc/nginx/sites-enabled/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/nginx
+	install -m 644 nginx.site.axon ${DESTDIR}${ORIGIN_PREFIX}/core/nginx/axon

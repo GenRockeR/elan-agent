@@ -10,3 +10,7 @@ env PYTHONPATH=/origin/lib/python
 
 exec /origin/bin/axon
 
+post-stop script
+  # Make sure to mark WS disconnected....
+  python3 -c 'from origin.neuron import Axon; Axon.redis_set_disconnected()'
+end script

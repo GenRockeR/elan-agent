@@ -7,3 +7,12 @@ if [ "$1" = install ] || [ "$1" = upgrade ]; then
 	fi
 fi
 # End automatically added section
+# Automatically added by dh_installinit
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+	if [ -e "/etc/init.d/nginx" ] && [ -L "/etc/init.d/nginx" ] \
+	   && [ $(readlink -f "/etc/init.d/nginx") = /lib/init/upstart-job ]
+	then
+		rm -f "/etc/init.d/nginx"
+	fi
+fi
+# End automatically added section

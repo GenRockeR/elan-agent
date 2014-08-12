@@ -8,7 +8,18 @@ def get_ip6_address(if_name):
         return netifaces.ifaddresses(if_name)[netifaces.AF_INET6][0]['addr']
     except (KeyError, IndexError):
         return None
-    
+
+def get_ip6_addresses(if_name):
+    ''' returns first ip6 address found as string, None if not found'''
+    try:
+        return { iface['addr'] for iface in netifaces.ifaddresses(if_name)[netifaces.AF_INET6] }
+    except (KeyError, IndexError):
+        return set()
+
+def get_ip6_global_addresses(if_name):
+    ''' returns first ip6 address found as string, None if not found'''
+    return { addr for addr in get_ip6_addresses(if_name) if not addr.startswith('fe80') }
+
 def get_ip4_address(if_name):
     ''' returns first ip4 address found as string, None if not found'''
     try:
@@ -51,3 +62,11 @@ def if_indextoname(index):
     if not ifname:
         raise RuntimeError ("Inavlid Index")
     return ifname
+
+def is_iface_up(iface):
+    try:
+        with open('/sys/class/net/{iface}/operstate'.format(iface=iface)) as file:
+            state = file.read().replace('\n', '')
+    except IOError:
+        return False
+    return state == 'up'

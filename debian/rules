@@ -1,5 +1,6 @@
 #!/usr/bin/make -f
 override_dh_installinit:
 	dh_installinit --name=axon
+	dh_installinit --name=nginx
 %:
 	dh $@

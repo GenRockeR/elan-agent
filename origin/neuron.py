@@ -11,7 +11,8 @@ DENDRITE_ANSWERS = 'synapse:answers'
 AXON_ANSWERS = 'axon:answers:{name}'
 AXON_CALLS = 'axon:calls:{name}'
 
-POST_TIMEOUT = 60
+CALL_TIMEOUT = 60 # seconds
+SYNC_CALL_TIMEOUT = 40 #seconds
 
 class Synapse(redis.StrictRedis):
     '''
@@ -222,6 +223,9 @@ class Dendrite:
         self.add_channel(AXON_CALLS.format(name=self.name), self.call_cb)
         self.add_channel(AXON_ANSWERS.format(name=self.name), self.answer_cb)
 
+    def is_registered(self):
+        return Axon.is_registered()
+
     def add_channel(self, channel, cb):
         self.channel_cb[channel] = cb
     
@@ -275,7 +279,7 @@ class Dendrite:
         self.call(path, data)
 
 
-    def sync_post(self, path, data):
+    def sync_post(self, path, data, timeout=SYNC_CALL_TIMEOUT):
         '''
             Synchronious POST
             Will block until an answer is received
@@ -284,10 +288,30 @@ class Dendrite:
         post_id = self.synapse.incr(post_counter_path)
         answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
         self.call(path, data, answer_path)
-        answer_tuple = self.synapse.brpop(answer_path, POST_TIMEOUT)
-        if answer_tuple:
+        answer_tuple = self.synapse.brpop(answer_path, timeout)
+        if answer_tuple and not answer_tuple[1]['error']:
             return answer_tuple[1]['data']
+        # TODO: raise exception with error
     
+    def sync_register(self, data, timeout=SYNC_CALL_TIMEOUT):
+        '''
+            Synchronious POST
+            Will block until an answer is received
+            will return dict 
+            { 'error': if there was an error
+              'data': data returned by server
+              'status': status code
+            }
+        '''
+        post_counter_path = self.POST_COUNTER_PATH.format(name=self.name)
+        post_id = self.synapse.incr(post_counter_path)
+        answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
+        self.register(data, answer_path)
+        answer_tuple = self.synapse.brpop(answer_path, timeout)
+        if answer_tuple:
+            return answer_tuple[1]
+        else:
+            return {'error': True, 'data': {'__all__': ['Request timed out']}}
     
     def _send_command(self, **data):
         if 'answer_path' not in data:
@@ -319,6 +343,9 @@ class Dendrite:
             if answer_path is None, No answer will be sent  back to requester, but will retry to send it on failure
         '''
         self._send_command(cmd='CALL', path=path, data=data, answer_path=answer_path)
+
+    def register(self, data, answer_path=None):
+        self._send_command(cmd='REGISTER', data=data, answer_path=answer_path)
 
     def answer(self, req_id, answer):
         self._send_answer(req_id=req_id, answer=answer)
@@ -359,11 +386,20 @@ def check_awaited_path(fn):
 
 class Axon:
     RETRY_INTERVAL = 30 #seconds
+    CONNECTED_PATH = 'agent:connected'
+    AGENT_ID_PATH = 'agent:id'
+    AGENT_UUID_PATH = 'agent:uuid'
+    AGENT_LOCATION_PATH = 'agent:location'
+    synapse = Synapse() # for sync operations
+    URL = 'ws://127.0.0.1:8000/ws'
 
-    def __init__(self, url='ws://127.0.0.1:8000/ws'):
+    def __init__(self, url=None):
         self.url = url
+        if not self.url:
+            self.url = self.URL
 
-        self.synapse = Synapse() # for sync operations
+        self.registered = self.is_registered()
+
         self.aredis = tornadoredis.Client() # for blocking operations like brpop .... requires json en/decode...
         self.aredis.connect()
 
@@ -377,6 +413,46 @@ class Axon:
         
         # Listen to commands:
         tornado.ioloop.IOLoop.instance().run_sync(self.listen_commands)
+        
+    @classmethod
+    def generate_nginx_conf(cls, reload=False):
+        from mako.template import Template
+        import subprocess
+        
+        axon_template = Template(filename="/origin/core/nginx/axon")
+        
+        with open ("/etc/nginx/sites-available/axon", "w") as axon_file:
+            axon_file.write( axon_template.render(uuid = cls.agent_uuid()) )
+
+        # Reload Nginx
+        if reload:
+            subprocess.call('reload nginx', shell=True)
+
+        
+    @classmethod
+    def is_connected(cls):
+        return cls.synapse.get(cls.CONNECTED_PATH)
+
+    @classmethod
+    def redis_set_disconnected(cls):
+        return cls.synapse.set(cls.CONNECTED_PATH, False)
+
+    @classmethod
+    def redis_set_connected(cls):
+        return cls.synapse.set(cls.CONNECTED_PATH, True)
+
+
+    @classmethod
+    def is_registered(cls):
+        return bool(cls.synapse.get(cls.AGENT_ID_PATH))
+
+    @classmethod
+    def agent_location(cls):
+        return cls.synapse.get(cls.AGENT_LOCATION_PATH)
+
+    @classmethod
+    def agent_uuid(cls):
+        return cls.synapse.get(cls.AGENT_UUID_PATH)
     
     @tornado.gen.coroutine
     def listen_commands(self):
@@ -393,8 +469,7 @@ class Axon:
                 print('error occured:', traceback.format_exc() )
                 
     def process_answer(self, req_id, answer):
-        if self.ws:
-            self.ws.write_message('ANSWER {id}\n{answer}'.format(id=req_id, answer=json.dumps(answer)))
+        self._ws_send('ANSWER {id}\n{answer}'.format(id=req_id, answer=json.dumps(answer)))
               
     def process_command(self, data):
         if data['cmd'] == 'SUBSCRIBE':
@@ -418,11 +493,11 @@ class Axon:
             self.synapse.hdel('synapse:providers', data['path'])
             self._ws_unprovide(data['path'])
 
-        elif data['cmd'] == 'CALL':
+        elif data['cmd'] == 'CALL' and self.registered: # Ignore if not registered
             track_id = str(self.synapse.incr('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
             if data['answer_path']:
                 # TODO: maybe calls (ie sync posts) should be HTTP directly no added value here to go through websocket, except maybe to use cache when no answer or WS down?
-                self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=POST_TIMEOUT) #If answer takes over POST_TIMEOUT sec, ignore it...
+                self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=CALL_TIMEOUT) #If answer takes over CALL_TIMEOUT sec, ignore it...
                 self._ws_call(data['path'], track_id, data['data'])
             else:
                 # it is our responsibility to get and answer
@@ -430,7 +505,13 @@ class Axon:
                 self.synapse.hset('axon:awaited_post_answers:path', track_id, data['path'])
                 self.synapse.zadd('axon:awaited_post_answers', track_id, track_id) # use sorted set so that track_ids are ordered...
                 self._check_post_answered(track_id)
-
+        elif data['cmd'] == 'REGISTER':
+            # Register Agent to account identifiend by admin credentials.
+            track_id = str(self.synapse.incr('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
+            if data['answer_path']:
+                self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=CALL_TIMEOUT) #If answer takes over CALL_TIMEOUT sec, ignore it...
+            self.ws.write_message('REGISTER {id}\n{data}'.format(id=track_id, data=json.dumps(data['data'])))
+                
     def _check_post_answered(self, track_id):
         if self.ws:
             # if websocket closed, retrieval will be make on opening of ws....
@@ -450,29 +531,28 @@ class Axon:
     @check_awaited_path
     def _ws_subscribe(self, path, force_send = False):
         if path not in self.subscriptions or force_send:
-            if self.ws:
-                self.ws.write_message('SUBSCRIBE 0 ' + path)
+            self._ws_send('SUBSCRIBE 0 ' + path)
             self.subscriptions.add(path)
             self.awaited_paths.add(path)
 
     @check_awaited_path
     def _ws_retrieve(self, path, force_send = False):
         if path not in self.awaited_paths or force_send:
-            if self.ws:
-                self.ws.write_message('RETRIEVE 0 ' + path)
+            self._ws_send('RETRIEVE 0 ' + path)
             self.awaited_paths.add(path)
 
     def _ws_provide(self, path, force_send = False):
-        if self.ws:
-            self.ws.write_message('PROVIDE 0 ' + path)
+        self._ws_send('PROVIDE 0 ' + path)
 
     def _ws_unprovide(self, path, force_send = False):
-        if self.ws:
-            self.ws.write_message('UNPROVIDE 0 ' + path)
+        self._ws_send('UNPROVIDE 0 ' + path)
        
     def _ws_call(self, path, track_id, data):
-        if self.ws:
-            self.ws.write_message('CALL {id} {path}\n{data}'.format(path=path, id=track_id, data=json.dumps(data)))
+        self._ws_send('CALL {id} {path}\n{data}'.format(path=path, id=track_id, data=json.dumps(data)))            
+            
+    def _ws_send(self, msg):
+            if self.registered and self.ws:
+                self.ws.write_message(msg)
 
     def _answer_requester(self, answer_path, **data):
         self.synapse.lpush(answer_path, data)
@@ -486,9 +566,10 @@ class Axon:
         if future.exception():
             # TODO: log exception somewhere (console?)
             print('Failed to open Websocket to Control Center:', future.exception())
+            self.redis_set_disconnected()
         else:
-            result=future.result()
-            self.ws = result
+            self.ws = future.result()
+            self.redis_set_connected()
             
             for key in self.synapse.keys('synapse:subscribers:*'): # register subscriptions
                 path = key.replace('synapse:subscribers:', '')
@@ -506,6 +587,7 @@ class Axon:
                     self.ws.close()
                     break
                 if msg is None:
+                    self.redis_set_disconnected()
                     break # WebSocket closed
                 try:
                     self.process_msg(msg)
@@ -522,22 +604,23 @@ class Axon:
         command, args = header.split(None, 1)
         track_id, path = args.split(None, 1)
 
-        if command == 'ANSWER':
+        if command in ('ANSWER', 'ERROR'):
             if track_id == '0':
-                # path received, no need to further query it if it was watched
-                self.awaited_paths.discard(path)
-        
-                if data != self.synapse.get(CACHE_PREFIX + path):
-                    # data modified: update cache and notify subscribers
-                    self.synapse.set(CACHE_PREFIX + path, data)
-                    
-                    for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
+                if command == 'ANSWER':
+                    # path received, no need to further query it if it was watched
+                    self.awaited_paths.discard(path)
+            
+                    if data != self.synapse.get(CACHE_PREFIX + path):
+                        # data modified: update cache and notify subscribers
+                        self.synapse.set(CACHE_PREFIX + path, data)
+                        
+                        for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
+                            self._answer_requester(answer_path, path=path, data=data)
+    
+                    # answer retrievers
+                    for answer_path in self.synapse.smembers('synapse:retrievers:'+path):
                         self._answer_requester(answer_path, path=path, data=data)
-
-                # answer retrievers
-                for answer_path in self.synapse.smembers('synapse:retrievers:'+path):
-                    self._answer_requester(answer_path, path=path, data=data)
-                    self.synapse.srem('synapse:retrievers:'+path, answer_path)
+                        self.synapse.srem('synapse:retrievers:'+path, answer_path)
                     
             else:
                 # remove from awaited POSTS
@@ -547,14 +630,29 @@ class Axon:
 
                 # find answer path
                 answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
+                
+                # if this is an answer do REGISTER, that succeeded, intercept it and use it
+                # when not registered, only command sent is REGISTER, so the answer must be an answer to REGISTER
+                if not self.registered and command == 'ANSWER' and path == 'agent/register':
+                    self.synapse.set(self.AGENT_ID_PATH, data['id'])
+                    self.synapse.set(self.AGENT_UUID_PATH, data['uuid'])
+                    self.registered = True
+                    self.generate_nginx_conf(reload=True)
+                    
                 if answer_path:
-                    self._answer_requester(answer_path, path=path, data=data)
+                    if command == 'ERROR':
+                        self._answer_requester( answer_path, status=path, data=data, error=True )
+                    else:
+                        self._answer_requester( answer_path, path=path, data=data, error=False )
 
 
         elif command == 'CALL': # Ignore if no callback was defined
             provider_path = self.synapse.hget('synapse:providers', path)
             if provider_path:
                 self._call_provider(provider_path, track_id, path, data)
+
+        elif command == 'LOCATION':
+            self.synapse.set(self.LOCATION_PATH, path)
 
     def _call_provider(self, provider_path, req_id, path, data):
         self.synapse.lpush( provider_path, dict(data=data, req_id=req_id, path=path) )

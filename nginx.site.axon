@@ -12,7 +12,9 @@ server {
 }
 
 proxy_redirect          off;
-proxy_set_header	Authorization	"Token 74d6623e97f758efcc3832cae0880bf3f4240d22f1818767fe7f2fb69a70ddf1a22ab163f07c957e36e45b12af5fbc08f311a81d506a68907528bfe9da238e84";
+% if uuid:
+proxy_set_header	Authorization	"Token ${uuid}";
+% endif
 proxy_hide_header       X-Powered-By;
 proxy_cache off;
 proxy_intercept_errors off;
