@@ -1,4 +1,4 @@
-description "DHCP fingerprinter and Host gatherer"
+description "Device Tracker"
 
 start on started access-control
 stop on stopping access-control
@@ -13,10 +13,13 @@ exec /origin/bin/device-trackerd
 
 
 pre-start script
-  nft create chain bridge origin device-tracker '{type filter hook forward priority -210; iifname != "eth0" log group '$DEVICE_NFLOG_QUEUE'; }' || true
+  nft create chain bridge origin device-tracker-forward '{type filter hook forward priority -210; oifname "eth0" iifname != "eth0" log group '$DEVICE_NFLOG_QUEUE'; }' || true
+  nft create chain bridge origin device-tracker-input   '{type filter hook input   priority -210; iifname != "eth0" log group '$DEVICE_NFLOG_QUEUE'; }' || true
 end script
 
 post-stop script
-  nft flush chain bridge origin device-tracker
-  nft delete chain bridge origin device-tracker
+  nft flush  chain bridge origin device-tracker-forward
+  nft delete chain bridge origin device-tracker-forward
+  nft flush  chain bridge origin device-tracker-input
+  nft delete chain bridge origin device-tracker-input
 end script
