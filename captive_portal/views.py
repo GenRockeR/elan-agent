@@ -8,6 +8,10 @@ from origin.neuron import Synapse, Axon, Dendrite
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_address, ip4_to_mac, is_iface_up
 from origin import nac, session, utils
+from django import forms
+from django.core.validators import validate_ipv4_address, validate_ipv6_address 
+from origin.network import NetworkConfiguration
+import time
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
 
@@ -16,7 +20,7 @@ def requirePortalURL(fn):
     View decorator to make sure url used is the one of the agent and not the target URL 
     '''
     def wrapper(request, *args, **kwargs):
-        agent_ip = get_ip4_address('br0')
+        agent_ip = get_ip4_address('br0')['address']
         if str(get_current_site(request)) != agent_ip:
             return HttpResponseRedirect( 'http://' + agent_ip)
         return fn(request, *args, **kwargs)
@@ -130,7 +134,24 @@ def admin_session_logout(session):
     session.clear()
     session.flush()
 
-def save_admin_session_decorator(fn):
+
+def require_admin(fn):
+    def wrapper(request, *args, **kwargs):
+        if request.session.get('admin', None):
+            return fn(request, *args, **kwargs)
+        return redirect('dashboard')
+
+    return wrapper
+
+def require_post(fn):
+    def wrapper(request, *args, **kwargs):
+        if request.method != 'POST':
+            return redirect2status(request)
+        return fn(request, *args, **kwargs)
+    return wrapper
+
+
+def save_admin_session(fn):
     def wrapper(request, *args, **kwargs):
         if request.session.get('admin', None):
             request.session.modified = True
@@ -138,21 +159,34 @@ def save_admin_session_decorator(fn):
     return wrapper
 
 
-@save_admin_session_decorator
-def dashboard(request, context={}):
+@save_admin_session
+def dashboard(request, context=None):
+    if context is None:
+        context={}
     context.update(
                is_connected = Axon.is_connected(),
                is_admin = bool(request.session.get('admin', False)),
                wan_up = is_iface_up('eth0'),
                lan_up = is_iface_up('eth1'),
                is_registered = Axon.is_registered(),
+
                ipsv4 = [utils.get_ip4_address('br0')],
-               ipsv6 = utils.get_ip6_global_addresses('br0')
+               ipv4_gw = utils.get_ip4_default_gateway(),
+               ipv4_dns = utils.get_ip4_dns_servers(),
+
+               ipsv6 = utils.get_ip6_global_addresses('br0'),
+               ipv6_gw = utils.get_ip6_default_gateway(),
+               ipv6_dns = utils.get_ip6_dns_servers(),
     )
     if not context.get('location', ''):
         context['location'] = Axon.agent_location() or ''
-
     
+    ip_conf = NetworkConfiguration()
+    if not context.get('ipv4_form', None):
+        context['ipv4_form'] = Ip4ConfigurationForm(initial=ip_conf.ipv4)
+    if not context.get('ipv6_form', None):
+        context['ipv6_form'] = Ip6ConfigurationForm(initial=ip_conf.ipv6)
+
     return render(request, 'captive-portal/dashboard.html', context)
 
 def admin_logout(request):
@@ -160,11 +194,8 @@ def admin_logout(request):
     
     return redirect('dashboard')
 
-
+@require_post
 def admin_login(request):
-    if request.method != 'POST':
-        return redirect('dashboard')
-
     context = {}                    
     post_dict = request.POST.dict()
 
@@ -193,3 +224,126 @@ def admin_login(request):
 
     context.update(**post_dict)
     return dashboard(request, context)
+
+class MultiIp4AddressField(forms.Field):
+    def to_python(self, value):
+        "Normalize data to a list of strings."
+
+        # Return an empty list if no input was given.
+        if not value:
+            return []
+        return value.replace(' ','').split(',')
+
+    def validate(self, value):
+        "Check if value consists only of valid IPv4s."
+
+        # Use the parent's handling of required fields, etc.
+        super(MultiIp4AddressField, self).validate(value)
+
+        for ip in value:
+            validate_ipv4_address(ip)
+
+    def prepare_value(self, value):
+        if isinstance(value, list):
+            return ', '.join(value)
+        return value
+
+class Ip4ConfigurationForm(forms.Form):
+    type = forms.CharField(required=True)
+    address = forms.IPAddressField(required=False)
+    mask = forms.IntegerField(required=False, min_value=0, max_value=32)
+    gateway = forms.IPAddressField(required=False)
+    dns = MultiIp4AddressField(required=False)
+
+    def clean_address(self):
+        data = self.cleaned_data
+        address =  data.get('address', '')
+        if data.get('type') == 'static' and not address:
+            raise forms.ValidationError('Address is required for Static configuration')
+        return address
+
+    def clean_mask(self):
+        data = self.cleaned_data
+        mask =  data.get('mask', '')
+        if data.get('type') == 'static' and not mask:
+            raise forms.ValidationError('Mask is required for Static configuration')
+        return mask
+
+    def clean_gateway(self):
+        data = self.cleaned_data
+        gateway =  data.get('gateway', '')
+        if data.get('type') == 'static' and not gateway:
+            raise forms.ValidationError('Gateway is required for Static configuration')
+        return gateway
+        
+class MultiIp6AddressField(forms.Field):
+    def to_python(self, value):
+        "Normalize data to a list of strings."
+        # Return an empty list if no input was given.
+        if not value:
+            return []
+        return value.replace(' ','').split(',')
+    def validate(self, value):
+        "Check if value consists only of valid IPv4s."
+        # Use the parent's handling of required fields, etc.
+        super(MultiIp6AddressField, self).validate(value)
+        for ip in value:
+            validate_ipv6_address(ip)
+    def prepare_value(self, value):
+        if isinstance(value, list):
+            return ', '.join(value)
+        return value
+
+class Ip6ConfigurationForm(forms.Form):
+    type = forms.CharField(required=True)
+    address = forms.GenericIPAddressField(required=False, validators=[validate_ipv6_address])
+    mask = forms.IntegerField(required=False, min_value=0, max_value=128)
+    gateway = forms.GenericIPAddressField(required=False, validators=[validate_ipv6_address])
+    dns = MultiIp6AddressField(required=False)
+
+    def clean_address(self):
+        data = self.cleaned_data
+        address =  data.get('address', '')
+        if data.get('type') == 'static' and not address:
+            raise forms.ValidationError('Address is required for Static configuration')
+        return address
+
+    def clean_mask(self):
+        data = self.cleaned_data
+        mask =  data.get('mask', '')
+        if data.get('type') == 'static' and not mask:
+            raise forms.ValidationError('Mask is required for Static configuration')
+        return mask
+
+    def clean_gateway(self):
+        data = self.cleaned_data
+        gateway =  data.get('gateway', '')
+        if data.get('type') == 'static' and not gateway:
+            raise forms.ValidationError('Gateway is required for Static configuration')
+        return gateway
+
+
+@require_post
+@require_admin
+@save_admin_session
+def admin_ipv4_conf(request):
+    form = Ip4ConfigurationForm(request.POST)
+    if form.is_valid():
+        conf = NetworkConfiguration()
+        conf.setIPv4Configuration(**form.cleaned_data)
+        return redirect('dashboard')
+    
+    return dashboard(request, context={'ipv4_form': form})
+
+@require_post
+@require_admin
+@save_admin_session
+def admin_ipv6_conf(request):
+    form = Ip6ConfigurationForm(request.POST)
+    if form.is_valid():
+        conf = NetworkConfiguration()
+        conf.setIPv6Configuration(**form.cleaned_data)
+        time.sleep(5) # wait for ipv6 autoconf
+        return redirect('dashboard')
+    
+    return dashboard(request, context={'ipv6_form': form})
