@@ -32,7 +32,7 @@ class AccessControlConfigurator(Dendrite):
             self._init_subscriptions()
             
     def _init_subscriptions(self):
-        self.agent_path = 'agent/' + self.synapse.get('agent:id')
+        self.agent_path = 'agent/' + str(self.synapse.get('agent:id'))
         self.subscribe(self.agent_path)
         # get vlans to configure them.
         self.vlans_path = self.agent_path + '/vlans'
@@ -94,8 +94,8 @@ class AccessControlConfigurator(Dendrite):
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
             cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol udp --ip6-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
            
-            ip = get_ip4_address('br0')
-            ip6 = get_ip6_address('br0')
+            ip = get_ip4_address('br0')['address']
+            ip6 = get_ip6_address('br0')['address']
             
             with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
                 nft_file.write('flush chain ip origin captive_portal\n')
