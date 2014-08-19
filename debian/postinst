@@ -1,6 +1,6 @@
 ifdown -a --exclude=lo
 # Generate default net configuration if needed
 if[ ! -e /etc/network/interfaces.d/ea-network ]
-PYTHONPATH=/origin/lib/python python3 -c 'import origin.network; conf = origin.network.NetworkConfiguration(); conf.generate_configuration_file()'
+PYTHONPATH=/origin/lib/python python3 -c 'import origin.network; origin.network.NetworkConfiguration().generate_configuration_files()'
 ifup -a
 exit 0
