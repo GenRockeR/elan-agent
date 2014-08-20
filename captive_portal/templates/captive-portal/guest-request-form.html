@@ -16,7 +16,29 @@
     <div class="form-group">
       <label for="field-{{forloop.counter}}" class="col-sm-3 control-label">{{field.display_name}}</label>
       <div class="col-sm-9">
-        <input type="text" class="form-control" id="field-{{forloop.counter}}" name="{{field.display_name}}" {% if field.required %}required{% endif %}>
+        {% if field.type == 'textarea' %}
+          <textarea class="form-control" id="field-{{forloop.counter}}" name="{{field.display_name}}" {% if field.required %}required{% endif %}></textarea>
+        {% elif field.type == 'date' or field.type == 'time' or field.type == 'date-time' %}
+          <input type='text' class="form-control" id='field-{{forloop.counter}}' name="{{field.display_name}}"
+                 data-date-format="{% if field.type == 'date' or field.type == 'date-time' %}YYYY-MM-DD{% endif %} {% if field.type == 'time' or field.type == 'date-time' %}HH:mm{% endif %}">
+          <script type="text/javascript">
+            $(function () {
+                $('#field-{{forloop.counter}}').datetimepicker({
+                    useSeconds: false,
+                    sideBySide: true,
+                    minuteStepping: 5,
+                    use24hours: true,
+                    {% if field.type == 'date' %}
+                    pickTime: false,
+                    {% elif field.type == 'time' %}
+                    pickDate: false,
+                    {% endif %}
+                });
+            });
+          </script>
+        {% else %}
+          <input type="text" class="form-control" id="field-{{forloop.counter}}" name="{{field.display_name}}" {% if field.required %}required{% endif %}>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

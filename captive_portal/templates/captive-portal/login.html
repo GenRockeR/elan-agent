@@ -2,6 +2,19 @@
 {% load i18n %}
 {% load static from staticfiles %}
 
+{% block head %}
+  {{ block.super }}
+  
+  <link rel="stylesheet" href="{% static 'captive-portal/css/bootstrap-datetimepicker-3.1.1.min.css' %}">
+  
+  <script type="text/javascript" src="{% static 'captive-portal/js/jquery-1.11.1.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/moment-2.8.1.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/transition-3.2.0.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/collapse-3.2.0.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/bootstrap-3.2.0.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/bootstrap-datetimepicker-3.1.1.min.js' %}"></script>
+{% endblock %}
+
 {% block body_main %}
   <div class="container">
     <div class="row">
