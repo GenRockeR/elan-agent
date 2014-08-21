@@ -25,7 +25,7 @@ def start_VLAN_session(mac, vlan, start=None):
     ''' start is Epoch '''
     dendrite.post('mac/{mac}/session/current/vlan/{vlan}'.format(mac=mac, vlan=vlan), {'start': format_date(start)})
 
-def end_VLAN_session(mac, vlan, start=None):
+def end_VLAN_session(mac, vlan, end=None):
     ''' start is Epoch '''
     dendrite.post('mac/{mac}/session/current/vlan/{vlan}/current/end'.format(mac=mac, vlan=vlan), {'end': format_date(end)})
     
