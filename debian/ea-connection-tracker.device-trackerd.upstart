@@ -7,19 +7,5 @@ respawn
 respawn limit 10 5
 
 env PYTHONPATH=/origin/lib/python
-env DEVICE_NFLOG_QUEUE=10
 
 exec /origin/bin/device-trackerd
-
-
-pre-start script
-  nft create chain bridge origin device-tracker-forward '{type filter hook forward priority -210; oifname "eth0" iifname != "eth0" log group '$DEVICE_NFLOG_QUEUE'; }' || true
-  nft create chain bridge origin device-tracker-input   '{type filter hook input   priority -210; iifname != "eth0" log group '$DEVICE_NFLOG_QUEUE'; }' || true
-end script
-
-post-stop script
-  nft flush  chain bridge origin device-tracker-forward
-  nft delete chain bridge origin device-tracker-forward
-  nft flush  chain bridge origin device-tracker-input
-  nft delete chain bridge origin device-tracker-input
-end script
