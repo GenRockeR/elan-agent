@@ -29,7 +29,7 @@ def ndpPing(dst_mac, vlan, dst_ip):
     if vlan:
         if_name += '.' + vlan
 
-    src_ip = get_ip6_address(if_name)
+    src_ip = get_ip6_address('br0')['address']
 
     ethernet = Ethernet()
     ethernet.set_ether_shost( tuple(int(v,16) for v in src_mac.split(':')) )
@@ -73,7 +73,7 @@ def arpPing(mac, vlan, ip):
     arp.set_ar_pln(4) # link layer address length (ethernet)
     arp.set_ar_op(1) # Arp request
     arp.set_ar_hrd(1) # ethernet
-    arp.set_ar_spa( tuple(int(v) for v in get_ip4_address('br0').split('.')) )
+    arp.set_ar_spa( tuple(int(v) for v in get_ip4_address('br0')['address'].split('.')) )
     arp.set_ar_tpa( tuple(int(v) for v in ip.split('.')) )
 
     ethernet.contains(arp)
