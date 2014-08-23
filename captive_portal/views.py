@@ -44,12 +44,15 @@ def status(request):
     guest_access = request.META['guest_access']
     guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
     web_authentication = request.META['web_authentication']
-    context={'guest_access': guest_access_conf, 'web_authentication': web_authentication}
+    context = {'guest_access': guest_access_conf, 'web_authentication': web_authentication}
     
     return render(request, 'captive-portal/status.html', context)
 
 @requirePortalURL
-def login(request):
+def login(request, context=None):
+    if context is None:
+        context = {}
+
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
     vlan_id = request.META['vlan_id']
@@ -61,10 +64,17 @@ def login(request):
     guest_access = request.META['guest_access']
     guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
     web_authentication = request.META['web_authentication']
-    context={ 'guest_access': guest_access_conf,
+    default_context = { 
+              'guest_access': guest_access_conf,
               'guest_access_pending': is_authz_pending(clientMAC, vlan_id),
               'web_authentication': web_authentication,
-            }
+    }
+    if guest_access_conf:
+        default_context.update(guest_registration_fields = guest_access_conf['registration_fields'])
+
+    for key in default_context:
+        if key not in context:
+            context[key] = default_context[key]
     
     if request.method != 'POST':
         return render(request, 'captive-portal/login.html', context)
@@ -99,6 +109,42 @@ def logout(request):
     
     return redirect('login')
 
+
+class DynamicFieldForm(forms.Form):
+    FIELD_MAPPING = {
+            'text': forms.CharField,
+            'textarea': forms.CharField,
+            'date': forms.DateField,
+            'date-time': forms.DateTimeField,
+            'time': forms.TimeField,
+            'email': forms.EmailField,
+    }
+    def __init__(self, *args, **kwargs):
+        fields = kwargs.pop('fields')
+        super().__init__(*args, **kwargs)
+        
+        for field in fields:
+            self.fields[field['name']] = self.FIELD_MAPPING[field['type']](required=field.get('required'))
+            validation_patterns = field.get('validation_patterns', [])
+            if validation_patterns:
+                self.create_validator(field['name'], validation_patterns)
+        
+    def create_validator(self, name, patterns):
+        import fnmatch
+        def field_validator(form):
+            value = form.cleaned_data[name]
+            for pattern in patterns:
+                if fnmatch.fnmatch(value, pattern):
+                    return value
+            raise forms.ValidationError(_("Field does not match one of the patterns ({})").format(', '.join(patterns)))
+        setattr(self, 'clean_{}'.format(name), field_validator.__get__(self))
+
+def get_request_form(guest_registration_fields, guest_access_conf, data=None):
+    form_fields = [{'name':'field-{}'.format(f['id']), 'required':f.get('required', False), 'type':f.get('type')} for f in guest_registration_fields]
+    if guest_access_conf['validation_patterns']:
+        form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
+    return DynamicFieldForm( data, fields=form_fields )
+
 @requirePortalURL
 def guest_access(request):
     if request.method != 'POST':
@@ -112,17 +158,33 @@ def guest_access(request):
 
     # Guest access fields
     guest_access_conf = synapse.hget(GUEST_ACCESS_CONF_PATH, guest_access)
-    guest_registration_fields = guest_access_conf['registration_fields'] 
-
-    guest_request_fields = request.POST
+    guest_registration_fields = guest_access_conf['registration_fields']
     
-    guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], sponsor_email=guest_request_fields.get('sponsor_email', ''))
-    for field in guest_registration_fields:
-        guest_request['fields'].append( dict(display_name=field['display_name'], type=field['type'], value=guest_request_fields.get(field['display_name'], '')) )
+    form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
     
-    submit_guest_request(guest_request)
-
-    return redirect('status')
+    request.POST
+    
+    if form.is_valid():
+        guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], sponsor_email=request.POST.get('sponsor_email', ''))
+        for field in guest_registration_fields:
+            guest_request['fields'].append( dict( 
+                                         display_name=field['display_name'],
+                                         type=field['type'],
+                                         value=request.POST.get('field-{}'.format(field['id']), ''),
+                                         position=field['position']
+            ) )
+        
+        submit_guest_request(guest_request)
+    
+        return redirect('status')
+    else:
+        # we update the field conf with passed value and error messages as it is easier to display in Template (difficult to access error.var where var='field-{id}' and to build that access in the template)
+        for field in guest_registration_fields:
+            field.update( value = request.POST.get('field-{}'.format(field['id']), '') )
+            field.update( errors = form.errors.get('field-{}'.format(field['id']), []) )
+                
+        context = {'guest_request_errors': form.errors, 'guest_registration_fields': guest_registration_fields, 'form': form }
+        return login(request, context)
 
 
 # Session function helpers
