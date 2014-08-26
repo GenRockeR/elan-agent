@@ -69,53 +69,60 @@ def process_packet(pktlen, data, timestamp):
     if not data:
         return
 
-    try:
-        pkt_obj = decoder.decode(data)
-        pkt_params = getPacketParams(pkt_obj)
-        if ignoreMAC(pkt_params['mac']):
-            return
-        
-        now = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
+    pkt_obj = decoder.decode(data)
+    pkt_params = getPacketParams(pkt_obj)
+    if ignoreMAC(pkt_params['mac']):
+        return
+    
+    now = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
 
-        args = [ now, dict(mac=pkt_params['mac']), 
-                 now, dict(mac=pkt_params['mac'],vlan=pkt_params['vlan'])
-               ]
-        
-        use_ip = False
-        if 'ip' in pkt_params and not ignoreIP(pkt_params['ip']):
-                use_ip = True
-                args.extend( (now, pkt_params) )
-        
-        nb_added = synapse.zadd(LAST_SEEN_PATH, *args)
-        
-        if nb_added: # new session(s) created: inform Control Center
-            if use_ip:
-                session.start_IP_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], start=now)
-            else:
-                session.start_VLAN_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], start=now)
+    args = [ now, dict(mac=pkt_params['mac']), 
+             now, dict(mac=pkt_params['mac'],vlan=pkt_params['vlan'])
+           ]
+    
+    use_ip = False
+    if 'ip' in pkt_params and not ignoreIP(pkt_params['ip']):
+            use_ip = True
+            args.extend( (now, pkt_params) )
+    
+    nb_added = synapse.zadd(LAST_SEEN_PATH, *args)
+    
+    if nb_added: # new session(s) created: inform Control Center
+        if use_ip:
+            session.start_IP_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], start=now)
+        else:
+            session.start_VLAN_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], start=now)
 
-    except:
-        traceback.print_exc()
 
 
 if __name__ == '__main__':
     import signal
     import datetime
     import traceback
+    import time
     from origin.neuron import Synapse
     from origin import session
     from impacket.ImpactDecoder import EthDecoder
     import pcap
     
-    synapse = Synapse()
- 
-    decoder = EthDecoder()
     
-    p = pcap.pcapObject()
-    p.open_live('eth1', 1600, 0, 100)
-    p.setfilter('inbound', 0, 0)
-    while 1:
-        p.dispatch(1, process_packet)   
+    for i in range(1, 100):
+        try:
+            synapse = Synapse()
+         
+            decoder = EthDecoder()
+            
+            p = pcap.pcapObject()
+            p.open_live('eth1', 1600, 0, 100)
+            p.setfilter('inbound', 0, 0)
+            while 1:
+                try:
+                    p.dispatch(1, process_packet)   
+                except:
+                    traceback.print_exc()
+        except:
+            traceback.print_exc()
+            time.sleep(1) # do not try to restart straight away
 
 
         
