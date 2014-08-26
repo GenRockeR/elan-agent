@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import socket
-from impacket.ImpactPacket import Ethernet, ARP
+from impacket.ImpactPacket import EthernetTag, Ethernet, ARP
 from impacket.IP6_Address import IP6_Address
 from impacket.IP6 import IP6
 from impacket.NDP import NDP, NDP_Option
@@ -26,14 +26,18 @@ def ndpPing(dst_mac, vlan, dst_ip):
     src_mac = get_ether_address('br0')
 
     if_name = 'eth1'
-    if vlan:
-        if_name += '.' + vlan
 
     src_ip = get_ip6_address('br0')['address']
 
     ethernet = Ethernet()
     ethernet.set_ether_shost( tuple(int(v,16) for v in src_mac.split(':')) )
     ethernet.set_ether_dhost( tuple(int(v,16) for v in dst_mac.split(':')) )
+
+    if vlan:
+        tag = EthernetTag()
+        tag.set_vid(int(vlan))
+        ethernet.push_tag(tag)
+
 
     ip6 = IP6()
     ip6.set_source_address(src_ip)
@@ -62,10 +66,15 @@ def ndpPing(dst_mac, vlan, dst_ip):
 def arpPing(mac, vlan, ip):    
     if_name = 'eth1'
 
-    if vlan:
-        if_name += '.' + vlan
-
     ethernet = Ethernet()
+    ethernet.set_ether_shost( tuple(int(v,16) for v in get_ether_address('br0').split(':')) )
+    ethernet.set_ether_dhost( tuple(int(v,16) for v in mac.split(':')) )
+
+    if vlan:
+        tag = EthernetTag()
+        tag.set_vid(int(vlan))
+        ethernet.push_tag(tag)
+
     arp = ARP()
     
     arp.set_ar_pro(0x800) # IP
@@ -77,8 +86,6 @@ def arpPing(mac, vlan, ip):
     arp.set_ar_tpa( tuple(int(v) for v in ip.split('.')) )
 
     ethernet.contains(arp)
-    ethernet.set_ether_shost( tuple(int(v,16) for v in get_ether_address('br0').split(':')) )
-    ethernet.set_ether_dhost( tuple(int(v,16) for v in mac.split(':')) )
 
     s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.SOCK_RAW)
     s.bind((if_name, socket.SOCK_RAW))
