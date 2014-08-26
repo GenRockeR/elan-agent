@@ -11,12 +11,3 @@ respawn limit 10 5
 exec /origin/bin/authentication_provider
 
 
-pre-start script
-  rm -f /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
-  mkdir -p /etc/freeradius/certs/server_CA
-  if ! grep -q '/origin/authentication/freeradius/dictionary' /etc/freeradius/dictionary
-  then
-    echo '' >> /etc/freeradius/dictionary
-    echo '$INCLUDE /origin/authentication/freeradius/dictionary' >> /etc/freeradius/dictionary
-  fi
-end script

@@ -1,0 +1,2 @@
+# get rid of rc.d symlinks for freeradius
+update-rc.d -f freeradius remove

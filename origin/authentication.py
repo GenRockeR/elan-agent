@@ -182,8 +182,8 @@ class AuthenticationProvider(Dendrite):
             for service_path in self.get_provided_services() - new_provided_services:
                 self.unprovide(service_path)
                 
-            # Reload nginx
-            subprocess.call('/etc/init.d/freeradius restart', shell=True)
+            # Reload freeradius
+            subprocess.call('restart freeradius || start freeradius', shell=True)
             
             # new provides
             for service_path in new_provided_services:
