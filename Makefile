@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, linux-image-3.15.8-031508-generic, linux-headers-3.15.8-031508-generic, python-netaddr, python3-netaddr
+PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, linux-image-3.15.8-031508-generic, linux-headers-3.15.8-031508-generic, python-netaddr, python3-netaddr, postfix
 
 include ../core/packaging.mk
 
