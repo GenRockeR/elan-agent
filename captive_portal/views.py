@@ -1,5 +1,6 @@
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect
+from django.template import RequestContext, loader
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
@@ -11,6 +12,7 @@ from origin import nac, session, utils
 from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
 from origin.network import NetworkConfiguration
+from origin.mail import send_mail
 import time
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
@@ -174,8 +176,32 @@ def guest_access(request):
                                          position=field['position']
             ) )
         
-        submit_guest_request(guest_request)
-    
+        guest_request['id'] = submit_guest_request(guest_request)
+
+        # send mail
+        html_template = loader.get_template('captive-portal/guest-request-email.html')
+        text_template = loader.get_template('captive-portal/guest-request-email.txt')
+        context = RequestContext(request, {
+            'guest_request': guest_request,
+        })
+        html = html_template.render(context)
+        text = text_template.render(context)
+
+        if not guest_request['sponsor_email']:
+            recipients = guest_access_conf['fixed_recipients']
+            bcc_recipients = []
+        else:
+            recipients = [guest_request['sponsor_email']]
+            bcc_recipients = guest_access_conf['fixed_recipients']
+        
+        send_mail(  recipients = recipients,
+                    bcc_recipients = bcc_recipients,
+                    html = html,
+                    text = text,
+                    mail_subject = 'Guest Request for Network Access'
+        )
+        
+        
         return redirect('status')
     else:
         # we update the field conf with passed value and error messages as it is easier to display in Template (difficult to access error.var where var='field-{id}' and to build that access in the template)

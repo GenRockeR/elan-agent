@@ -14,6 +14,7 @@ def submit_guest_request(request):
     #d.synapse.rpush('guest-request:mac_request:'+request['mac'], request_id)
     
     # Subscribe to any changes
+    # TODO subscribe to something like guest-request/active that would send only updates on active (granted) requests
     d.subscribe('guest-request/' + request_id)
     
     

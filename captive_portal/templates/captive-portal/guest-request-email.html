@@ -1,0 +1,68 @@
+{% extends 'captive-portal/base_email.html' %}
+
+{% block sub_title %}Guest Access Request{% endblock %}
+
+{% block main_container %}
+  {% for field in guest_request.fields %}
+  <table class="row">
+    <tr>
+      <td class="wrapper">
+
+        <table class="four columns">
+          <tr>
+            <td class="label">{{field.display_name}}</td>
+            <td class="expander"></td>
+          </tr>
+        </table>
+
+      </td>
+
+      <td class="wrapper last">
+
+        <table class="height columns">
+          <tr>
+            <td>
+              {% if field.type == 'textarea' %}
+                {{field.value|linebreaksbr}}
+              {% else %}
+                {{field.value}}
+              {% endif %}
+            </td>
+            <td class="expander"></td>
+          </tr>
+        </table>
+
+      </td>
+
+    </tr>
+  </table>
+  {% endfor %}
+
+  <table class="row">
+    <tr>
+      <td class="wrapper offset-by-two last">
+
+        <table class="six columns">
+          <tr>
+            <td>
+
+              <table class="button radius">
+                <tbody>
+                  <tr>
+                    <td>
+                      <a href="https://control-center.origin-nexus.com/sponsor-guest/{{ guest_request.id }}">Login & Grant Access</a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+            </td>
+            <td class="expander"></td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+{% endblock %}
