@@ -4,3 +4,9 @@ then
         dpkg-divert --package "ea-core" --add --rename \
                 --divert "/etc/init.d/nginx.diverted-ea-core" "/etc/init.d/nginx"
 fi
+
+if ! dpkg-divert --list "ea-core" | grep -F "/etc/init.d/redis-server.diverted-ea-core"
+then
+        dpkg-divert --package "ea-core" --add --rename \
+                --divert "/etc/init.d/redis-server.diverted-ea-core" "/etc/init.d/redis-server"
+fi

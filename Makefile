@@ -31,6 +31,9 @@ pylib: tornadoredis tornado redis pyrad
 .PHONY: tornadoredis
 .PHONY: tornado
 .PHONY: redis
+redis:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
+	install redis.conf ${DESTDIR}${ORIGIN_PREFIX}/core/redis/conf
 .PHONY: pyrad
 
 .PHONY: nginx

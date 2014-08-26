@@ -1,0 +1,11 @@
+description "redis server"
+
+start on runlevel [23]
+stop on shutdown
+
+respawn
+
+setuid redis
+setgid redis
+
+exec /usr/bin/redis-server /origin/core/redis/conf
