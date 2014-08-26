@@ -13,7 +13,7 @@ script
   if [ -r /etc/default/freeradius ]; then
     . /etc/default/freeradius
   fi
-  /usr/sbin/freeradius -f $FREERADIUS_OPTIONS
+  exec /usr/sbin/freeradius -f $FREERADIUS_OPTIONS
 end script
 
 pre-start script
