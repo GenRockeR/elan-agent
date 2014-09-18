@@ -1,0 +1,181 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use App::Netdisco::Util::SNMP;
+use Encode;
+use Redis;
+use JSON;
+use File::Find;
+use Origin::Device;
+
+use constant SNMP_POLL_REQUEST_CHANNEL => 'snmp:poll:request';
+use constant SNMP_PARAMS_CACHE_PATH => 'snmp::params'; # Per IP
+use constant SNMP_DEFAULT_CREDENTIALS_PATH => 'snmp:default_credentials'; # Per IP
+use constant MIB_BASE_PATH => '/origin/nac/mibs';
+
+
+# Need all the directories.
+my $mib_paths = [];
+find ({
+          follow_fast => 1, 
+          wanted => sub { return unless -d; push(@$mib_paths, $File::Find::name); }
+      },
+      MIB_BASE_PATH );
+
+
+sub snmp_poll {
+  my $ip = shift;
+  my $redis = shift;
+  
+  # check if params are cached
+  my $json_params = $redis->hget(SNMP_PARAMS_CACHE_PATH, $ip);
+  my $params_list = [];
+  if($json_params) {
+    my $data = _snmp_poll( $ip, decode_json($json_params) );
+    # check if we got an answer
+    if($data) {
+      return $data;
+    }
+  } 
+  
+  # Retrieve configuration and build list of params...
+  my $json_default_creds = $redis->get(SNMP_DEFAULT_CREDENTIALS_PATH);
+  my $default_creds_list;
+  if( $json_default_creds ) {
+    $default_creds_list = decode_json($json_default_creds);
+  } else {
+    $default_creds_list =[{ community => "public" }]
+  }    
+  foreach my $version ( reverse (1 .. 3) ) {
+
+    foreach my $default_creds (@$default_creds_list) {
+      my $credentials = {};
+      if($version eq 3){
+        $credentials->{user} = $default_creds->{community};
+        if($default_creds->{auth_key}){
+          $credentials->{auth} = {pass => $default_creds->{auth_key}, proto => $default_creds->{auth_proto}};
+          if($default_creds->{priv_key}){
+            $credentials->{priv} = {pass => $default_creds->{priv_key}, proto => $default_creds->{priv_proto}};
+          }
+        }
+      } else {
+        next if $default_creds->{auth_key}; # cred was for snmp v3
+        $credentials->{community} = $default_creds->{community};
+      }
+      
+      # Try conf
+      my $params = { version => $version, class => 'SNMP::Info', credentials => $credentials };
+      my $data = _snmp_poll($ip, $params);
+      if($data) {
+        # Store params for that swicth for next poll
+        $redis->hset(SNMP_PARAMS_CACHE_PATH, $ip, encode_json($params));
+        
+        return $data;
+      }
+    }
+  }
+  return
+}
+
+sub _snmp_poll {
+  my ($device_ip, $params) = @_;
+  # params is a hash containing class, version and credentials (itself a hash containing community for v1 and 2 or username/pass for v3)
+  
+  my %snmp_args = (
+    AutoSpecify => 0,
+    DestHost => $device_ip,
+    Retries => 2,
+    Timeout => 1000000,
+    NonIncreasing => 0,
+    BulkWalk => 1,
+    BulkRepeaters => 20,
+    MibDirs => $mib_paths,
+    IgnoreNetSNMPConf => 1,
+    Debug => 0,
+    DebugSNMP => 0,
+    Version => $params->{version},
+  );
+  
+  my $device = new Origin::Device($device_ip);
+  
+  my $s = App::Netdisco::Util::SNMP::_try_connect($device, $params->{class}, $params->{credentials}, 'read', \%snmp_args, 1);
+  
+  return unless $s;
+  
+  my $data = { ip => $device_ip, ports => [] }; # requested IP is part of the answer for tracking in in the answer_path...
+  $data->{name}          = $s->name;
+  $data->{snmp_description}   = $s->description;
+  $data->{location}      = $s->location;
+  $data->{layers}        = $s->layers;
+  $data->{nb_ports}      = $s->ports;
+  $data->{vendor}        = $s->vendor;
+  $data->{os}            = $s->os;
+  $data->{os_version}    = $s->os_ver;
+  $data->{ip_index}      = $s->ip_index;
+  $data->{ip_netmask}    = $s->ip_netmask;
+  $data->{model}         = Encode::decode('UTF-8', $s->model);
+  $data->{serial}        = Encode::decode('UTF-8', $s->serial);
+
+  my %portByIndex;
+  foreach my $index (keys %{$s->interfaces || {}}) {
+    next if $s->i_ignore->{$index};
+    my $port = {
+            index       => $index, 
+            interface   => $s->interfaces->{$index},
+            name        => $s->i_name->{$index},
+            mac         => $s->i_mac->{$index},
+            description => $s->i_description->{$index},
+    };
+    push( @{$data->{ports}}, $port);
+    $portByIndex{$index} = $port;
+  }
+  
+  # Treat SSIDs
+  foreach my $key (keys %{$s->i_ssidlist || {}}) {
+    my $index = $key;
+    $index =~ s/\.\d+$//;
+    if($portByIndex{$index}){
+      my $port = $portByIndex{$index};
+      $port->{ssids} = [] unless $portByIndex{$index}->{ssids};
+      my $ssid = {ssid => $s->i_ssidlist->{$key}};
+      if($s->i_ssidmac->{$key}) {
+        $ssid->{mac} = $s->i_ssidmac->{$key};
+      }
+      if($s->i_ssidbcast->{$key}) {
+        $ssid->{broadcast} = $s->i_ssidbcast->{$key};
+      }
+      
+      push(@{$port->{ssids}}, $ssid);
+    }
+  }
+  
+  return $data;  
+}
+
+
+# enclose in eval to catch any exception to log it and sleep a few seconds before exiting (so that upstart does not restart it to often...)
+eval {
+  my $redis = Redis->new();
+
+  while(1){
+    my ($channel, $json_request) = $redis->brpop(SNMP_POLL_REQUEST_CHANNEL, 0);
+    if($json_request) {
+      my $request = decode_json($json_request);
+
+      my $answer = snmp_poll($request->{ip}, $redis);
+      if($answer){
+        $redis->lpush( $request->{answer_path}, encode_json($answer) );
+      }
+    }
+        
+  }
+};
+
+print $@ if($@);
+
+sleep(2);
+
+
+

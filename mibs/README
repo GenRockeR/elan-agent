@@ -1,0 +1,70 @@
+Netdisco - MIB Repository
+Max Baker
+---------------------------------------------------------------------------
+Version 1.5
+---------------------------------------------------------------------------
+    I maintain a workable set of MIBS to use with Netdisco 
+    and other network managment tools. 
+
+    I would like to be able to do snmpwalks without having everything blow up.
+
+    These mibs should cover all the devices listed in 
+        http://snmp-info.sourceforge.net/DeviceMatrix.html
+
+    All these have been painstakingly fixed up to
+    parse correctly under net-snmp 5.4.  All duplicates have been
+    removed favoring always the newest version.  Typos and logical
+    errors in the MIBs are fixed.
+
+---------------------------------------------------------------------------
+MIB Versions
+---------------------------------------------------------------------------
+    3Com:      MIBs for HP, H3C and 3Com products v4.0
+    Aruba:     ArubaOS 6.2.0.2_36732
+    APC:       4.0.5
+    Cisco:     10/14/2013 (last v2.tar.gz is dated 10/2013)
+    Enterasys: 08/2011
+    Extreme:   v762b3 01/09/06
+    Foundry:   FGL04000 11/07
+    HP:        May 2012 update
+    Juniper:   11.4R3.7
+    Net-SNMP:  5.7.1
+    Nortel:    Various - Last update 07/2012
+    RFC:       ianalist updated 2010-04-21 and rfclist updated 2011-03-14
+    Ruckus:    9.4
+    Trapeze:   8.0
+    Xirrus:    6.1.2
+
+---------------------------------------------------------------------------
+
+USAGE OUTSIDE OF NETDISCO
+---------------------------------------------------------------------------
+    Copy the supplied snmp.conf to either
+        /usr/local/share/snmp/snmp.conf
+    OR
+        ~/.snmp/snmp.conf
+
+    Be sure to look in the file and change things to match your enviornment.
+
+---------------------------------------------------------------------------
+ADDING DEVICE SUPPORT
+---------------------------------------------------------------------------
+Mib setup:
+1. Add all the mibs given by your vendor in a new directory
+2. run mkindex
+3. run chk_dups and then remove the dups in your new dir
+4. add new directory to snmp.conf and netdisco.conf
+
+SNMP::Info setup:
+1. run walk_all on the device save the output to a text file.
+   This will query the device for every mib on the system, to see what 
+   data is available with the MIBs available.
+2. check to see what data is missing in netdisco for your device after
+   running a discover on it
+3. create a new subclass of L2 or L3 for your device family
+4. use the text file from step 1 to find missing info
+5. add data and mib dependencies to new subclass
+6. ask on mailing list for help
+
+Send all changes back to mailing list so that everyone else can enjoy
+the fruits of your labor and improve upon them.

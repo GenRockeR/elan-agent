@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-nac
 PACKAGE-DESC := Network Access control module
-PACKAGE-DEPENDS := ea-authentication, ea-core, ea-captive-portal
+PACKAGE-DEPENDS := ea-authentication, ea-core, ea-captive-portal, libdancer-perl, libdancer-plugin-dbic-perl, libsnmp-perl, libredis-perl
 
 include ../core/packaging.mk
 
@@ -9,16 +9,16 @@ test:
 	py.test
 
 .PHONY: install
-install: python freeradius authz
+install: python freeradius authz snmp
 
 .PHONY: freeradius
 freeradius:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius
-	install -m644 freeradius.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
+	install -m 644 freeradius.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m755 bin/freeradius_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_freeradius_configurator
+	install -m 755 bin/freeradius_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_freeradius_configurator
 	install -d ${DESTDIR}/etc/freeradius/mods-available
-	install -m644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
+	install -m 644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
 	install -d ${DESTDIR}/etc/freeradius/mods-enabled
 	ln -s ../mods-available/nac-eap ${DESTDIR}/etc/freeradius/mods-enabled
 
@@ -28,11 +28,27 @@ nginx:
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
 
 .PHONY: python
-python: origin/nac.py
+python: origin/nac.py origin/snmp.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/snmp.py
   
 .PHONY: authz
 authz:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 bin/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
+
+.PHONY: snmp
+snmp: perl-lib mibs
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/snmp_poller ${DESTDIR}${ORIGIN_PREFIX}/bin
+
+.PHONY: perl-lib
+perl-lib:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib
+	cp -r lib/perl5 ${DESTDIR}${ORIGIN_PREFIX}/lib
+
+.PHONY: mibs
+mibs:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac
+	cp -r mibs ${DESTDIR}${ORIGIN_PREFIX}/nac/mibs

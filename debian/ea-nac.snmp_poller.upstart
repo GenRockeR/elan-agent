@@ -1,0 +1,10 @@
+description "Poll Switches"
+
+start on started authentication_freeradius_configurator
+
+env PERL5PATH=/origin/lib/perl5
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/snmp_poller
