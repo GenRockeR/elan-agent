@@ -9,6 +9,8 @@ stop on runlevel [!2345]
 
 respawn
 
+env PYTHONPATH=/origin/lib/python
+
 script
   if [ -r /etc/default/freeradius ]; then
     . /etc/default/freeradius
