@@ -1,4 +1,4 @@
-package Origin::Device;
+package Origin::NetdiscoDevice;
 
 sub new {
   my ($class, $ip) = @_;

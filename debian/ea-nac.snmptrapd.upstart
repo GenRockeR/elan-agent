@@ -1,0 +1,12 @@
+description "Poll Switches"
+
+start on runlevel [2345]
+
+respawn
+respawn limit 10 5
+
+exec /usr/sbin/snmptrapd -f -On -Lf /var/run/trap_fifo
+
+pre-start script
+  mkfifo /var/run/trap_fifo || true
+end script

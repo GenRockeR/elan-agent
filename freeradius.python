@@ -1,0 +1,51 @@
+python find-port {
+        module = origin.freeradius.nac
+
+        mod_authorize = ${.module}
+        func_authorize = find_port
+
+        mod_authenticate = ${.module}
+        func_authenticate = find_port
+
+        mod_preacct = ${.module}
+        func_preacct = find_port
+
+        mod_accounting = ${.module}
+        func_accounting = find_port
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = find_port
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = find_port
+
+        mod_post_auth = ${.module}
+        func_post_auth = find_port
+
+}
+
+python notify-seen {
+        module = origin.freeradius.nac
+
+        mod_authorize = ${.module}
+        func_authorize = seen
+
+        mod_authenticate = ${.module}
+        func_authenticate = seen
+
+        mod_preacct = ${.module}
+        func_preacct = seen
+
+        mod_accounting = ${.module}
+        func_accounting = seen
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = seen
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = seen
+
+        mod_post_auth = ${.module}
+        func_post_auth = seen
+
+}

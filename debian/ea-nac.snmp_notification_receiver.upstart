@@ -1,0 +1,14 @@
+description "Authentications"
+
+start on start on runlevel [2345]
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/snmp_notification_receiver
+
+pre-start script
+  mkfifo /var/run/trap_fifo || true
+end script

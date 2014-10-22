@@ -70,7 +70,7 @@ class MacAuthorizationManager(Dendrite):
         if disallow_mac_on_disconnect:
             self.synapse.sadd(DISALLOWED_MACS_ON_DISCONNECT_PATH_PATTERN.format(vlan=vlan), mac)
         else:
-            # new authorization so we we remove previous authz, if any
+            # new authorization so we remove previous authz, if any
             self.synapse.srem(DISALLOWED_MACS_ON_DISCONNECT_PATH_PATTERN.format(vlan=vlan), mac)
 
         cmd = ''
@@ -92,7 +92,7 @@ class MacAuthorizationManager(Dendrite):
         
         # end session
         if reason != 'revoked':
-            session.end_authorization_session(mac, vlan, termination_reason=reason)
+            session.notify_end_authorization_session(mac, vlan, termination_reason=reason)
             
     def handle_request(self, item):
         if item['action'] == 'allow':
@@ -134,3 +134,7 @@ class MacAuthorizationManager(Dendrite):
             self.timeout = 0
         else:
             self.timeout = int(next_expiry_date - now) + 1
+    
+        
+    
+    
