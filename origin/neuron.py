@@ -600,7 +600,10 @@ class Axon:
             
     def process_msg(self, message):
         header, json_data = message.split('\n', 1)
-        data = json.loads(json_data)
+        if json_data:
+            data = json.loads(json_data)
+        else:
+            data = ''
         command, args = header.split(None, 1)
         track_id, path = args.split(None, 1)
 
