@@ -13,6 +13,7 @@ use Origin::NetdiscoDevice;
 
 use constant SNMP_POLL_REQUEST_CHANNEL => 'snmp:poll:request';
 use constant SNMP_PARSE_TRAP_CHANNEL => 'snmp:trap:parse';
+use constant SNMP_NASPORT_TO_IFINDEX_CHANNEL => 'snmp:nasport2ifindex';
 
 use constant SNMP_READ_PARAMS_CACHE_PATH => 'snmp:read:params'; # Per IP
 use constant SNMP_DEFAULT_CREDENTIALS_PATH => 'snmp:default_credentials';
@@ -173,11 +174,10 @@ sub _snmp_poll {
   return $data;  
 }
 
-sub snmp_parse_trap {
-  my ($trap_str, $switch_ip, $connection, $redis) = @_;
-  
-  
-  # Format connection params
+sub pf_connection_params {
+  # format to connection params to pf format
+  my ($connection) = @_;
+
   my %pf_connection_params = (SNMPVersion => $connection->{version});
   if($connection->{version} eq '3') {
     $pf_connection_params{SNMPUserNameRead} = $connection->{user};
@@ -194,7 +194,12 @@ sub snmp_parse_trap {
   else {
     $pf_connection_params{SNMPCommunityRead} = $connection->{community};    
   }
-  
+
+  return %pf_connection_params;
+}
+
+sub snmp_parse_trap {
+  my ($trap_str, $switch_ip, $connection, $redis) = @_;  
   
   my $trap_matches = {};
   
@@ -202,7 +207,7 @@ sub snmp_parse_trap {
     next if $sc eq 'pf::Switch::MockedSwitch';
     if(defined(&{$sc.'::parseTrap'})){
       eval {
-        my $s = $sc->new(ip => $switch_ip, %pf_connection_params, mode => 'production', id => 0 ); # set id to avoid warnings...
+        my $s = $sc->new(ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0 ); # set id to avoid warnings...
 
         my $trap_info = $s->parseTrap($trap_str);
         if($trap_info->{trapType} ne 'unknown'){
@@ -211,7 +216,7 @@ sub snmp_parse_trap {
         1;
       } or do {
           # TODO: raise up alert... to Origin Nexus
-          print("$sc: ", $@);
+          print("snmp_parse_trap: $sc: ", $@);
       };
     }
   }
@@ -242,6 +247,37 @@ sub snmp_parse_trap {
 }
 
 
+sub NasPortToIfIndex {
+    my ($nas_port, $switch_ip, $connection, $redis) = @_;
+    
+    my $indexes = [];
+    
+    for my $sc (@$switch_classes) {
+        next if $sc eq 'pf::Switch::MockedSwitch';
+        eval {
+            if(defined(&{$sc.'::NasPortToIfIndex'})){
+                my $s = $sc->new(ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0 ); # set id to avoid warnings...
+                my $index = $s->NasPortToIfIndex($nas_port);
+                my $found;
+                for my $i (@$indexes) {
+                    if( $i == $index ) {
+                      $found = 1;
+                      last;
+                    }
+                }
+                if(! $found) {
+                  push @$indexes, $index;
+                }
+            }
+            1;
+        } or do {
+              # TODO: raise up alert... to Origin Nexus
+              print("NasPortToIfIndex: $sc: ", $@);
+        };
+    }
+    
+    return $indexes;
+}
 
 # enclose in eval to catch any exception to log it and sleep a few seconds before exiting (so that upstart does not restart it to often...)
 eval {
@@ -257,6 +293,9 @@ eval {
       }
       elsif($channel eq SNMP_PARSE_TRAP_CHANNEL) {
         $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection}, $redis);
+      }
+      elsif($channel eq SNMP_NASPORT_TO_IFINDEX_CHANNEL) {
+        $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection}, $redis);
       }
       if($answer){
         $redis->lpush( $request->{answer_path}, encode_json($answer) );

@@ -22,33 +22,102 @@ def find_port(request):
 
     nas_ip_address = request_hash.get('NAS-IP-Address', None)
     radius_client_ip = request_hash.get('Packet-Src-IP-Address', request_hash.get('Packet-Src-IPv6-Address', None))
-    called_station_id = extract_mac(request_hash.get('Called-Station-Id', None))
-    nas_port = request_hash.get('NAS-Port', None)
-    nas_port_id = request_hash.get('NAS-Port-ID', None)
 
+    switch_polled = False
+    switch = None
     # Retrieve switch info
     if nas_ip_address:
         switch = snmp_manager.get_device_by_ip(nas_ip_address)
         if not switch:
             switch = snmp_manager.poll(nas_ip_address)
-    if not switch:
+    if switch:
+        switch_ip = nas_ip_address
+        switch_polled = True
+    else:
+        # If not found with NAS-IP-Address, try with Radius client IP
         switch = snmp_manager.get_device_by_ip(radius_client_ip)
         if not switch:
             switch = snmp_manager.poll(radius_client_ip)
+        if switch:
+            switch_ip = radius_client_ip
+            switch_polled = True
+        else:
+            # if switch not found, nothing we can do
+            return
     
-    # if switch not found, nothing we can do
-    if not switch:
-        return
-    
+    called_station_id = extract_mac(request_hash.get('Called-Station-Id', None))
+    found_ports_by_mac = set()
     if called_station_id:
-        found_ports = []
         for port in switch[u'ports']:
             if port[u'mac'] == called_station_id:
-                found_ports.append(port)
-        if len(found_ports) == 1:
-            port = found_ports[0]
-            return radiusd.RLM_MODULE_UPDATED, ( ('ORIGIN-Switch-Id', str(switch[u'local_id'])), ('ORIGIN-Switch-Interface', str(port[u'interface'])),), () 
-    # Todo: If still, try nasport to ifindex
+                found_ports_by_mac.add(port[u'interface'])
+        if len(found_ports_by_mac) == 1:
+            port_interface = list(found_ports_by_mac)[0]
+            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+
+    # Try to find SSID
+    ssid = None
+    for k,v in request:
+        if v.startswith('"') and v.endswith('"'):
+            v = v[1:-1]
+        if '-avpair' in k.lower() and v.lower().startswith('ssid='):
+            ssid = v.partition('=')[2]
+            break
+
+    found_ports_by_ssid = set()
+    if ssid:
+        for port in switch[u'ports']:
+            for ssid_obj in port.get(u'ssids', []):
+                if ssid_obj[u'ssid'] == ssid:
+                    found_ports_by_ssid.add(port[u'interface'])
+                    break
+        if len(found_ports_by_ssid) == 1:
+            port_interface = list(found_ports_by_ssid)[0]
+            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+        
+
+
+    # try to find by nas port id
+    nas_port_id = request_hash.get('NAS-Port-ID', None)
+    found_ports_by_nas_port_id = set()
+    if nas_port_id:
+        for port in switch[u'ports']:
+            if nas_port_id in (port[u'interface'], port[u'name'], port[u'description']):
+                found_ports_by_nas_port_id.add(port[u'interface'])
+        if len(found_ports_by_nas_port_id) == 1:
+            port_interface = list(found_ports_by_nas_port_id)[0]
+            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+    
+    
+    # If still, try nasport to ifindex
+    nas_port = request_hash.get('NAS-Port', None)
+    found_ports_by_nas_port = set()
+    if nas_port:
+        ifIndexes = snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
+        force_poll = not switch_polled # force poll if not already polled
+        for if_index in ifIndexes:
+            port = snmp_manager.getPortFromIndex(switch_ip, if_index, force_poll=force_poll, no_poll=(not force_poll))
+            force_poll = False # Polled once, no need to poll any more
+            if port:
+                found_ports_by_nas_port.add(port['interface'])
+        if len(found_ports_by_nas_port) == 1:
+            port_interface = list(found_ports_by_nas_port)[0]
+            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+    
+    # try to find a common one between the 3
+    intersection = found_ports_by_mac | found_ports_by_ssid | found_ports_by_nas_port_id | found_ports_by_nas_port
+    if found_ports_by_mac:
+        intersection &= found_ports_by_mac
+    if found_ports_by_ssid:
+        intersection &= found_ports_by_ssid
+    if found_ports_by_nas_port_id:
+        intersection &= found_ports_by_nas_port_id
+    if found_ports_by_nas_port:
+        intersection &= found_ports_by_nas_port
+    if len(intersection) == 1:
+        port_interface = intersection[0]
+        return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+        
     
     return radiusd.RLM_MODULE_NOTFOUND
 
@@ -73,7 +142,7 @@ def seen(request):
     else:
         port = None
         
-    vlan = request_hash.get('ORIGIN-Vlan-Id', None)
+    vlan = request_hash.get('Origin-Vlan-Id', None)
 
     mac = extract_mac(request_hash.get('Calling-Station-Id', None))
     
@@ -81,6 +150,7 @@ def seen(request):
     
     # Notify new  authorization and allow to go to the net
     if request_hash.get('Origin-Authorized', False):
+        #TODO: Send an alert top CC ON when vlan is None and we get here: should not happen
         auth_type = request_hash.get('Origin-Auth-Type', None)
         
         extra_kwargs = {}

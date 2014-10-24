@@ -154,10 +154,11 @@ server nac {
         Tunnel-Type := VLAN
         Tunnel-Medium-Type := IEEE-802
         Tunnel-Private-Group-Id := &reply:Origin-VLAN-ID
-        Extreme-Netlogin-Vlan := &reply:Origin-VLAN-ID
+        Extreme-Netlogin-Vlan   := &reply:Origin-VLAN-ID
       }
       update request {
-        Origin-VLAN-ID := &reply:Origin-VLAN-ID
+        Origin-VLAN-ID    := &reply:Origin-VLAN-ID
+        Origin-Authorized := &reply:Origin-Authorized
       }
     }
 

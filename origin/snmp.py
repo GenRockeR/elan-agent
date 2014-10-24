@@ -6,7 +6,7 @@ SNMP_POLL_REQUEST_CHANNEL       = 'snmp:poll:request'
 SNMP_DEFAULT_CREDENTIALS_PATH   = 'snmp:default_credentials'
 SNMP_READ_PARAMS_CACHE_PATH     = 'snmp:read:params'
 SNMP_PARSE_TRAP_CHANNEL         = 'snmp:trap:parse'
-
+SNMP_NASPORT_TO_IFINDEX_CHANNEL = 'snmp:nasport2ifindex'
 
 class SnmpConfiguration(Dendrite):
     '''
@@ -135,6 +135,16 @@ class DeviceSnmpManager(Dendrite):
             return
 
         return r[1]
+
+
+    def get_read_params(self, device_ip):
+        # Grab SNMP read credentials of device
+        read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
+        if not read_params:
+            if self.poll(device_ip):
+                read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
+            # TOTO: send alert to CC ON if not read_params here
+        return read_params
     
     def parse_trap_str(self, trap_str, timeout=5):
         '''
@@ -156,13 +166,9 @@ class DeviceSnmpManager(Dendrite):
         device_ip = snmp_connection_str.split(']',1)[0].split('[',1)[1]
         
         # Grab SNMP read credentials of device
-        read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
+        read_params = self.get_read_params(device_ip)
         if not read_params:
-            if not self.poll(device_ip):
-                return # Poll was not successful, return... nothing we can do... TODO: send an alert to account
-            read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
-            if not read_params:
-                return # SOMETHING went wrong, poll was succesfull so we should have the read_params TODO: send an alert (to Origin Nexus)
+            return
         
         trap = self._parse_trap_str(device_ip, trap_str, read_params, timeout)
         
@@ -207,25 +213,51 @@ class DeviceSnmpManager(Dendrite):
                     session.end(trap['trapMac'], time=trap_time)
             # TODO: Mark Port as potentially containing a new  mac -> macksuck ?
                     
+    
+    def nasPort2IfIndexes(self, device_ip, nas_port):
+        answer_path = 'snmp:nasport2ifindex:answer:{id}'.format(id=self.synapse.get_unique_id())
+        read_params = self.get_read_params(device_ip)
+        if not read_params:
+            return set()
+        self.synapse.lpush(SNMP_NASPORT_TO_IFINDEX_CHANNEL, dict(nas_port=nas_port, ip=device_ip, connection=read_params, answer_path=answer_path))
+        r = self.synapse.brpop(answer_path)
+        if r is None:
+            # timeout ! return empty set
+            return set() 
+
+        return set(r[1])
                     
-    def getPortFromIndex(self, device_ip, if_index, poll=True):
-        if device_ip is None or if_index is None:
-            return None
-        device_id = self.get_id_by_ip(device_ip)
-        if not device_id:
-            if poll:
-                self.poll(device_ip)
-                return self.getPortFromIndex(device_ip, if_index, poll=False)
-            # Already polled, but not found....
-            return
+    def getPortFromIndex(self, device_ip, if_index, force_poll=False, no_poll=False):
+        '''
+            Returns the port as { 'local_id': ..., 'interface':...} from given device_ip and if_index
+            force_poll will force the device to be polled before resolving ifIndex to port. Else it will try to use cache.
+            no_poll will disable any polling.
+            Setting both no_poll and force_poll is an error. 
+            Device will be polled only once, at most.
+        '''
         
-        device = self.get_device_by_id(device_id)
-        for port in device['ports']:
-            if port.get('index', None) == if_index:
-                return { 'id': device_id, 'interface': port['interface']}
-        # port not found, poll switch and retry
-        if poll:
-            self.poll(device_ip)
-            return self.getPortFromIndex(device_ip, if_index, poll=False)
+        if force_poll and no_poll:
+            raise('Setting both no_poll and force_poll is an error.')
+
+        if device_ip is not None and if_index is not None:
+            device_polled = False
+            if force_poll:
+                device = self.poll(device_ip)
+                device_polled = True
+            else:
+                device = self.get_id_by_ip(device_ip)
+                if not device and not no_poll:
+                    device = self.poll(device_ip)
+                    device_polled = True
+    
+            if device:
+                for port in device['ports']:
+                    if port.get('index', None) == if_index:
+                        return { 'local_id': device['local_id'], 'interface': port['interface']}
         
+                # port not found, retry forcing poll if poll was not done
+                if not device_polled and not no_poll:
+                    return self.getPortFromIndex(device_ip, if_index, force_poll=True)
         
+        # Device not found
+        return None
