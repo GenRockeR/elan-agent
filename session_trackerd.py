@@ -112,12 +112,21 @@ def check_session(dendrite):
     now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
     synapse = dendrite.synapse
 
+
+    # Use pipeline to delete and retrieve all objects that have expired...
+    with synapse.pipeline() as pipe:
+        pipe.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
+        pipe.zrembyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
+        expired_objects = pipe.execute()[0]
+     
+    
+    
     # Expire all objects
     # Don't send expire if object level up has expired as it will be done on its own
     mac_expired = []
     vlan_expired = []
     ip_expired = []
-    for obj in synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER):
+    for obj in synapse.expired_objects:
         if 'ip' in obj:
             ip_expired.append(obj)
         elif 'vlan' in obj:
@@ -127,18 +136,17 @@ def check_session(dendrite):
 
     for obj in ip_expired:
         if {'mac': obj['mac'], 'vlan': obj['vlan']} not in vlan_expired and {'mac': obj['mac']} not in mac_expired:
-            session.end_IP_session(end=now, **obj)
-        synapse.zrem(LAST_SEEN_PATH, obj)
+            session.notify_end_IP_session(end=now, **obj)
+
     for obj in vlan_expired:
         if {'mac': obj['mac']} not in mac_expired:
-            session.end_VLAN_session(end=now, **obj)
+            session.notify_end_VLAN_session(end=now, **obj)
         # Notify device disconnected from VLAN
         notify_disconnection(dendrite, mac=obj['mac'], vlan=obj['vlan'])
-        synapse.zrem(LAST_SEEN_PATH, obj)
 
     for obj in mac_expired:
-        session.end_MAC_session(end=now, **obj)
-        synapse.zrem(LAST_SEEN_PATH, obj)
+        session.notify_end_MAC_session(end=now, **obj)
+
 
     # ping Objects
     for obj in synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - PING_OBJECTS_AFTER):

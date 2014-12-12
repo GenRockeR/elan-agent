@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-from origin.utils import if_indextoname
-
-LAST_SEEN_PATH = 'device:last_seen' # TODO factorize somewhere
-
+from origin import session
 
 def getPacketParams(packet):
     '''
@@ -74,25 +71,13 @@ def process_packet(pktlen, data, timestamp):
     if ignoreMAC(pkt_params['mac']):
         return
     
-    now = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
+    time = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
 
-    args = [ now, dict(mac=pkt_params['mac']), 
-             now, dict(mac=pkt_params['mac'],vlan=pkt_params['vlan'])
-           ]
-    
-    use_ip = False
-    if 'ip' in pkt_params and not ignoreIP(pkt_params['ip']):
-            use_ip = True
-            args.extend( (now, pkt_params) )
-    
-    nb_added = synapse.zadd(LAST_SEEN_PATH, *args)
-    
-    if nb_added: # new session(s) created: inform Control Center
-        if use_ip:
-            session.start_IP_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], start=now)
+    if 'ip' in pkt_params:
+        if ignoreIP(pkt_params['ip']):
+            session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], time=time)
         else:
-            session.start_VLAN_session(mac=pkt_params['mac'], vlan=pkt_params['vlan'], start=now)
-
+            session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], time=time)
 
 
 if __name__ == '__main__':
@@ -101,7 +86,6 @@ if __name__ == '__main__':
     import traceback
     import time
     from origin.neuron import Synapse
-    from origin import session
     from impacket.ImpactDecoder import EthDecoder
     import pcap
     
