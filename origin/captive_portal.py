@@ -1,5 +1,5 @@
 from origin.neuron import Dendrite, Synapse
-from origin import nac
+from origin import nac, session
 
 CONF_PATH = 'conf:captive-portal'
 GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
@@ -75,7 +75,17 @@ class GuestAccessManager(Dendrite):
                     till_date=dateutil.parser.parse(last_authz['end_authorization'])
                 else:
                     till_date=None
-                nac.allowMAC(mac, vlan_id, till_date=till_date)
+
+                session.add_authentication_session(mac, source='guest', till_date=till_date, login=last_authz['login'], authentication_provider=last_authz['authentication_provider'])
+
+                assignments = session.get_network_assignments(mac)
+                if assignments:
+                    if assignments['vlan'] != vlan_id:
+                        pass # TODO: move to new vlan + async disconnect on this VLAN.-> do we have current vlan ?
+                    if assignments['bridge']:
+                        nac.allowMAC(mac, assignments['vlan'], till_disconnect=True)
+                    #TODO: update authorisation with vlan ???? 
+
             elif last_authz['termination_reason'] == 'revoked':
                 nac.disallowMAC(mac, vlan_id, reason='revoked')
             

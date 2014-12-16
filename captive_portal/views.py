@@ -96,9 +96,15 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context)
 
     # start session
-    # TODO: use effective auth_provider, this one could be a group 
-    session.start_authorization_session(mac=clientMAC, vlan=vlan_id, type='web', login=username, authentication_provider=web_authentication, till_disconnect=True)
-    nac.allowMAC(clientMAC, vlan_id, disallow_mac_on_disconnect=True)
+    # TODO: use effective auth_provider, this one could be a group
+    session.add_authentication_session(clientMAC, source='web', till_disconnect=True, login=username, authentication_provider=web_authentication)
+    assignments = session.get_network_assignments(clientMAC)
+    if assignments:
+        if assignments['vlan'] != vlan_id:
+            pass # TODO: move to new vlan + async disconnect on this VLAN
+        if assignments['bridge']:
+            nac.allowMAC(clientMAC, assignments['mac'], till_disconnect=True)
+        session.notify_new_authorization_session(mac=clientMAC, vlan=assignments['mac'], type='web', login=username, authentication_provider=web_authentication, till_disconnect=True, authorized=assignments['bridge'])
     
     return redirect('status')
 
