@@ -104,6 +104,8 @@ server nac {
   accounting {
   #  -sql
   # sql_log
+  # TODO: acct interim: seen mac + port if found...
+  # TODO: acct stop: end Mac
   
     attr_filter.accounting_response
   
@@ -139,14 +141,7 @@ server nac {
       # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
     }
     
-    find-port
-
-    update request {
-      &Origin-Switch-Id        := &reply:Origin-Switch-Id
-      &Origin-Switch-Interface := &reply:Origin-Switch-Interface
-    }
-    
-    cc-auth
+    get-assignments
     
     
     if( &reply:Origin-VLAN-ID ) {
@@ -156,13 +151,8 @@ server nac {
         Tunnel-Private-Group-Id := &reply:Origin-VLAN-ID
         Extreme-Netlogin-Vlan   := &reply:Origin-VLAN-ID
       }
-      update request {
-        Origin-VLAN-ID    := &reply:Origin-VLAN-ID
-        Origin-Authorized := &reply:Origin-Authorized
-      }
     }
 
-    notify-seen
     
     #  MacSEC requires the use of EAP-Key-Name.  However, we don't
     #  want to send it for all EAP sessions.  Therefore, the EAP
@@ -183,6 +173,8 @@ server nac {
       attr_filter.access_reject
   
       nac-eap
+      
+      seen
   
       remove_reply_message_if_eap
     }

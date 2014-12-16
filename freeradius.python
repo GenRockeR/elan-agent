@@ -1,30 +1,4 @@
-python find-port {
-        module = origin.freeradius.nac
-
-        mod_authorize = ${.module}
-        func_authorize = find_port
-
-        mod_authenticate = ${.module}
-        func_authenticate = find_port
-
-        mod_preacct = ${.module}
-        func_preacct = find_port
-
-        mod_accounting = ${.module}
-        func_accounting = find_port
-
-        mod_pre_proxy = ${.module}
-        func_pre_proxy = find_port
-
-        mod_post_proxy = ${.module}
-        func_post_proxy = find_port
-
-        mod_post_auth = ${.module}
-        func_post_auth = find_port
-
-}
-
-python notify-seen {
+python seen {
         module = origin.freeradius.nac
 
         mod_authorize = ${.module}
@@ -47,5 +21,31 @@ python notify-seen {
 
         mod_post_auth = ${.module}
         func_post_auth = seen
+
+}
+
+python get-assignments {
+        module = origin.freeradius.nac
+
+        mod_authorize = ${.module}
+        func_authorize = get_assignments
+
+        mod_authenticate = ${.module}
+        func_authenticate = get_assignments
+
+        mod_preacct = ${.module}
+        func_preacct = get_assignments
+
+        mod_accounting = ${.module}
+        func_accounting = get_assignments
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = get_assignments
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = get_assignments
+
+        mod_post_auth = ${.module}
+        func_post_auth = get_assignments
 
 }

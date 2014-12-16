@@ -1,11 +1,12 @@
 #! /usr/bin/env python3
 
 import radiusd
-from origin import nac, neuron, snmp, session
+from origin import neuron, snmp, session, nac
 import re
 
 # TODO: maybe put this in instanciate ?
-synapse = neuron.Synapse()
+dendrite = neuron.Dendrite('freeradius')
+synapse = dendrite.synapse
 snmp_manager = snmp.DeviceSnmpManager() 
 
 def extract_mac(string):
@@ -16,10 +17,17 @@ def extract_mac(string):
     m = re.match('([a-f0-9]{2})[.:-]?([a-f0-9]{2})[.:-]?([a-f0-9]{2})[.:-]?([a-f0-9]{2})[.:-]?([a-f0-9]{2})[.:-]?([a-f0-9]{2})', string, flags=re.IGNORECASE)
     if m:
         return ':'.join(m.groups()).lower()
-    
-def find_port(request):
+
+def seen(request):
     request_hash = request_as_hash_of_values(request)
 
+    mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+
+    port = find_port(request_hash)
+    if port:# don't bother if we do not have port info
+        session.seen(mac, port=port)
+
+def find_port(request_hash):
     nas_ip_address = request_hash.get('NAS-IP-Address', None)
     radius_client_ip = request_hash.get('Packet-Src-IP-Address', request_hash.get('Packet-Src-IPv6-Address', None))
 
@@ -53,16 +61,20 @@ def find_port(request):
                 found_ports_by_mac.add(port[u'interface'])
         if len(found_ports_by_mac) == 1:
             port_interface = list(found_ports_by_mac)[0]
-            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
 
     # Try to find SSID
     ssid = None
-    for k,v in request:
-        if v.startswith('"') and v.endswith('"'):
-            v = v[1:-1]
-        if '-avpair' in k.lower() and v.lower().startswith('ssid='):
-            ssid = v.partition('=')[2]
-            break
+    for k,v in request_hash:
+        if '-avpair' in k.lower():
+            if not isinstance(v, list):
+                v=[v]
+            for val in v:
+                if val.lower().startswith('ssid='):
+                    ssid = val.partition('=')[2]
+                    break
+            if ssid:
+                break
 
     found_ports_by_ssid = set()
     if ssid:
@@ -73,7 +85,7 @@ def find_port(request):
                     break
         if len(found_ports_by_ssid) == 1:
             port_interface = list(found_ports_by_ssid)[0]
-            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
         
 
 
@@ -86,7 +98,7 @@ def find_port(request):
                 found_ports_by_nas_port_id.add(port[u'interface'])
         if len(found_ports_by_nas_port_id) == 1:
             port_interface = list(found_ports_by_nas_port_id)[0]
-            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
     
     
     # If still, try nasport to ifindex
@@ -102,7 +114,7 @@ def find_port(request):
                 found_ports_by_nas_port.add(port['interface'])
         if len(found_ports_by_nas_port) == 1:
             port_interface = list(found_ports_by_nas_port)[0]
-            return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
+            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
     
     # try to find a common one between the 3
     intersection = found_ports_by_mac | found_ports_by_ssid | found_ports_by_nas_port_id | found_ports_by_nas_port
@@ -116,51 +128,67 @@ def find_port(request):
         intersection &= found_ports_by_nas_port
     if len(intersection) == 1:
         port_interface = intersection[0]
-        return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Switch-Id', str(switch[u'local_id'])), ('Origin-Switch-Interface', str(port_interface)),), () 
-        
+        return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
     
-    return radiusd.RLM_MODULE_NOTFOUND
+    # port not found...
+    # TODO: alert with logs to ON...
+    return
 
 def request_as_hash_of_values(request):
-    ret = {}
+    class MultiDict(dict):
+        'Dictionary that returns only last value when get is used and value is a list'
+        def get(self, *args, **kwargs):
+            v = super(MultiDict, self).get(*args, **kwargs)
+            if isinstance(v, list):
+                return v[-1]
+            return v
+            
+    ret = MultiDict()
+    
     for key, value in request:
         if value.startswith('"') and value.endswith('"'):
-            ret[key]= value[1:-1]
+            value = value[1:-1]
+        if key in ret:
+            if isinstance(ret[key], list):
+                ret[key].append(value)
+            else:
+                ret[key] = [ ret[key], value ]
         else:
-            ret[key]= value
+            ret[key] = value
 
     return ret
 
-def seen(request):
-    ''' Will create new session for Mac on Vlan and allow it on the network if authorized'''
-    request_hash = request_as_hash_of_values(request)
-    
-    switch_id = request_hash.get('Origin-Switch-Id', None)
-    switch_interface = request_hash.get('Origin-Switch-Interface', None)
-    if switch_id:
-        port = dict(local_id=switch_id, interface=switch_interface)
-    else:
-        port = None
-        
-    vlan = request_hash.get('Origin-Vlan-Id', None)
 
+def get_assignments(request):
+    ''' Will create new session for Mac and allow it on VLAN and on the net if authorized'''
+    request_hash = request_as_hash_of_values(request)
+        
     mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+
+    port = find_port(request_hash)
+    if port:
+        session.seen(mac, port=port)
+
+    #TODO: Send an alert top CC ON when vlan is None and we get here: should not happen
+    auth_type = request_hash.get('Origin-Auth-Type', None)
     
-    session.seen(mac=mac, port=port, vlan=vlan)
+    extra_kwargs = {}
+    if auth_type == 'dot1x':
+        extra_kwargs = dict(
+                authentication_provider = request_hash.get('Origin-Auth-Provider'),
+                login = request_hash.get('Origin-Login', request_hash.get('User-Name'))
+        )
     
-    # Notify new  authorization and allow to go to the net
-    if request_hash.get('Origin-Authorized', False):
-        #TODO: Send an alert top CC ON when vlan is None and we get here: should not happen
-        auth_type = request_hash.get('Origin-Auth-Type', None)
-        
-        extra_kwargs = {}
-        if auth_type == 'dot1x':
-            extra_kwargs = dict(
-                    authentication_provider = request_hash.get('Origin-Auth-Provider'),
-                    login = request_hash.get('Origin-Login', request_hash.get('User-Name'))
-            )
-        
-        session.notify_new_authorization_session(mac=mac, vlan=vlan, type=auth_type, **extra_kwargs)
-        nac.allowMAC(mac=mac, vlan=vlan, disallow_mac_on_disconnect=True)
+    session.remove_till_disconnect_authentication_session(mac)
+    session.add_authentication_session(mac, source=auth_type, till_disconnect=True, **extra_kwargs)
+
+    assignments = session.get_network_assignments(mac, port)
     
-    return radiusd.RLM_MODULE_OK 
+    if not assignments:
+        # TODO: log no assignment rule matched....
+        return radiusd.RLM_MODULE_REJECT
+    
+    if assignments['bridge']:
+        nac.allowMAC(mac, assignments['vlan'], till_disconnect=True)
+    session.notify_new_authorization_session(mac, assignments['vlan'], type=auth_type, till_disconnect=True, authorized=assignments['bridge'], **extra_kwargs)
+    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(assignments['vlan'])), ), ()
