@@ -67,8 +67,9 @@ def getPacketParams(packet, direction):
     return params 
 
 def ignorePacket(pkt):
+    macs2ignore = ('ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00')
     # Ignore broadcast packets
-    if pkt['wan_mac'] == 'ff:ff:ff:ff:ff:ff' or pkt['lan_mac'] == 'ff:ff:ff:ff:ff:ff':
+    if pkt['wan_mac'] in macs2ignore or pkt['lan_mac'] in macs2ignore:
         return True
 
     # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml

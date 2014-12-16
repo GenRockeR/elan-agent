@@ -7,7 +7,7 @@ from impacket.NDP import NDP, NDP_Option
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
 from origin import session
 
-LAST_SEEN_PATH = 'device:last_seen' # TODO factorize somewhere
+LAST_SEEN_PATH = 'device:macs:last_seen'
 SESSION_END_NOTIFICATION_PATH = 'device:session_end_notification'
 DISCONNECT_NOTIFICATION_PATH = 'device:vlan_mac_disconnected' # TODO Factorize: also in nac
 
@@ -114,11 +114,11 @@ def check_session(dendrite):
 
 
     # Use pipeline to delete and retrieve all objects that have expired...
-    with synapse.pipeline() as pipe:
-        pipe.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
-        pipe.zrembyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
-        expired_objects = pipe.execute()[0]
-     
+    pipe = synapse.pipe
+    pipe.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
+    pipe.zremrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
+    expired_objects = pipe.execute()[0]
+    #TODO: used last seen time (score) as end of sessions rather than now
     
     
     # Expire all objects
@@ -126,7 +126,7 @@ def check_session(dendrite):
     mac_expired = []
     vlan_expired = []
     ip_expired = []
-    for obj in synapse.expired_objects:
+    for obj in expired_objects:
         if 'ip' in obj:
             ip_expired.append(obj)
         elif 'vlan' in obj:
@@ -145,6 +145,7 @@ def check_session(dendrite):
         notify_disconnection(dendrite, mac=obj['mac'], vlan=obj['vlan'])
 
     for obj in mac_expired:
+        session.remove_till_disconnect_authentication_session(obj['mac'])
         session.notify_end_MAC_session(end=now, **obj)
 
 
