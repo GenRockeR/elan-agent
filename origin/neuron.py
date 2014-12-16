@@ -20,11 +20,12 @@ class Synapse(redis.StrictRedis):
     '''
     pool = redis.ConnectionPool(decode_responses=True)
     
-    def get_unique_id(self, path='synapse:id'):
+    def get_unique_id(self, path='synapse:unique_id'):
         '''
             Return a unique integer ID (incremented at each call)
+            optional path where to store last id.
         '''
-        return self.incrby(path)
+        return self.incr(path)
 
     def pipeline(self, transaction=True, shard_hint=None):
         return SynapsePipeline(
@@ -35,7 +36,9 @@ class Synapse(redis.StrictRedis):
 
     def __init__(self):
         super(Synapse, self).__init__(connection_pool=self.pool)
-        self.from_json_callbacks = {
+        
+        # Decorate response_callbacks to parse Json output
+        FROM_JSON_CALLBACKS = {
                 'GET':           self.parse_single_object,
                 'HGETALL':       self.parse_hgetall,
                 'HGET':          self.parse_single_object,
@@ -48,12 +51,19 @@ class Synapse(redis.StrictRedis):
                 'BRPOP':         self.parse_bpop,
         }
         
-    def parse_response(self, connection, command_name, **options):
-        response = super(Synapse, self).parse_response(connection, command_name, **options)
-        if command_name in self.from_json_callbacks:
-            return self.from_json_callbacks[command_name](response, **options)
-        return response
+        def decorate_callback(fn, otherFn):
+            def newFn(response, **options):
+                new_response = fn(response, **options)
+                return otherFn(new_response, **options)
+            return newFn
 
+        for cmd in FROM_JSON_CALLBACKS:
+            if cmd in self.response_callbacks:
+                self.response_callbacks[cmd] = decorate_callback(self.response_callbacks[cmd], FROM_JSON_CALLBACKS[cmd]) 
+            else:
+                self.response_callbacks[cmd] = FROM_JSON_CALLBACKS[cmd]
+
+        self.pipe = self.pipeline()
 
     def parse_single_object(self, response, **options):
         if response == None:
@@ -197,7 +207,6 @@ class Dendrite(object):
         When subclassing, use add_callback(channel, callback_fn) to listen to other redis queues.
         By default,listens to answer queue and  call queue (that includes the name)
     """
-    POST_COUNTER_PATH = '{name}:post:counter'
     POST_ANSWER_PATH = '{name}:post:{id}'
     
     #TODO: Once everything runs on python3, replace this by asyncio loop
@@ -285,8 +294,7 @@ class Dendrite(object):
             Synchronious POST
             Will block until an answer is received
         '''
-        post_counter_path = self.POST_COUNTER_PATH.format(name=self.name)
-        post_id = self.synapse.incr(post_counter_path)
+        post_id = self.synapse.get_unique_id()
         answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
         self.call(path, data, answer_path)
         answer_tuple = self.synapse.brpop(answer_path, timeout)
@@ -304,8 +312,7 @@ class Dendrite(object):
               'status': status code
             }
         '''
-        post_counter_path = self.POST_COUNTER_PATH.format(name=self.name)
-        post_id = self.synapse.incr(post_counter_path)
+        post_id = self.synapse.get_unique_id()
         answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
         self.register(data, answer_path)
         answer_tuple = self.synapse.brpop(answer_path, timeout)
@@ -495,7 +502,7 @@ class Axon:
             self._ws_unprovide(data['path'])
 
         elif data['cmd'] == 'CALL' and self.registered: # Ignore if not registered
-            track_id = str(self.synapse.incr('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
+            track_id = str(self.synapse.get_unique_id('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
             if data['answer_path']:
                 # TODO: maybe calls (ie sync posts) should be HTTP directly no added value here to go through websocket, except maybe to use cache when no answer or WS down?
                 self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=CALL_TIMEOUT) #If answer takes over CALL_TIMEOUT sec, ignore it...
@@ -508,7 +515,7 @@ class Axon:
                 self._check_post_answered(track_id)
         elif data['cmd'] == 'REGISTER':
             # Register Agent to account identifiend by admin credentials.
-            track_id = str(self.synapse.incr('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
+            track_id = str(self.synapse.get_unique_id('axon:track_counter')) # Track ID as string, it does not need to be an integer. It is treated as a string in the rest of the program
             if data['answer_path']:
                 self.synapse.set('axon:answer_paths:' + str(track_id), data['answer_path'], ex=CALL_TIMEOUT) #If answer takes over CALL_TIMEOUT sec, ignore it...
             self.ws.write_message('REGISTER {id}\n{data}'.format(id=track_id, data=json.dumps(data['data'])))
