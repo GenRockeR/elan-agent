@@ -9,43 +9,51 @@ import socket
 from idstools import spool
 from impacket.ImpactDecoder import EthDecoder
 from origin.neuron import Dendrite
+from origin.event import Event, ExceptionEvent
 
-def alert_from_event(event, packet_decoder):
-    alert = {
-             'src_port':    event['sport-itype'],
-             'dst_port':    event['dport-icode'],
-             'priority':    event['priority'],
-             'signature':   {
-                         'gid': event['generator-id'],
-                         'sid': event['signature-id'],
-                         'revision': event['signature-revision'],
-             },
-             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S.'+ str(event['event-microsecond']) +'Z', time.gmtime(event['event-second']))
-              #'vlan': event['vlan-id'],
-    }
+dendrite = Dendrite('ids-logger')
+decoder = EthDecoder()
+
+
+def notify_alert(alert, packet_decoder):
+    #timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.'+ str(event['event-microsecond']) +'Z', time.gmtime(event['event-second']))
+    event = Event(type='device-alert', source='ids', level='danger', timestamp=alert['event-second'], dendrite=dendrite)
+    event.add_data('src_port', alert['sport-itype'])
+    event.add_data('dst_port', alert['dport-icode'])
+    event.add_data('priority', alert['priority'])
+    event.add_data('signature', 
+                {
+                  'gid':      alert['generator-id'],
+                  'sid':      alert['signature-id'],
+                  'revision': alert['signature-revision'],
+                }, 
+                type = 'signature'
+             ),
+    #'vlan': event['vlan-id'],
+
     # decode Ethernet packet to get mac addresses and protocol
-    packet = packet_decoder.decode( reduce(lambda x,y: x + y['data'], event['packets'], '') )
+    packet = packet_decoder.decode( reduce(lambda x,y: x + y['data'], alert['packets'], '') )
     inet_family = None;
     while packet:
         if packet.__class__.__name__ == 'Ethernet':
-            alert['src_mac'] = packet.as_eth_addr(packet.get_ether_shost())
-            alert['dst_mac'] = packet.as_eth_addr(packet.get_ether_dhost())
+            event.add_data( ('src_mac', packet.as_eth_addr(packet.get_ether_shost()), 'mac') )
+            event.add_data( ('dst_mac', packet.as_eth_addr(packet.get_ether_dhost()), 'mac') )
         elif packet.__class__.__name__ == 'IP' and not inet_family:
             inet_family = socket.AF_INET
         elif packet.__class__.__name__ == 'IP6' and not inet_family:
             inet_family = socket.AF_INET6
             
         if packet.child().__class__.__name__ == 'Data':
-            alert['protocol'] = packet.__class__.__name__
+            event.add_data( ('protocol', packet.__class__.__name__) )
             break
         
         packet = packet.child()
 
-    alert['src_ip'] = socket.inet_ntop(inet_family, event['ip-source'])
-    alert['dst_ip'] = socket.inet_ntop(inet_family, event['ip-destination'])
+    if inet_family:
+        event.add_data( ('src_ip', socket.inet_ntop(inet_family, alert['ip-source'])) )
+        event.add_data( ('dst_ip', socket.inet_ntop(inet_family, alert['ip-destination'])) )
 
-        
-    return alert
+    event.notify()
 
 def main():
     directory = '/var/log/suricata'
@@ -61,18 +69,12 @@ def main():
             bookmarking=True,
             delete_on_close=True)
 
-    dendrite = Dendrite()
-    decoder = EthDecoder()
 
-    for event in reader:
+    for alert in reader:
         try:
-            alert = alert_from_event(event, decoder)
-            # Post alert by alert.
-            #TODO: may want to post several async like Connection Tracker
-            dendrite.post('alert', alert)
+            alert = notify_alert(alert)
         except:
-            #TODO: raise error
-            print("Error:", sys.exc_info()[0], file=sys.stderr)
+            ExceptionEvent(source='ids', dendrite=dendrite).notify()
 
 if __name__ == "__main__":
     sys.exit(main())
