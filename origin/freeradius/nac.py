@@ -2,7 +2,9 @@
 
 import radiusd
 from origin import neuron, snmp, session, nac
+from origin.event import Event, InternalEvent
 import re
+from gettext import gettext as _
 
 # TODO: maybe put this in instanciate ?
 dendrite = neuron.Dendrite('freeradius')
@@ -51,6 +53,12 @@ def find_port(request_hash):
             switch_polled = True
         else:
             # if switch not found, nothing we can do
+            event = Event('runtime-failure', source='radius', dendrite=dendrite)
+            if nas_ip_address:
+                event.add_data('nas_ip_address', nas_ip_address)
+            if radius_client_ip != nas_ip_address:
+                event.add_data('radius_client_ip', radius_client_ip)
+            event.notify()
             return
     
     called_station_id = extract_mac(request_hash.get('Called-Station-Id', None))
@@ -131,7 +139,13 @@ def find_port(request_hash):
         return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
     
     # port not found...
-    # TODO: alert with logs to ON...
+    InternalEvent(source='radius')\
+        .add_data('module', 'origin.freeradius.mac')\
+        .add_data('details', 'Port not found')\
+        .add_data('request', request_hash)\
+        .add_data('switch', switch)\
+        .notify()
+
     return
 
 def request_as_hash_of_values(request):
@@ -169,7 +183,6 @@ def get_assignments(request):
     if port:
         session.seen(mac, port=port)
 
-    #TODO: Send an alert top CC ON when vlan is None and we get here: should not happen
     auth_type = request_hash.get('Origin-Auth-Type', None)
     
     extra_kwargs = {}
@@ -185,7 +198,15 @@ def get_assignments(request):
     assignments = session.get_network_assignments(mac, port)
     
     if not assignments:
-        # TODO: log no assignment rule matched....
+        # log no assignment rule matched....
+        event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
+        event.add_data('mac', mac, 'mac')
+        event.add_data('port', port, 'port')
+        if auth_type == 'dot1x':
+            event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
+            event.add_data('login', extra_kwargs['login'])
+        event.notify()
+
         return radiusd.RLM_MODULE_REJECT
     
     if assignments['bridge']:
