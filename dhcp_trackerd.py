@@ -6,6 +6,8 @@ DHCP_NFLOG_QUEUE = int(os.environ.get('DHCP_NFLOG_QUEUE', 15))
 from pydhcplib.dhcp_packet import DhcpPacket
 import struct
 from origin.neuron import Synapse
+from origin.event import ExceptionEvent
+
 
 def getData(pkt_obj):
     if pkt_obj.__class__.__name__ == 'Data':
@@ -110,10 +112,10 @@ if __name__ == '__main__':
                 dendrite.post('device/dhcp-fingerprint', options)
 
         except Exception as e:
-            # TODO: notify error to central manager...
-            print 'Exception: ', type(e), e
-
-
+            ExceptionEvent(source='network')\
+                 .add_data('packet', pkt)\
+                 .add_data('hw_header', hwhdr)\
+                 .notify()
 
         
             

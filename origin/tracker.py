@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from impacket.ImpactDecoder import EthDecoder
 import time
+from origin.event import InternalEvent
 
 class Tracker():
     def __init__(self, new_connection_cb = None, deleted_connection_cb = None, connection_ttl_mn = 10):
@@ -71,6 +72,7 @@ class Tracker():
         """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
         """
         params = {}
+        original_packet = packet
         while packet:
             if packet.__class__.__name__ == 'Ethernet':
                 if direction == 'OUT':
@@ -126,8 +128,10 @@ class Tracker():
             packet = packet.child()
             
         else:
-            #TODO: log error as we should always some data (?)
-            print("Error, Data class type not found")
+            InternalEvent(source='network').
+                                     ('script', 'connection-tracker'),
+                                     ('details', 'Data class not found while decoding packet'),
+                                     ('packet', original_packet),
         return params 
 
 class Connection_tree(dict):

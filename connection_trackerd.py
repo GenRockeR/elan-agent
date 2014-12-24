@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+from origin.event import ExceptionEvent, InternalEvent
 
 CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))
 
@@ -7,6 +8,7 @@ def getPacketParams(packet, direction):
     """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
     """
     params = {'direction': direction}
+    original_packet = packet
     while packet:
         if packet.__class__.__name__ == 'Ethernet':
             if direction == 'OUT':
@@ -62,8 +64,11 @@ def getPacketParams(packet, direction):
         packet = packet.child()
         
     else:
-        #TODO: log error as we should always some data (?)
-        print("Error, Data class type not found")
+        InternalEvent( source='network')\
+             .add_data('script', 'connection-tracker')\
+             .add_data('details', 'Data class not found while decoding packet')\
+             .add_data('packet', original_packet)\
+             .notify()
     return params 
 
 def ignorePacket(pkt):
@@ -116,8 +121,10 @@ if __name__ == '__main__':
                 dendrite.post('connection', pkt_params)
 
         except Exception as e:
-            # TODO: notify error to central manager...
-            print 'Exception: ', type(e), e
+            ExceptionEvent(source='network')\
+                 .add_data('packet', pkt)\
+                 .add_data('hw_header', hwhdr)\
+                 .notify()
 
 
 

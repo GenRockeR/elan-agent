@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from origin import session
+from origin.event import Event, ExceptionEvent
 
 def getPacketParams(packet):
     '''
@@ -82,13 +83,17 @@ def process_packet(pktlen, data, timestamp):
         session.add_authentication_session(pkt_params['mac'], source='mac', till_disconnect=True)
         assignments = session.get_network_assignments(pkt_params['mac'])
         if not assignments or assignments['vlan'] != pkt_params['vlan']:
-            print('Mac {} not Allowed on Vlan {}'.format(pkt_params['mac'], pkt_params['vlan'])) # TODO: send event about Device not allowed. 
+            event = Event('device-not-authorized', source='network', level='danger') 
+            event.add_data('mac',  pkt_params['mac'], data_type='mac')
+            event.add_data('vlan', pkt_params['vlan'])
+            event.notify()
 
 if __name__ == '__main__':
     import signal
     import datetime
     import traceback
     import time
+    import sys
     from origin.neuron import Synapse
     from impacket.ImpactDecoder import EthDecoder
     import pcap
@@ -107,10 +112,9 @@ if __name__ == '__main__':
                 try:
                     p.dispatch(1, process_packet)   
                 except:
-                    traceback.print_exc()
+                    ExceptionEvent(source='network').notify()
         except:
-            traceback.print_exc()
-            time.sleep(1) # do not try to restart straight away
+            ExceptionEvent(source='network').notify()
 
 
         
