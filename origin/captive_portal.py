@@ -1,4 +1,5 @@
 from origin.neuron import Dendrite, Synapse
+from origin.event import Event
 from origin import nac, session
 
 CONF_PATH = 'conf:captive-portal'
@@ -80,8 +81,16 @@ class GuestAccessManager(Dendrite):
 
                 assignments = session.get_network_assignments(mac)
                 if assignments:
+                    Event( 'device-authorization', source='guest-access')\
+                        .add_data('mac', mac, 'mac')\
+                        .add_data('authentication_provider', last_authz['authentication_provider'], 'authentication_provider')\
+                        .add_data('login', last_authz['login'])\
+                        .add_data('authorized', assignments['bridge'] , 'bool')\
+                        .add_data('vlan', assignments['vlan'])\
+                        .notify()
+                    
                     if assignments['vlan'] != vlan_id:
-                        pass # TODO: move to new vlan + async disconnect on this VLAN.-> do we have current vlan ?
+                        pass  # TODO: move to new vlan + async disconnect on this VLAN.-> do we have current vlan ?
                     if assignments['bridge']:
                         nac.allowMAC(mac, assignments['vlan'], till_disconnect=True)
                     #TODO: update authorisation with vlan ???? 
