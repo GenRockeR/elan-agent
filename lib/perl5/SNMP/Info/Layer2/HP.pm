@@ -36,7 +36,6 @@ use strict;
 use Exporter;
 use SNMP::Info::Layer3;
 use SNMP::Info::MAU;
-use SNMP::Info::LLDP;
 use SNMP::Info::CDP;
 use SNMP::Info::Aggregate;
 
@@ -44,7 +43,6 @@ use SNMP::Info::Aggregate;
     SNMP::Info::Aggregate
     SNMP::Info::Layer3 
     SNMP::Info::MAU 
-    SNMP::Info::LLDP
     SNMP::Info::CDP 
     Exporter
 /;
@@ -52,12 +50,11 @@ use SNMP::Info::Aggregate;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %PORTSTAT %MODEL_MAP %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
     %SNMP::Info::MAU::MIBS,
-    %SNMP::Info::LLDP::MIBS,
     %SNMP::Info::CDP::MIBS,
     %SNMP::Info::Aggregate::MIBS,
     'RFC1271-MIB'    => 'logDescription',
@@ -74,7 +71,6 @@ $VERSION = '3.19';
 %GLOBALS = (
     %SNMP::Info::Layer3::GLOBALS,
     %SNMP::Info::MAU::GLOBALS,
-    %SNMP::Info::LLDP::GLOBALS,
     %SNMP::Info::CDP::GLOBALS,
     %SNMP::Info::Aggregate::GLOBALS,
     'serial1'      => 'entPhysicalSerialNum.1',
@@ -93,7 +89,6 @@ $VERSION = '3.19';
 %FUNCS = (
     %SNMP::Info::Layer3::FUNCS,
     %SNMP::Info::MAU::FUNCS,
-    %SNMP::Info::LLDP::FUNCS,
     %SNMP::Info::CDP::FUNCS,
     %SNMP::Info::Aggregate::FUNCS,
     'i_type2'   => 'ifType',
@@ -119,7 +114,6 @@ $VERSION = '3.19';
     # Inherit all the built in munging
     %SNMP::Info::Layer3::MUNGE,
     %SNMP::Info::MAU::MUNGE,
-    %SNMP::Info::LLDP::MUNGE,
     %SNMP::Info::CDP::MUNGE,
     %SNMP::Info::Aggregate::MUNGE,
     'c_id'   => \&munge_hp_c_id,
@@ -536,30 +530,6 @@ sub set_i_vlan_tagged {
 
 sub agg_ports { return agg_ports_ifstack(@_) }
 
-sub qb_fw_vlan {
-    my $hp = shift;
-    my $partial = shift;
-    my $qb_fw_vlan = $hp->SUPER::qb_fw_vlan($partial);
-
-    my $fdb_to_dot1q = {};
-    my $fdb_id = $hp->dot1qVlanFdbId(0);
-    foreach my $fdb_entry (keys %$fdb_id) {
-        my ($timemark, $vlan_id) = split(/\./, $fdb_entry);
-        $fdb_to_dot1q->{$fdb_id->{$fdb_entry}} = $vlan_id;
-    }
-    foreach my $learn (keys %$qb_fw_vlan) {
-        my $fdb_idx = $qb_fw_vlan->{$learn};
-        if (exists $fdb_to_dot1q->{$fdb_idx}) {
-            $qb_fw_vlan->{$learn} = $fdb_to_dot1q->{$fdb_idx}; 
-        }
-    }
-
-    return $qb_fw_vlan;
-}
-
-
-
-
 1;
 __END__
 
@@ -605,8 +575,6 @@ after determining a more specific class using the method above.
 =over
 
 =item SNMP::Info::Layer2
-
-=item SNMP::Info::LLDP
 
 =item SNMP::Info::MAU
 
@@ -827,21 +795,11 @@ Power supplied by PoE ports, in milliwatts
 Returns what version of STP the device is running.
 (C<hpicfBridgeRstpForceVersion> with fallback to inherited stp_ver())
 
-=item $hp->qb_fw_vlan()
-
-Returns reference to hash of forwarding table entries VLAN ID
-
-(C<dot1qFdbId>), (C<rcBridgeTpFdbVlanId>)
-
 =back
 
 =head2 Globals imported from SNMP::Info::Layer2
 
 See documentation in L<SNMP::Info::Layer2/"GLOBALS"> for details.
-
-=head2 Globals imported from SNMP::Info::LLDP
-
-See documentation in L<SNMP::Info::LLDP/"GLOBALS"> for details.
 
 =head2 Globals imported from SNMP::Info::MAU
 
@@ -893,10 +851,6 @@ ifIndex of the corresponding master ports.
 =head2 Table Methods imported from SNMP::Info::Layer2
 
 See documentation in L<SNMP::Info::Layer2/"TABLE METHODS"> for details.
-
-=head2 Table Methods imported from SNMP::Info::LLDP
-
-See documentation in L<SNMP::Info::LLDP/"TABLE METHODS"> for details.
 
 =head2 Table Methods imported from SNMP::Info::MAU
 

@@ -48,7 +48,7 @@ use SNMP::Info::Layer2;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %GLOBALS = (
     %SNMP::Info::Layer2::GLOBALS,
@@ -261,6 +261,8 @@ sub i_vlan_membership {
     return $i_vlan_membership;
 }
 
+sub i_vlan_membership_untagged { return; }
+
 sub bp_index {
     my $c1900   = shift;
     my $partial = shift;
@@ -470,6 +472,9 @@ bridge group IDs.
     print "Port: $port VLAN: $vlan\n";
   }
 
+=item $c1900->i_vlan_membership_untagged()
+
+Unsupported, returns nothing.
 
 =item $c1900->bp_index()
 

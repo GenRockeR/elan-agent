@@ -41,17 +41,19 @@ use SNMP::Info::Entity;
 use SNMP::Info::PowerEthernet;
 use SNMP::Info::IPv6;
 use SNMP::Info::AdslLine;
+use SNMP::Info::LLDP;
 
 @SNMP::Info::Layer3::ISA = qw/
     SNMP::Info::PowerEthernet SNMP::Info::IPv6
     SNMP::Info::Entity SNMP::Info::EtherLike
     SNMP::Info::Bridge SNMP::Info::AdslLine
+    SNMP::Info::LLDP
     SNMP::Info Exporter/;
 @SNMP::Info::Layer3::EXPORT_OK = qw//;
 
 use vars qw/$VERSION %GLOBALS %FUNCS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::MIBS,
@@ -61,6 +63,7 @@ $VERSION = '3.19';
     %SNMP::Info::Entity::MIBS,
     %SNMP::Info::PowerEthernet::MIBS,
     %SNMP::Info::IPv6::MIBS,
+    %SNMP::Info::LLDP::MIBS,
     'IP-MIB'   => 'ipNetToMediaIfIndex',
     'OSPF-MIB' => 'ospfRouterId',
     'BGP4-MIB' => 'bgpIdentifier',
@@ -76,6 +79,7 @@ $VERSION = '3.19';
     %SNMP::Info::Entity::GLOBALS,
     %SNMP::Info::PowerEthernet::GLOBALS,
     %SNMP::Info::IPv6::GLOBALS,
+    %SNMP::Info::LLDP::GLOBALS,
     'mac' => 'ifPhysAddress.1',
     'serial1' =>
         '.1.3.6.1.4.1.9.3.6.3.0',    # OLD-CISCO-CHASSIS-MIB::chassisId.0
@@ -92,6 +96,7 @@ $VERSION = '3.19';
     %SNMP::Info::Entity::FUNCS,
     %SNMP::Info::PowerEthernet::FUNCS,
     %SNMP::Info::IPv6::FUNCS,
+    %SNMP::Info::LLDP::FUNCS,
 
     # Obsolete Address Translation Table (ARP Cache)
     'old_at_index'   => 'atIfIndex',
@@ -150,6 +155,7 @@ $VERSION = '3.19';
     %SNMP::Info::Entity::MUNGE,
     %SNMP::Info::PowerEthernet::MUNGE,
     %SNMP::Info::IPv6::MUNGE,
+    %SNMP::Info::LLDP::MUNGE,
     'old_at_paddr' => \&SNMP::Info::munge_mac,
     'at_paddr'     => \&SNMP::Info::munge_mac,
     'n2p_paddr'    => \&SNMP::Info::munge_mac,
@@ -183,23 +189,6 @@ sub root_ip {
     }
 
     return;
-}
-
-sub i_ignore {
-    my $l3      = shift;
-    my $partial = shift;
-
-    my $interfaces = $l3->interfaces($partial) || {};
-
-    my %i_ignore;
-    foreach my $if ( keys %$interfaces ) {
-
-        # lo -> cisco aironet 350 loopback
-        if ( $interfaces->{$if} =~ /(tunnel|loopback|\blo\b|null)/i ) {
-            $i_ignore{$if}++;
-        }
-    }
-    return \%i_ignore;
 }
 
 sub serial {
@@ -427,6 +416,8 @@ after determining a more specific class using the method above.
 
 =item SNMP::Info::IPv6
 
+=item SNMP::Info::LLDP
+
 =back
 
 =head2 Required MIBs
@@ -454,6 +445,8 @@ See L<SNMP::Info::Entity/"Required MIBs"> for its MIB requirements.
 See L<SNMP::Info::PowerEthernet/"Required MIBs"> for its MIB requirements.
 
 See L<SNMP::Info::IPv6/"Required MIBs"> for its MIB requirements.
+
+See L<SNMP::Info::LLDP/"Required MIBs"> for its MIB requirements.
 
 =head1 GLOBALS
 
@@ -528,6 +521,18 @@ See L<SNMP::Info::EtherLike/"GLOBALS"> for details.
 
 See L<SNMP::Info::Entity/"GLOBALS"> for details.
 
+=head2 Global Methods imported from SNMP::Info:PowerEthernet
+
+See L<SNMP::Info::PowerEthernet/"GLOBALS"> for details.
+
+=head2 Global Methods imported from SNMP::Info::IPv6
+
+See L<SNMP::Info::IPv6/"GLOBALS"> for details.
+
+=head2 Global Methods imported from SNMP::Info::LLDP
+
+See L<SNMP::Info::LLDP/"GLOBALS"> for details.
+
 =head1 TABLE METHODS
 
 These are methods that return tables of information in the form of a reference
@@ -543,12 +548,6 @@ Returns the map between SNMP Interface Identifier (iid) and physical port
 name. 
 
 Only returns those iids that have a description listed in $l3->i_description()
-
-=item $l3->i_ignore()
-
-Returns reference to hash.  Creates a key for each IID that should be ignored.
-
-Currently looks for tunnel,loopback,lo,null from $l3->interfaces()
 
 =item $l3->i_name()
 
@@ -802,5 +801,9 @@ See L<SNMP::Info::PowerEthernet/"TABLE METHODS"> for details.
 =head2 Table Methods imported from SNMP::Info::IPv6
 
 See L<SNMP::Info::IPv6/"TABLE METHODS"> for details.
+
+=head2 Table Methods imported from SNMP::Info::LLDP
+
+See L<SNMP::Info::LLDP/"TABLE METHODS"> for details.
 
 =cut

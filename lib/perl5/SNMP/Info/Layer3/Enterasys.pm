@@ -44,7 +44,7 @@ use SNMP::Info::Layer3;
 
 use vars qw/$VERSION $DEBUG %GLOBALS %FUNCS $INIT %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS, %SNMP::Info::CDP::MIBS,
@@ -149,11 +149,47 @@ sub i_duplex_admin {
     return $enterasys->mau_i_duplex_admin($partial);
 }
 
-#  LLDP table timefilter implementation continuously increments when walked
+#  TimeFilter implementation continuously increments when walked
 #  and we may never reach the end of the table.  This behavior can be
 #  modified with the "set snmp timefilter break disable" command,
 #  unfortunately it is not the default.  Query with a partial value of zero
-#  which means no time filter.
+#  which means no time filter for tables with and index containing a
+#  TimeFilter
+
+sub qb_fdb_index {
+    my $bridge  = shift;
+
+    my $qb_fdb_ids = $bridge->dot1qVlanFdbId(0) || {};
+
+    # Strip the TimeFilter
+    my $vl_fdb_index = {};
+    for my $orig (keys(%$qb_fdb_ids)) {
+        (my $new = $orig) =~ s/^\d+\.//;
+        $vl_fdb_index->{$new} = $qb_fdb_ids->{$orig};
+    }
+
+    return $vl_fdb_index;
+}
+
+sub i_vlan_membership {
+    my $bridge  = shift;
+    my $partial = shift;
+
+    # dot1qVlanCurrentTable TimeFilter index
+    my $v_ports = $bridge->qb_cv_egress(0) || $bridge->qb_v_egress();
+
+    return $bridge->_vlan_hoa($v_ports, $partial);
+}
+
+sub i_vlan_membership_untagged {
+    my $bridge  = shift;
+    my $partial = shift;
+
+    # dot1qVlanCurrentTable TimeFilter index
+    my $v_ports = $bridge->qb_cv_untagged(0) || $bridge->qb_v_untagged();
+
+    return $bridge->_vlan_hoa($v_ports, $partial);
+}
 
 sub lldp_ip {
     my $enterasys = shift;
@@ -359,15 +395,21 @@ L<SNMP::Info::MAU/"TABLE METHODS">.
 
 =back
 
-=head2 Link Layer Discovery Protocol (LLDP) Overrides
+=head2 Time Filter Table Index Overrides
 
-The LLDP table time filter implementation continuously increments when
+The time filter C<TimeFilter> implementation continuously increments when
 walked and we may never reach the end of the table.  This behavior can be
 modified with the C<"set snmp timefilter break disable"> command,
 unfortunately it is not the default.  These methods are overridden to
 supply a partial value of zero which means no time filter.
 
 =over
+
+=item $enterasys->qb_fdb_index()
+
+=item $enterasys->i_vlan_membership()
+
+=item $enterasys->i_vlan_membership_untagged()
 
 =item $enterasys->lldp_if()
 

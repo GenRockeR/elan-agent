@@ -24,7 +24,7 @@ use vars
     qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE $AUTOLOAD $INIT $DEBUG %SPEED_MAP
     $NOSUCH $BIGINT $REPEATERS/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 =head1 NAME
 
@@ -32,7 +32,7 @@ SNMP::Info - OO Interface to Network devices and MIBs through SNMP
 
 =head1 VERSION
 
-SNMP::Info - Version 3.19
+SNMP::Info - Version 3.23
 
 =head1 AUTHOR
 
@@ -394,6 +394,12 @@ F<MAU-MIB> (RFC2668).  Some Layer2 devices use this for extended Ethernet
 (Media Access Unit) interface information.
 
 See documentation in L<SNMP::Info::MAU> for details.
+
+=item SNMP::Info::MRO
+
+Method resolution introspection for SNMP::Info
+
+See documentation in L<SNMP::Info::MRO> for details.
 
 =item SNMP::Info::NortelStack
 
@@ -777,6 +783,12 @@ See documentation in L<SNMP::Info::Layer3::F5> for details.
 Subclass for Force10 devices.
 
 See documentation in L<SNMP::Info::Layer3::Force10> for details.
+
+=item SNMP::Info::Layer3::Fortinet
+
+Subclass for Fortinet devices.
+
+See documentation in L<SNMP::Info::Layer3::Fortinet> for details.
 
 =item SNMP::Info::Layer3::Foundry
 
@@ -1510,6 +1522,7 @@ sub device_type {
         9303 => 'SNMP::Info::Layer3::PacketFront',
         10002 => 'SNMP::Info::Layer2::Ubiquiti',
         12325 => 'SNMP::Info::Layer3::Pf',
+        12356 => 'SNMP::Info::Layer3::Fortinet',
         14179 => 'SNMP::Info::Layer2::Airespace',
         14525 => 'SNMP::Info::Layer2::Trapeze',
         14823 => 'SNMP::Info::Layer3::Aruba',
@@ -1665,7 +1678,7 @@ sub device_type {
         # Starting with IOS 15, Aironet reports sysServices 6, even though
         # it still is the same layer2 access point.
         $objtype = 'SNMP::Info::Layer2::Aironet'
-            if ($desc =~ /\b(C1100|C1130|C1140|AP1200|C350|C1200|C1240|C1250)\b/
+            if ($desc =~ /\b(C1100|C1130|C1140|AP1200|C350|C1200|C1240|C1250|C2700|C3700)\b/
             and $desc =~ /\bIOS\b/ );
 
         # Airespace (WLC) Module
@@ -3404,7 +3417,7 @@ sub munge_mac {
 
 =item munge_prio_mac()
 
-Takes an 8-byte octet stream (HEX-STRING) and returns a colon separated ASCII
+Takes an 2-byte octet stream (HEX-STRING) and returns a colon separated ASCII
 hex string.
 
 =cut
@@ -3415,6 +3428,22 @@ sub munge_prio_mac {
     return unless length $mac;
     $mac = join( ':', map { sprintf "%02x", $_ } unpack( 'C*', $mac ) );
     return $mac if $mac =~ /^([0-9A-F][0-9A-F]:){7}[0-9A-F][0-9A-F]$/i;
+    return;
+}
+
+=item munge_prio_port()
+
+Takes an 8-byte octet stream (HEX-STRING) and returns a colon separated ASCII
+hex string.
+
+=cut
+
+sub munge_prio_port {
+    my $mac = shift;
+    return unless defined $mac;
+    return unless length $mac;
+    $mac = join( ':', map { sprintf "%02x", $_ } unpack( 'C*', $mac ) );
+    return $mac if $mac =~ /^([0-9A-F][0-9A-F]:){1}[0-9A-F][0-9A-F]$/i;
     return;
 }
 

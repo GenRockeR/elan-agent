@@ -1,7 +1,7 @@
 # SNMP::Info::RapidCity
 # $Id$
 #
-# Copyright (c) 2008 Eric Miller
+# Copyright (c) 2014 Eric Miller
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,9 +39,15 @@ use SNMP::Info;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
-%MIBS = ( 'RAPID-CITY' => 'rapidCity', );
+%MIBS = (
+    'RAPID-CITY' => 'rapidCity',
+    # These are distinct from RAPID-CITY but are potentially used by
+    # classes which inherit the RAPID-CITY class
+    'NORTEL-NETWORKS-RAPID-SPANNING-TREE-MIB'    => 'nnRstDot1dStpVersion',
+    'NORTEL-NETWORKS-MULTIPLE-SPANNING-TREE-MIB' => 'nnMstBrgAddress',
+);
 
 %GLOBALS = (
     'rc_serial'    => 'rcChasSerialNumber',
@@ -153,6 +159,30 @@ $VERSION = '3.19';
     'rc_mlt_ports'    => 'rcMltPortMembers',
     'rc_mlt_index'    => 'rcMltIfIndex',
     'rc_mlt_dp'       => 'rcMltDesignatedPort',
+
+    # From RAPID-CITY::rcBridgeSpbmMacTable
+    'rc_spbm_fw_port'   => 'rcBridgeSpbmMacCPort',
+    'rc_spbm_fw_status' => 'rcBridgeSpbmMacStatus',
+    'rc_spbm_fw_vlan'   => 'rcBridgeSpbmMacCVlanId',
+
+    # From RAPID-CITY::rcStgTable
+    'stp_i_id'        => 'rcStgId',
+    'stp_i_mac'       => 'rcStgBridgeAddress',
+    'stp_i_time'      => 'rcStgTimeSinceTopologyChange',
+    'stp_i_ntop'      => 'rcStgTopChanges',
+    'stp_i_root'      => 'rcStgDesignatedRoot',
+    'stp_i_root_port' => 'rcStgRootPort',
+    'stp_i_priority'  => 'rcStgPriority',
+
+    # From RAPID-CITY::rcStgPortTable
+    'stp_p_id'       => 'rcStgPort',
+    'stp_p_stg_id'   => 'rcStgPortStgId',
+    'stp_p_priority' => 'rcStgPortPriority',
+    'stp_p_state'    => 'rcStgPortState',
+    'stp_p_cost'     => 'rcStgPortPathCost',
+    'stp_p_root'     => 'rcStgPortDesignatedRoot',
+    'stp_p_bridge'   => 'rcStgPortDesignatedBridge',
+    'stp_p_port'     => 'rcStgPortDesignatedPort',
 );
 
 %MUNGE = (
@@ -162,6 +192,11 @@ $VERSION = '3.19';
     'rc_vlan_members' => \&SNMP::Info::munge_port_list,
     'rc_vlan_no_join' => \&SNMP::Info::munge_port_list,
     'rc_mlt_ports'    => \&SNMP::Info::munge_port_list,
+    'stp_i_mac'       => \&SNMP::Info::munge_mac,
+    'stp_i_root'      => \&SNMP::Info::munge_prio_mac,
+    'stp_p_root'      => \&SNMP::Info::munge_prio_mac,
+    'stp_p_bridge'    => \&SNMP::Info::munge_prio_mac,
+    'stp_p_port'      => \&SNMP::Info::munge_prio_port,
 );
 
 # Need to override here since overridden in Layer2 and Layer3 classes
@@ -326,6 +361,71 @@ sub i_vlan_membership {
         }
     }
     return $i_vlan_membership;
+}
+
+sub i_vlan_membership_untagged {
+    my $rapidcity = shift;
+
+    # Traditionally access ports have one VLAN untagged and trunk ports have
+    # one or more VLANs all tagged
+    # Newer VOSS device trunks have PerformTagging true or false and also can
+    # UntagDefaultVlan
+    # Newer BOSS device trunks have four PerformTagging options true, false,
+    # tagPvidOnly, and untagPvidOnly
+
+    my $p_members = $rapidcity->i_vlan_membership();
+    my $i_vlan = $rapidcity->i_vlan();
+    my $p_tag_opt = $rapidcity->rcVlanPortPerformTagging() || {};
+    my $p_untag_def = $rapidcity->rcVlanPortUntagDefaultVlan() || {};
+    my $p_type = $rapidcity->rcVlanPortType() || {};
+
+    my $members_untagged = {};
+    foreach my $port ( keys %$p_type ) {
+        my $type = $p_type->{$port};
+        next unless $type;
+
+        # Easiest case first access ports
+        if ($type eq 'access') {
+            # Access ports should only have one VLAN and it should be
+            # untagged
+            $members_untagged->{$port} = $p_members->{$port};
+        }
+        else {
+            # If PerformTagging has a value do all checks otherwise we're
+            # just a trunk and everything is tagged
+            if ($p_tag_opt->{$port}) {
+                if ($p_tag_opt->{$port} eq 'untagPvidOnly') {
+                    my $vlan = $i_vlan->{$port};
+                    push( @{ $members_untagged->{$port} }, $vlan );                    
+                }
+                elsif (($p_tag_opt->{$port} eq 'true') and
+                       ($p_untag_def->{$port} and $p_untag_def->{$port} eq 'true'))
+                {
+                    my $vlan = $i_vlan->{$port};
+                    push( @{ $members_untagged->{$port} }, $vlan );                     
+                }
+                elsif ($p_tag_opt->{$port} eq 'tagPvidOnly') {
+                    my $vlan = $i_vlan->{$port};
+                    my @arr = $p_members->{$port};
+                    my $index = 0;
+                    my $count = scalar @arr;
+                    $index++ until $arr[$index] eq $vlan or $index==$count;
+                    splice(@arr, $index, 1);
+                    $members_untagged->{$port} = @arr;
+                }
+                # Don't know if this is a legal configuration, but included
+                # for completeness
+                elsif ($p_tag_opt->{$port} eq 'false') {
+                    $members_untagged->{$port} = $p_members->{$port};
+                }
+                else {
+                    next;
+                }
+            }
+        }
+    }
+ 
+    return $members_untagged;
 }
 
 sub set_i_pvid {
@@ -601,6 +701,81 @@ sub agg_ports {
     return $ret;
 }
 
+# break up the rcBridgeSpbmMacEntry INDEX into ISID and MAC Address.
+sub _spbm_fdbtable_index {
+    my $idx    = shift;
+    my @values = split( /\./, $idx );
+    my $isid = shift(@values);
+    return ( $isid, join( ':', map { sprintf "%02x", $_ } @values ) );
+}
+
+sub rc_spbm_fw_mac {
+    my $rapidcity  = shift;
+    my $partial = shift;
+
+    my $spbm_fw_ports = $rapidcity->rc_spbm_fw_port($partial);
+    my $spbm_fw_mac  = {};
+    foreach my $idx ( keys %$spbm_fw_ports ) {
+        my ( $isid, $mac ) = _spbm_fdbtable_index($idx);
+        $spbm_fw_mac->{$idx} = $mac;
+    }
+    return $spbm_fw_mac;
+}
+
+sub rc_spbm_fw_isid {
+    my $rapidcity  = shift;
+    my $partial = shift;
+
+    my $spbm_fw_ports = $rapidcity->rc_spbm_fw_port($partial);
+    my $spbm_fw_isid  = {};
+    foreach my $idx ( keys %$spbm_fw_ports ) {
+        my ( $isid, $mac ) = _spbm_fdbtable_index($idx);
+        $spbm_fw_isid->{$idx} = $isid;
+    }
+    return $spbm_fw_isid;
+}
+
+sub stp_ver {
+    my $rapidcity = shift;
+
+    return $rapidcity->rcSysSpanningTreeOperMode()
+      || $rapidcity->SUPER::stp_ver();
+}
+
+sub mst_vlan2instance {
+    my $rapidcity = shift;
+    my $partial   = shift;
+
+    return $rapidcity->rcVlanStgId($partial);
+}
+
+sub i_bpduguard_enabled {
+    my $rapidcity    = shift;
+    my $partial = shift;
+
+    return $rapidcity->rcPortBpduFilteringOperEnabled();
+}
+
+sub i_stp_state {
+    my $rapidcity = shift;
+    my $partial   = shift;
+
+    my $bp_index    = $rapidcity->bp_index($partial);
+    my $stp_p_state = $rapidcity->dot1dStpPortState($partial);
+
+    my %i_stp_state;
+
+    foreach my $index ( keys %$stp_p_state ) {
+        my $state = $stp_p_state->{$index};
+        my $iid   = $bp_index->{$index};
+        next unless defined $iid;
+        next unless defined $state;
+        $i_stp_state{$iid} = $state;
+    }
+
+    return \%i_stp_state;
+}
+
 1;
 
 __END__
@@ -710,6 +885,14 @@ These are methods that return scalar values from SNMP
 
 Returns serial number of the chassis
 
+=item $rapidcity->stp_ver()
+
+Returns the particular STP version running on this device.  
+
+Values: C<nortelStpg>, C<pvst>, C<rstp>, C<mstp>, C<ieee8021d>
+
+(C<rcSysSpanningTreeOperMode>)
+
 =back
 
 =head1 TABLE METHODS
@@ -746,6 +929,12 @@ IDs.  These are the VLANs which are members of the egress list for the port.
     print "Port: $port VLAN: $vlan\n";
   }
 
+=item $rapidcity->i_vlan_membership_untagged()
+
+Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
+IDs.  These are the VLANs which are members of the untagged egress list for
+the port.
+
 =item $rapidcity->v_index()
 
 Returns VLAN IDs
@@ -757,6 +946,25 @@ Returns VLAN IDs
 Returns a HASH reference mapping from slave to master port for each member of
 a port bundle (MLT) on the device. Keys are ifIndex of the slave ports,
 Values are ifIndex of the corresponding master ports.
+
+=item $rapidcity->i_stp_state()
+ 
+Returns the mapping of (C<dot1dStpPortState>) to the interface
+index (iid).
+
+=item $rapidcity->mst_vlan2instance()
+
+Returns the mapping of VLAN to Spanning Tree Group (STG) instance in the
+form of a hash reference with key = VLAN id, value = STG instance
+
+(C<rcVlanStgId>)
+
+=item $rapidcity->i_bpduguard_enabled()
+
+Returns true or false depending on whether C<BpduGuard> is enabled on a given
+port.  Format is a hash reference with key = C<ifIndex>, value = [true|false]
+
+(C<rcPortBpduFilteringOperEnabled>)
 
 =back
 
@@ -1087,6 +1295,43 @@ Values are ifIndex of the corresponding master ports.
 =item $rapidcity->rc2k_mda_dev()
 
 (C<rc2kMdaCardDeviations>)
+
+=back
+
+=head2 RAPID-CITY Bridge SPBM MAC Table (C<rcBridgeSpbmMacTable>)
+
+=over
+
+=item $bridge->rc_spbm_fw_mac()
+
+Returns reference to hash of forwarding table MAC Addresses
+
+(C<rcBridgeSpbmMacAddr>)
+
+=item $rapidcity->rc_spbm_fw_port()
+
+Returns reference to hash of forwarding table entries port interface
+identifier (iid)
+
+(C<rcBridgeSpbmMacCPort>)
+
+=item $rapidcity->rc_spbm_fw_status()
+
+Returns reference to hash of forwarding table entries status
+
+(C<rcBridgeSpbmMacStatus>)
+
+=item $rapidcity->rc_spbm_fw_vlan()
+
+Returns reference to hash of forwarding table entries Customer VLAN ID
+
+(C<rcBridgeSpbmMacCVlanId>)
+
+=item $rapidcity->rc_spbm_fw_isid()
+
+Returns reference to hash of forwarding table entries ISID
+
+(C<rcBridgeSpbmMacIsid>)
 
 =back
 

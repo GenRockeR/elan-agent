@@ -40,7 +40,7 @@ use SNMP::Info::LLDP;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
@@ -124,6 +124,8 @@ $VERSION = '3.19';
     'aruba_ap_model'  => 'wlanAPModelName',
     'aruba_ap_name'   => 'wlanAPName',
     'aruba_ap_ip'     => 'wlanAPIpAddress',
+    'aruba_ap_hw_ver' => 'wlanAPHwVersion',
+    'aruba_ap_sw_ver' => 'wlanAPSwVersion',
 
     # WLSX-WLAN-MIB::wlsxWlanESSIDVlanPoolTable
     'aruba_ssid_vlan' => 'wlanESSIDVlanPoolStatus',
@@ -484,6 +486,7 @@ sub i_vlan {
 	return $aruba->SUPER::i_vlan($partial)
 		if keys %{ $aruba->SUPER::i_vlan($partial) };
 
+	# If we don't have Q-BRIDGE-MIB, we're a wireless controller
 	my $index = $aruba->aruba_if_idx();
 
 	if ($partial) {
@@ -512,6 +515,7 @@ sub i_vlan_membership {
 	return $aruba->SUPER::i_vlan_membership($partial)
 		if keys %{ $aruba->SUPER::i_vlan_membership($partial) };
 
+	# If we don't have Q-BRIDGE-MIB, we're a wireless controller
 	my $essid_ssid = $aruba->aruba_ap_bssid_ssid();
 	my $ssid_vlans = $aruba->aruba_ssid_vlan();
 	my $if_vlans   = $aruba->aruba_if_vlan_member();
@@ -553,6 +557,32 @@ sub i_vlan_membership {
 		}
 	}
 	return $i_vlan_membership;
+}
+
+sub i_vlan_membership_untagged {
+	my $aruba   = shift;
+	my $partial = shift;
+
+	return $aruba->SUPER::i_vlan_membership_untagged($partial)
+		if keys %{ $aruba->SUPER::i_vlan_membership_untagged($partial) };
+
+	# If we don't have Q-BRIDGE-MIB, we're a wireless controller
+	# It is unclear if native VLAN is transmitted untagged
+	# This assumes Cisco-like behavior on trunks that native VLAN is
+	# transmitted untagged, if this needs to be changed we will need to
+	# consider ifExtMode rather than just using i_vlan
+	my $if_membership = $aruba->i_vlan_membership();
+	my $if_ = $aruba->i_vlan();
+	my $if_mode   = $aruba->aruba_if_mode();
+
+    my $vlans = $aruba->i_vlan($partial);
+    my $i_vlan_membership = {};
+    foreach my $port (keys %$vlans) {
+        my $vlan = $vlans->{$port};
+        push( @{ $i_vlan_membership->{$port} }, $vlan );
+    }
+
+    return $i_vlan_membership;
 }
 
 sub i_80211channel {
@@ -995,8 +1025,9 @@ sub e_type {
 sub e_hwver {
     my $aruba = shift;
 
-    my $ap_hw   = $aruba->aruba_card_hw()   || {};
-    my $ap_fpga = $aruba->aruba_card_fpga() || {};
+    my $ap_hw     = $aruba->aruba_card_hw()   || {};
+    my $ap_fpga   = $aruba->aruba_card_fpga() || {};
+    my $ap_hw_ver = $aruba->aruba_ap_hw_ver() || {};
 
     my %e_hwver;
 
@@ -1008,7 +1039,34 @@ sub e_hwver {
 
 	$e_hwver{$iid} = "$hw $fpga";
     }
+
+    # APs
+    foreach my $idx ( keys %$ap_hw_ver ) {
+	my $hw_ver = $ap_hw_ver->{$idx};
+	next unless defined $hw_ver;
+
+	$e_hwver{$idx} = "$hw_ver";
+    }
+
     return \%e_hwver;
+}
+
+sub e_swver {
+    my $aruba = shift;
+
+    my $ap_sw_ver = $aruba->aruba_ap_hw_ver() || {};
+
+    my %e_swver;
+
+    # APs
+    foreach my $idx ( keys %$ap_sw_ver ) {
+	my $sw_ver = $ap_sw_ver->{$idx};
+	next unless defined $sw_ver;
+
+	$e_swver{$idx} = "$sw_ver";
+    }
+
+    return \%e_swver;
 }
 
 sub e_vendor {
@@ -1586,6 +1644,12 @@ Returns reference to map of IIDs to VLAN ID of the interface.
 Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
 IDs.  These are the VLANs for which the port is a member.
 
+=item $aruba->i_vlan_membership_untagged()
+
+Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
+IDs.  These are the VLANs which are members of the untagged egress list for
+the port.
+
 =item $aruba->bp_index()
 
 Augments the bridge MIB by returning reference to a hash containing the
@@ -1647,6 +1711,10 @@ Returns reference to hash.  Key: IID, Value: Type of component.
 =item $aruba->e_hwver()
 
 Returns reference to hash.  Key: IID, Value: Hardware revision.
+
+=item $aruba->e_swver()
+
+Returns reference to hash.  Key: IID, Value: Software revision.
 
 =item $aruba->e_vendor()
 

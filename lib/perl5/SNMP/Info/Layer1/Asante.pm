@@ -41,7 +41,7 @@ use SNMP::Info::Layer1;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 # Set for No CDP
 %GLOBALS = ( %SNMP::Info::Layer1::GLOBALS, );
@@ -50,11 +50,11 @@ $VERSION = '3.19';
     %SNMP::Info::Layer1::FUNCS,
     'asante_port'  => 'ePortIndex',
     'asante_group' => 'ePortGrpIndex',
-    'i_type'       => 'ePortStateType',
+    'i_type'       => 'ePortGrpIndex',
     'asante_up'    => 'ePortStateLinkStatus',
 );
 
-%MIBS = ( %SNMP::Info::Layer1::MIBS, 'ASANTE-HUB1012-MIB' => 'asante' );
+%MIBS = ( %SNMP::Info::Layer1::MIBS, 'ASANTE-AH1012-MIB' => 'asante' );
 
 %MUNGE = ( %SNMP::Info::Layer1::MUNGE, );
 
@@ -202,7 +202,7 @@ Asante device through SNMP.
 
 =over
 
-=item F<ASANTE-HUB1012-MIB>
+=item F<ASANTE-AH1012-MIB>
 
 =back
 
@@ -230,7 +230,7 @@ Returns 'asante' :)
 
 =item $asante->model()
 
-Cross references $asante->id() to the F<ASANTE-HUB1012-MIB> and returns
+Cross references $asante->id() to the F<ASANTE-AH1012-MIB> and returns
 the results.
 
 =back

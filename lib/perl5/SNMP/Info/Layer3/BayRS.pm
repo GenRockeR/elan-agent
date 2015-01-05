@@ -43,7 +43,7 @@ use SNMP::Info::Bridge;
 use vars qw/$VERSION %GLOBALS %FUNCS %MIBS %MUNGE %MODEL_MAP
     %MODID_MAP %PROCID_MAP/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::MIBS,
@@ -731,6 +731,8 @@ sub i_vlan {
     }
     return \%i_vlan;
 }
+
+sub i_pvid { goto &i_vlan }
 
 sub root_ip {
     my $bayrs = shift;
@@ -1546,6 +1548,10 @@ Returns reference to hash.  Maps port admin duplexes to IIDs for Ethernet
 interfaces.
 
 =item $bayrs->i_vlan()
+
+Returns reference to hash.  Maps port VLAN ID to IIDs.
+
+=item $bayrs->i_pvid()
 
 Returns reference to hash.  Maps port VLAN ID to IIDs.
 

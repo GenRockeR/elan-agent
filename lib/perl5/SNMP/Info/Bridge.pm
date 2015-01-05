@@ -42,7 +42,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION $DEBUG %MIBS %FUNCS %GLOBALS %MUNGE $INIT/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     'BRIDGE-MIB'   => 'dot1dBaseBridgeAddress',
@@ -83,6 +83,17 @@ $VERSION = '3.19';
     'bs_port'   => 'dot1dStaticReceivePort',
     'bs_to'     => 'dot1dStaticAllowedToGoTo',
     'bs_status' => 'dot1dStaticStatus',
+
+    # These leafs are not part of a table, but placed here
+    # to return a hash reference to ease API compatibility with
+    # MST and PVST implementations indexed by a spanning tree
+    # instance id
+    'stp_i_mac'       => 'dot1dBaseBridgeAddress',
+    'stp_i_time'      => 'dot1dStpTimeSinceTopologyChange',
+    'stp_i_ntop'      => 'dot1dStpTopChanges',
+    'stp_i_root'      => 'dot1dStpDesignatedRoot',
+    'stp_i_root_port' => 'dot1dStpRootPort',
+    'stp_i_priority'  => 'dot1dStpPriority',
 
     # Spanning Tree Protocol Table : dot1dStpPortTable
     'stp_p_id'       => 'dot1dStpPort',
@@ -125,15 +136,18 @@ $VERSION = '3.19';
     'b_mac'            => \&SNMP::Info::munge_mac,
     'fw_mac'           => \&SNMP::Info::munge_mac,
     'bs_mac'           => \&SNMP::Info::munge_mac,
-    'stp_root'         => \&SNMP::Info::munge_mac,
+    'stp_root'         => \&SNMP::Info::munge_prio_mac,
+    'stp_i_mac'        => \&SNMP::Info::munge_mac,
+    'stp_i_root'       => \&SNMP::Info::munge_prio_mac,
     'stp_p_root'       => \&SNMP::Info::munge_prio_mac,
     'stp_p_bridge'     => \&SNMP::Info::munge_prio_mac,
-    'stp_p_port'       => \&SNMP::Info::munge_prio_mac,
+    'stp_p_port'       => \&SNMP::Info::munge_prio_port,
     'qb_cv_egress'     => \&SNMP::Info::munge_port_list,
     'qb_cv_untagged'   => \&SNMP::Info::munge_port_list,
     'qb_v_egress'      => \&SNMP::Info::munge_port_list,
     'qb_v_fbdn_egress' => \&SNMP::Info::munge_port_list,
     'qb_v_untagged'    => \&SNMP::Info::munge_port_list,
+    'qb_cv_untagged'   => \&SNMP::Info::munge_port_list,
 
 );
 
@@ -163,10 +177,20 @@ sub qb_fw_vlan {
     my $partial = shift;
 
     my $qb_fw_port = $bridge->qb_fw_port($partial);
+    my $qb_fdb_ids = $bridge->qb_fdb_index() || {};
+
+
     my $qb_fw_vlan = {};
     foreach my $idx ( keys %$qb_fw_port ) {
         my ( $fdb_id, $mac ) = _qb_fdbtable_index($idx);
-        $qb_fw_vlan->{$idx} = $fdb_id;
+        # Many devices do not populate the dot1qVlanCurrentTable, so default
+        # to FDB ID = VID, but if we have a mapping use it.  
+        my $vlan = $fdb_id;
+        # defined as test since some devices have a vlan 0
+        if (defined $qb_fdb_ids->{$fdb_id}) {
+            $vlan = $qb_fdb_ids->{$fdb_id};
+        }
+        $qb_fw_vlan->{$idx} = $vlan;
     }
     return $qb_fw_vlan;
 }
@@ -187,6 +211,25 @@ sub qb_i_vlan_t {
         $i_vlan->{$if} = $tagged eq 'admitOnlyVlanTagged' ? 'trunk' : $vlan;
     }
     return $i_vlan;
+}
+
+sub qb_fdb_index {
+    my $bridge  = shift;
+    my $partial = shift;
+
+    # Some devices may not implement TimeFilter in a standard manner
+    # appearing to loop on this request.  Override in the device class,
+    # see Enterasys for example.
+    my $qb_fdb_ids = $bridge->dot1qVlanFdbId() || {};
+
+    # Strip the TimeFilter
+    my $vl_fdb_index = {};
+    for my $orig (keys(%$qb_fdb_ids)) {
+        (my $new = $orig) =~ s/^\d+\.//;
+        $vl_fdb_index->{$new} = $qb_fdb_ids->{$orig};
+    }
+
+    return $vl_fdb_index;
 }
 
 # Most devices now support Q-BRIDGE-MIB, fall back to 
@@ -343,20 +386,31 @@ sub i_vlan_membership {
     my $bridge  = shift;
     my $partial = shift;
 
-    my $index = $bridge->bp_index();
+    # Use VlanCurrentTable if available since it will include dynamic
+    # VLANs.  However, some devices do not populate the table.
+    my $v_ports = $bridge->qb_cv_egress() || $bridge->qb_v_egress();
+
+    return $bridge->_vlan_hoa($v_ports, $partial);
+}
+
+sub i_vlan_membership_untagged {
+    my $bridge  = shift;
+    my $partial = shift;
 
     # Use VlanCurrentTable if available since it will include dynamic
     # VLANs.  However, some devices do not populate the table.
+    my $v_ports = $bridge->qb_cv_untagged() || $bridge->qb_v_untagged();
 
-    # 11/07 - Todo: Issue with some devices trying to query VlanCurrentTable
-    # as table may grow very large with frequent VLAN changes.
-    # 06/08 - VlanCurrentTable may be due to timefilter, should query with
-    # zero partial for no time filter.
-    # my $v_ports = $bridge->qb_cv_egress() || $bridge->qb_v_egress();
+    return $bridge->_vlan_hoa($v_ports, $partial);
+}
 
-    my $v_ports = $bridge->qb_v_egress() || {};
+sub _vlan_hoa {
+    my $bridge = shift;
+    my ( $v_ports, $partial ) = @_;
 
-    my $i_vlan_membership = {};
+    my $index = $bridge->bp_index();
+
+    my $vlan_hoa = {};
     foreach my $idx ( keys %$v_ports ) {
         next unless ( defined $v_ports->{$idx} );
         my $portlist = $v_ports->{$idx};
@@ -376,10 +430,10 @@ sub i_vlan_membership {
             my $ifindex = $index->{$port};
             next unless ( defined($ifindex) );    # shouldn't happen
             next if ( defined $partial and $ifindex !~ /^$partial$/ );
-            push( @{ $i_vlan_membership->{$ifindex} }, $vlan );
+            push( @{ $vlan_hoa->{$ifindex} }, $vlan );
         }
     }
-    return $i_vlan_membership;
+    return $vlan_hoa;
 }
 
 sub set_i_pvid {
@@ -649,10 +703,20 @@ IDs.  These are the VLANs which are members of the egress list for the port.
     print "Port: $port VLAN: $vlan\n";
   }
 
+=item $bridge->i_vlan_membership_untagged()
+
+Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
+IDs.  These are the VLANs which are members of the untagged egress list for
+the port.
+
 =item $bridge->qb_i_vlan_t()
 
 Returns reference to hash: key = C<dot1dBasePort>, value = either 'trunk' for
 tagged ports or the VLAN ID.
+
+=item $bridge->qb_fdb_index()
+
+Returns reference to hash: key = VLAN ID, value = FDB ID.
 
 =item $bridge->v_index()
 
@@ -704,6 +768,48 @@ on the same bridge, this object contains the name of an	object instance unique
 to this port.
 
 (C<dot1dBasePortCircuit>)
+
+=back
+
+=head2 Spanning Tree Instance Globals
+
+These are not part of a table, but return a hash reference to ease API
+compatibility with MST and PVST implementations indexed by a spanning tree
+instance id.
+
+=over
+
+=item $bridge->stp_i_time()
+
+Returns time since last topology change detected. (100ths/second)
+
+(C<dot1dStpTimeSinceTopologyChange>)
+
+=item $bridge->stp_i_time()
+
+Returns the total number of topology changes detected.
+
+(C<dot1dStpTopChanges>)
+
+=item $bridge->stp_i_root()
+
+Returns root of STP.
+
+(C<dot1dStpDesignatedRoot>)
+
+=item $bridge->stp_i_root_port()
+
+Returns the port number of the port that offers the lowest cost path
+to the root bridge.
+
+(C<dot1dStpRootPort>)
+
+=item $bridge->stp_i_priority()
+
+Returns the port number of the port that offers the lowest cost path
+to the root bridge.
+
+(C<dot1dStpPriority>)
 
 =back
 

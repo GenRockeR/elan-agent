@@ -46,7 +46,7 @@ use SNMP::Info::Layer3;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,    %SNMP::Info::LLDP::MIBS,
@@ -341,6 +341,60 @@ sub peth_port_ifindex {
     return \%peth_port_ifindex;
 }
 
+# Currently only ERS 4800 v5.8+ support the rcBridgeSpbmMacTable 
+# which holds the FDB for a SPBM edge deployment.
+#
+# Q-BRIDGE still holds some entries when the rcBridgeSpbmMacTable is in use
+# so we merge hash entries.
+
+sub fw_mac {
+    my $rapidcity = shift;
+
+    my $qb = $rapidcity->SUPER::fw_mac() || {};
+    my $spbm = $rapidcity->rc_spbm_fw_mac() || {};
+    my $fw_mac = { %$qb, %$spbm };
+    
+    return $fw_mac;
+}
+
+sub fw_port {
+    my $rapidcity = shift;
+
+    my $qb = $rapidcity->SUPER::fw_port() || {};
+    my $spbm = $rapidcity->rc_spbm_fw_port() || {};
+    my $fw_port = { %$qb, %$spbm };
+    
+    return $fw_port;
+}
+
+sub fw_status {
+    my $rapidcity = shift;
+
+    my $qb = $rapidcity->SUPER::fw_status() || {};    
+    my $spbm = $rapidcity->rc_spbm_fw_status() || {};
+    my $fw_status = { %$qb, %$spbm };
+    
+    return $fw_status;
+}
+
+sub qb_fw_vlan {
+    my $rapidcity = shift;
+
+    my $qb = $rapidcity->SUPER::qb_fw_vlan() || {};
+    my $spbm = $rapidcity->rc_spbm_fw_vlan() || {};
+    my $qb_fw_vlan = { %$qb, %$spbm };
+    
+    return $qb_fw_vlan;
+}
+
+# Baystack uses S5-AGENT-MIB (loaded in NortelStack) versus RAPID-CITY
+sub stp_ver {
+    my $rapidcity = shift;
+
+    return $rapidcity->s5AgSysSpanningTreeOperMode()
+      || $rapidcity->SUPER::stp_ver();
+}
+
 1;
 
 __END__
@@ -443,6 +497,14 @@ Returns 'baystack' or 'boss' depending on software version.
 =item $baystack->os_bin()
 
 Returns the firmware version extracted from C<sysDescr>.
+
+=item $baystack->stp_ver()
+
+Returns the particular STP version running on this device.  
+
+Values: C<nortelStpg>, C<pvst>, C<rstp>, C<mstp>, C<ieee8021d>
+
+(C<s5AgSysSpanningTreeOperMode>)
 
 =back
 
@@ -597,6 +659,32 @@ ns_e_type().
 
 If the device doesn't support C<entPhysicalMfgName>, this will try
 ns_e_vendor().
+
+=back
+
+=head2 Layer 2 Forwarding Database
+
+These methods try to obtain the layer 2 forwarding database entries via the
+normal bridge methods as well as SPBM entries via rapid city methods.
+
+=over
+
+=item $baystack->fw_mac()
+
+Returns reference to hash of forwarding table MAC Addresses
+
+=item $baystack->fw_port()
+
+Returns reference to hash of forwarding table entries port interface
+identifier (iid)
+
+=item $baystack->qb_fw_vlan()
+
+Returns reference to hash of forwarding table entries VLAN ID
+
+=item $baystack->fw_status()
+
+Returns reference to hash of forwarding table entries status
 
 =back
 

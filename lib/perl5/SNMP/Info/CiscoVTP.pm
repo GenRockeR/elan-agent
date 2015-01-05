@@ -41,7 +41,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION %MIBS %FUNCS %GLOBALS %MUNGE/;
 
-$VERSION = '3.19';
+$VERSION = '3.23';
 
 %MIBS = (
     'CISCO-VTP-MIB'                       => 'vtpVlanName',
@@ -149,6 +149,7 @@ sub i_vlan {
 
     my $port_vlan      = $vtp->vtp_trunk_native($partial)   || {};
     my $i_vlan         = $vtp->i_vlan2($partial)            || {};
+    my $trunk_dyn      = $vtp->vtp_trunk_dyn($partial)      || {};
     my $trunk_dyn_stat = $vtp->vtp_trunk_dyn_stat($partial) || {};
 
     my %i_vlans;
@@ -165,8 +166,17 @@ sub i_vlan {
     foreach my $port ( keys %$port_vlan ) {
         my $vlan = $port_vlan->{$port};
         next unless defined $vlan;
+
+        # ports up and trunking should have a trunking status
         my $stat = $trunk_dyn_stat->{$port};
-        if ( defined $stat and $stat =~ /^trunking/ ) {
+
+        # vtp_trunk_dyn_stat is not useful for down ports
+        # so we use vtp_trunk_dyn to see if trunking is set
+        my $dyn = $trunk_dyn->{$port};
+        
+        if (($stat and $stat =~ /^trunking/ )
+            or ($dyn and (($dyn eq 'on') or ($dyn eq 'onNoNegotiate'))))
+        {
             $i_vlans{$port} = $vlan;
         }
     }
@@ -217,6 +227,7 @@ sub i_vlan_membership {
     my $vtp_vlans      = $vtp->v_state();
     my $i_vlan         = $vtp->i_vlan2($partial)            || {};
     my $trunk_dyn_stat = $vtp->vtp_trunk_dyn_stat($partial) || {};
+    my $trunk_dyn      = $vtp->vtp_trunk_dyn($partial)      || {};
 
     my $i_vlan_membership = {};
 
@@ -224,8 +235,8 @@ sub i_vlan_membership {
     foreach my $port ( keys %$i_vlan ) {
         my $vlan = $i_vlan->{$port};
         next unless defined $vlan;
-        my $stat = $trunk_dyn_stat->{$port};
-        if ( defined $stat and $stat =~ /notTrunking/ ) {
+        my $dyn = $trunk_dyn->{$port};
+        unless ($dyn and (($dyn eq 'on') or ($dyn eq 'onNoNegotiate'))) {
             push( @{ $i_vlan_membership->{$port} }, $vlan );
         }
     }
@@ -248,7 +259,9 @@ sub i_vlan_membership {
 
     foreach my $port ( keys %$ports_vlans ) {
         my $stat = $trunk_dyn_stat->{$port};
-        if ( defined $stat and $stat =~ /^trunking/ ) {
+        my $dyn = $trunk_dyn->{$port};
+        if (($stat and $stat =~ /^trunking/ )
+            or ($dyn and (($dyn eq 'on') or ($dyn eq 'onNoNegotiate')))) {
             my $k     = 0;
             my $list1 = $ports_vlans->{$port} || '0';
             my $list2 = $ports_vlans_2k->{$port} || '0';
@@ -267,6 +280,20 @@ sub i_vlan_membership {
         }
     }
 
+    return $i_vlan_membership;
+}
+
+sub i_vlan_membership_untagged {
+    my $vtp  = shift;
+    my $partial = shift;
+
+    my $vlans = $vtp->i_vlan($partial);
+    my $i_vlan_membership = {};
+    foreach my $port (keys %$vlans) {
+        my $vlan = $vlans->{$port};
+        push( @{ $i_vlan_membership->{$port} }, $vlan );
+    }
+    
     return $i_vlan_membership;
 }
 
@@ -589,6 +616,12 @@ IDs.  These are the VLANs which are members of enabled VLAN list for the port.
     my $vlan = join(',', sort(@{$vlans->{$iid}}));
     print "Port: $port VLAN: $vlan\n";
   }
+
+=item $vtp->i_vlan_membership_untagged()
+
+Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
+IDs.  These are the VLANs which are members of the untagged egress list for
+the port.
 
 =back
 
