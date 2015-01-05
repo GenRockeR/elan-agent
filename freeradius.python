@@ -24,6 +24,32 @@ python seen {
 
 }
 
+python end {
+        module = origin.freeradius.nac
+
+        mod_authorize = ${.module}
+        func_authorize = end
+
+        mod_authenticate = ${.module}
+        func_authenticate = end
+
+        mod_preacct = ${.module}
+        func_preacct = end
+
+        mod_accounting = ${.module}
+        func_accounting = end
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = end
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = end
+
+        mod_post_auth = ${.module}
+        func_post_auth = end
+
+}
+
 python get-assignments {
         module = origin.freeradius.nac
 

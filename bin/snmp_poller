@@ -10,6 +10,7 @@ use Redis;
 use JSON;
 use File::Find;
 use Origin::NetdiscoDevice;
+use threads;
 
 use constant SNMP_POLL_REQUEST_CHANNEL => 'snmp:poll:request';
 use constant SNMP_PARSE_TRAP_CHANNEL => 'snmp:trap:parse';
@@ -130,7 +131,7 @@ sub _snmp_poll {
 
   my %portByIndex;
   foreach my $index (keys %{$s->interfaces || {}}) {
-    next if $s->i_ignore->{$index};
+    next if $s->if_ignore->{$index};
     my $port = {
             index       => $index, 
             interface   => $s->interfaces->{$index},
@@ -284,22 +285,32 @@ eval {
   my $redis = Redis->new();
 
   while(1) {
-    my ($channel, $json_request) = $redis->brpop(SNMP_POLL_REQUEST_CHANNEL, SNMP_PARSE_TRAP_CHANNEL, 0);
+    my ($channel, $json_request) = $redis->brpop(SNMP_POLL_REQUEST_CHANNEL, SNMP_PARSE_TRAP_CHANNEL, SNMP_NASPORT_TO_IFINDEX_CHANNEL, 0);
     if($json_request) {
       my $request = decode_json($json_request);
-      my $answer;
-      if($channel eq SNMP_POLL_REQUEST_CHANNEL){
-        $answer = snmp_poll($request->{ip}, $redis);
-      }
-      elsif($channel eq SNMP_PARSE_TRAP_CHANNEL) {
-        $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection}, $redis);
-      }
-      elsif($channel eq SNMP_NASPORT_TO_IFINDEX_CHANNEL) {
-        $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection}, $redis);
-      }
-      if($answer){
-        $redis->lpush( $request->{answer_path}, encode_json($answer) );
-      }
+      # start thread to take care of request...
+      threads->create(
+        sub {
+          my $request = shift;
+          my $channel = shift;
+          my $redis = Redis->new(); # use new redis object in thread, seems to work better...
+          my $answer;
+          if($channel eq SNMP_POLL_REQUEST_CHANNEL){
+            $answer = snmp_poll($request->{ip}, $redis);
+          }
+          elsif($channel eq SNMP_PARSE_TRAP_CHANNEL) {
+            $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection}, $redis);
+          }
+          elsif($channel eq SNMP_NASPORT_TO_IFINDEX_CHANNEL) {
+            $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection}, $redis);
+          }
+          if($answer){
+            $redis->lpush( $request->{answer_path}, encode_json($answer) );
+          }
+        }, 
+        $request, 
+        $channel
+      )->detach();
     }
   }
 };

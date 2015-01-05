@@ -20,6 +20,15 @@ def extract_mac(string):
     if m:
         return ':'.join(m.groups()).lower()
 
+def extract_ssid(string):
+    # extract mac from beginning of string
+    if not string:
+        return
+    
+    m = re.match('[a-f0-9]{2}[.:-]?[a-f0-9]{2}[.:-]?[a-f0-9]{2}[.:-]?[a-f0-9]{2}[.:-]?[a-f0-9]{2}[.:-]?[a-f0-9]{2}:(.+)', string, flags=re.IGNORECASE)
+    if m:
+        return m.group(1)
+
 def seen(request):
     request_hash = request_as_hash_of_values(request)
 
@@ -29,28 +38,44 @@ def seen(request):
     if port:# don't bother if we do not have port info
         session.seen(mac, port=port)
 
+def end(request):
+    request_hash = request_as_hash_of_values(request)
+
+    mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+    session.end(mac)
+
+
 def find_port(request_hash):
     nas_ip_address = request_hash.get('NAS-IP-Address', None)
     radius_client_ip = request_hash.get('Packet-Src-IP-Address', request_hash.get('Packet-Src-IPv6-Address', None))
 
     switch_polled = False
     switch = None
+
     # Retrieve switch info
+    # first try nas_ip address in snmp cache then radius_client_ip
+    # then try polling
     if nas_ip_address:
         switch = snmp_manager.get_device_by_ip(nas_ip_address)
-        if not switch:
-            switch = snmp_manager.poll(nas_ip_address)
     if switch:
         switch_ip = nas_ip_address
-        switch_polled = True
     else:
-        # If not found with NAS-IP-Address, try with Radius client IP
         switch = snmp_manager.get_device_by_ip(radius_client_ip)
-        if not switch:
+
+    if switch:
+        switch_ip = radius_client_ip
+    else:
+        # still not found try polling nas IP adddress, then ip the radius request came from
+        switch_polled = True
+        if nas_ip_address:
+            switch = snmp_manager.poll(nas_ip_address)
+        if switch:
+            switch_ip = nas_ip_address
+        else:
+            # If not found with NAS-IP-Address, try with Radius client IP
             switch = snmp_manager.poll(radius_client_ip)
         if switch:
             switch_ip = radius_client_ip
-            switch_polled = True
         else:
             # if switch not found, nothing we can do
             event = Event('runtime-failure', source='radius', dendrite=dendrite)
@@ -73,7 +98,7 @@ def find_port(request_hash):
 
     # Try to find SSID
     ssid = None
-    for k,v in request_hash:
+    for k,v in request_hash.items():
         if '-avpair' in k.lower():
             if not isinstance(v, list):
                 v=[v]
@@ -83,6 +108,9 @@ def find_port(request_hash):
                     break
             if ssid:
                 break
+    if not ssid:
+        # try from called Station ID
+        ssid = extract_ssid(request_hash.get('Called-Station-Id', None))
 
     found_ports_by_ssid = set()
     if ssid:
@@ -122,7 +150,9 @@ def find_port(request_hash):
                 found_ports_by_nas_port.add(port['interface'])
         if len(found_ports_by_nas_port) == 1:
             port_interface = list(found_ports_by_nas_port)[0]
-            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
+            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
+        
+    # TODO: Try to use forward mac table (fw_mac) to find on what port mac is on... (but do not save that to cache...)
     
     # try to find a common one between the 3
     intersection = found_ports_by_mac | found_ports_by_ssid | found_ports_by_nas_port_id | found_ports_by_nas_port

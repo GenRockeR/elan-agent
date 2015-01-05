@@ -106,6 +106,13 @@ server nac {
   # sql_log
   # TODO: acct interim: seen mac + port if found...
   # TODO: acct stop: end Mac
+    
+    if( Acct-Status-Type == Stop ){
+      end
+    }
+    elsif(Acct-Status-Type == Start || Acct-Status-Type == Interim-Update) {
+      seen
+    }
   
     attr_filter.accounting_response
   

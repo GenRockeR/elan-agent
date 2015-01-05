@@ -46,6 +46,7 @@ class DeviceSnmpManager(Dendrite):
 
         return r[1]
     
+    # retrieve from cache
     def get_new_device_id(self):
         return self.synapse.incr(self.DEVICE_SNMP_ID_COUNTER)
 
@@ -214,13 +215,13 @@ class DeviceSnmpManager(Dendrite):
             # TODO: Mark Port as potentially containing a new  mac -> macksuck ?
                     
     
-    def nasPort2IfIndexes(self, device_ip, nas_port):
+    def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):
         answer_path = 'snmp:nasport2ifindex:answer:{id}'.format(id=self.synapse.get_unique_id())
         read_params = self.get_read_params(device_ip)
         if not read_params:
             return set()
         self.synapse.lpush(SNMP_NASPORT_TO_IFINDEX_CHANNEL, dict(nas_port=nas_port, ip=device_ip, connection=read_params, answer_path=answer_path))
-        r = self.synapse.brpop(answer_path)
+        r = self.synapse.brpop(answer_path, timeout=timeout)
         if r is None:
             # timeout ! return empty set
             return set() 
