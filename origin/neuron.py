@@ -105,9 +105,9 @@ class Synapse(redis.StrictRedis):
      
             value_type = type(value).__name__
             if value_type == 'set':
-                pipe.sadd(key, *(json.dumps(v, sort_keys=True) for v in value) )
+                pipe.sadd(key, *list(json.dumps(v, sort_keys=True) for v in value) )
             elif value_type == 'list':
-                pipe.rpush(key, *(json.dumps(v, sort_keys=True) for v in value) )
+                pipe.rpush(key, *list(json.dumps(v, sort_keys=True) for v in value) )
             elif value_type == 'dict':
                 pipe.hmset(key, {k: json.dumps(v, sort_keys=True) for k,v in value.items()})
             else:
@@ -127,10 +127,10 @@ class Synapse(redis.StrictRedis):
         return super(Synapse, self).sismember(key, json.dumps(value, sort_keys=True))
 
     def sadd(self, key, *args):
-        return super(Synapse, self).sadd(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).sadd(key, *list(json.dumps(v, sort_keys=True) for v in args))
 
     def srem(self, key, *args):
-        return super(Synapse, self).srem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).srem(key, *list(json.dumps(v, sort_keys=True) for v in args))
         
     def parse_smembers(self, response, **options):
         return set(json.loads(v) for v in response)
@@ -147,7 +147,7 @@ class Synapse(redis.StrictRedis):
         return super(Synapse, self).zadd(key, *json_args)
 
     def zrem(self, key, *args):
-        return super(Synapse, self).zrem(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).zrem(key, *list(json.dumps(v, sort_keys=True) for v in args))
         
     def zmembers(self, key):
         return self.zrange(key, 0, -1)
@@ -169,7 +169,7 @@ class Synapse(redis.StrictRedis):
         return [json.loads(v) for v in response]
 
     def lpush(self, key, *args):
-        return super(Synapse, self).lpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).lpush(key, *list(json.dumps(v, sort_keys=True) for v in args))
     
     def parse_bpop(self, response, **options):
         if response == None:
@@ -177,7 +177,7 @@ class Synapse(redis.StrictRedis):
         return (response[0], json.loads(response[1]))
 
     def rpush(self, key, *args):
-        return super(Synapse, self).rpush(key, *(json.dumps(v, sort_keys=True) for v in args))
+        return super(Synapse, self).rpush(key, *list(json.dumps(v, sort_keys=True) for v in args))
     
     def rpop(self, key):
         data = super(Synapse, self).rpop(key)

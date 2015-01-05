@@ -36,14 +36,14 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
 
     pipe = dendrite.synapse.pipe
 
-    pipe.zadd(LAST_SEEN_PATH, [time, dict(mac=mac)])
+    pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac))
     if vlan is not None:
-        pipe.zadd(LAST_SEEN_PATH, [ time, dict(mac=mac, vlan=vlan)])
+        pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac, vlan=vlan))
         pipe.sadd(MAC_VLANS_PATH.format(mac=mac), vlan)
         if ip is not None:
-            pipe.zadd(LAST_SEEN_PATH, [ time, dict(mac=mac, vlan=vlan, ip=ip)])
+            pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac, vlan=vlan, ip=ip))
             pipe.sadd(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan), ip)
-    added = bool(pipe.execute())[0]
+    added = bool(pipe.execute()[0])
     
         
     if added: # new session(s) created: inform Control Center and keep mac port
@@ -108,8 +108,8 @@ def end(mac, vlan=None, ip=None, time=None):
     elif vlan is not None:
         notify_end_VLAN_session(mac=mac, vlan=vlan, start=time)
     else:
-        dendrite.synapse.hrem(MAC_PORT_PATH, mac)
-        notify_end_MAC_session(mac=mac, start=time)            
+        dendrite.synapse.hdel(MAC_PORT_PATH, mac)
+        notify_end_MAC_session(mac=mac, end=time)            
 
 
 def add_authentication_session(mac, **session):
@@ -171,7 +171,7 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
     # cleanup
     remove_expired_authentication_session(mac)
         
-    return dendrite.sync_post('agent/self/net-assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    return dendrite.sync_post('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
 
 
 def notify_new_MAC_session(mac, port=None, start=None):
