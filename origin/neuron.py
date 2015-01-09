@@ -132,8 +132,16 @@ class Synapse(redis.StrictRedis):
     def srem(self, key, *args):
         return super(Synapse, self).srem(key, *list(json.dumps(v, sort_keys=True) for v in args))
         
+    def smembers(self, *args, **kwargs):
+        return set(super(Synapse, self).smembers(*args, **kwargs))
+
+    def smembers_as_list(self, *args, **kwargs):
+        return super(Synapse, self).smembers(*args, **kwargs)
+
     def parse_smembers(self, response, **options):
-        return set(json.loads(v) for v in response)
+        # return list as members may not be hashable, smember fct will turn in into set. 
+        # caller should call smembers_as_list if it is known that members may be unhashable and deal with a list instead of a set
+        return [json.loads(v) for v in response] 
 
     # oredered sets
     def zadd(self, key, *args):
