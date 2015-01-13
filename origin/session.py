@@ -99,7 +99,7 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
     elif mac_added:
         notify_new_MAC_session(  mac=mac,                   port=port, start=time, mac_local_id=local_id)
  
-    return mac_added
+    return mac_added, vlan_added, ip_added
                     
 
 def end(mac, vlan=None, ip=None, time=None):
