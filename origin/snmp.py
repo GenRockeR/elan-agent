@@ -1,5 +1,5 @@
 from origin.neuron import Dendrite;
-from origin import session
+from origin import session, nac
 import datetime
 
 SNMP_POLL_REQUEST_CHANNEL       = 'snmp:poll:request'
@@ -211,8 +211,9 @@ class DeviceSnmpManager(Dendrite):
                     session.seen(trap['trapMac'], vlan=trap.get('vlan', None), port=port, time=trap_time)
                 elif trap['trapType'] == 'dot11Deauthentication'or \
                     (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
-                    session.end(trap['trapMac'], time=trap_time)
-            # TODO: Mark Port as potentially containing a new  mac -> macksuck ?
+                    nac.macDisconnected(trap['trapMac'], time=trap_time)
+            # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
+    
                     
     
     def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):

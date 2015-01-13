@@ -107,14 +107,19 @@ server nac {
   # TODO: acct interim: seen mac + port if found...
   # TODO: acct stop: end Mac
     
-    if( Acct-Status-Type == Stop ){
-      end
-    }
-    elsif(Acct-Status-Type == Start || Acct-Status-Type == Interim-Update) {
-      seen
-    }
-  
-    attr_filter.accounting_response
+  update request {
+    &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
+    # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
+  }
+
+  if( Acct-Status-Type == Stop ){
+    end
+  }
+  elsif(Acct-Status-Type == Start || Acct-Status-Type == Interim-Update) {
+    seen
+  }
+
+  attr_filter.accounting_response
   
   # Acct-Type Status-Server {
   #
@@ -151,7 +156,7 @@ server nac {
     get-assignments
     
     
-    if( &reply:Origin-VLAN-ID ) {
+    if( &reply:Origin-VLAN-ID && &reply:Origin-VLAN-ID != "0" ) {
       update reply {
         Tunnel-Type := VLAN
         Tunnel-Medium-Type := IEEE-802
@@ -181,6 +186,10 @@ server nac {
   
       nac-eap
       
+      update request {
+        &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
+        # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
+      }
       seen
   
       remove_reply_message_if_eap

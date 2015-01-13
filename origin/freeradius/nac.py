@@ -3,8 +3,7 @@
 import radiusd
 from origin import neuron, snmp, session, nac
 from origin.event import Event, InternalEvent
-import re
-from gettext import gettext as _
+import re, traceback
 
 # TODO: maybe put this in instanciate ?
 dendrite = neuron.Dendrite('freeradius')
@@ -30,22 +29,32 @@ def extract_ssid(string):
         return m.group(1)
 
 def seen(request):
-    request_hash = request_as_hash_of_values(request)
-
-    mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-
-    port = find_port(request_hash)
-    if port:# don't bother if we do not have port info
+    try:
+        request_hash = request_as_hash_of_values(request)
+    
+        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+    
+        port = find_port(request_hash)
         session.seen(mac, port=port)
+    except:
+        # TODO: send notification
+        traceback.print_exc()
+        raise
 
 def end(request):
-    request_hash = request_as_hash_of_values(request)
-
-    mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-    session.end(mac)
+    try:
+        request_hash = request_as_hash_of_values(request)
+    
+        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+        nac.macDisconnected(mac)
+    except:
+        # TODO: send notification
+        traceback.print_exc()
+        raise
 
 
 def find_port(request_hash):
+    # will try to find port 
     nas_ip_address = request_hash.get('NAS-IP-Address', None)
     radius_client_ip = request_hash.get('Packet-Src-IP-Address', request_hash.get('Packet-Src-IPv6-Address', None))
 
@@ -176,7 +185,7 @@ def find_port(request_hash):
         .add_data('switch', switch)\
         .notify()
 
-    return
+    return { 'local_id': str(switch[u'local_id']), 'interface': None }
 
 def request_as_hash_of_values(request):
     class MultiDict(dict):
@@ -205,41 +214,41 @@ def request_as_hash_of_values(request):
 
 def get_assignments(request):
     ''' Will create new session for Mac and allow it on VLAN and on the net if authorized'''
-    request_hash = request_as_hash_of_values(request)
+    try:
+        request_hash = request_as_hash_of_values(request)
+            
+        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
+    
+        port = find_port(request_hash)
+        if port:
+            session.seen(mac, port=port)
+    
+        auth_type = request_hash.get('Origin-Auth-Type', None)
         
-    mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-
-    port = find_port(request_hash)
-    if port:
-        session.seen(mac, port=port)
-
-    auth_type = request_hash.get('Origin-Auth-Type', None)
-    
-    extra_kwargs = {}
-    if auth_type == 'dot1x':
-        extra_kwargs = dict(
-                authentication_provider = request_hash.get('Origin-Auth-Provider'),
-                login = request_hash.get('Origin-Login', request_hash.get('User-Name'))
-        )
-    
-    session.remove_till_disconnect_authentication_session(mac)
-    session.add_authentication_session(mac, source=auth_type, till_disconnect=True, **extra_kwargs)
-
-    assignments = session.get_network_assignments(mac, port)
-    
-    if not assignments:
-        # log no assignment rule matched....
-        event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
-        event.add_data('mac', mac, 'mac')
-        event.add_data('port', port, 'port')
+        extra_kwargs = {}
         if auth_type == 'dot1x':
-            event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
-            event.add_data('login', extra_kwargs['login'])
-        event.notify()
-
-        return radiusd.RLM_MODULE_REJECT
+            extra_kwargs = dict(
+                    authentication_provider = request_hash.get('Origin-Auth-Provider'),
+                    login = request_hash.get('Origin-Login', request_hash.get('User-Name'))
+            )
+        
+        authz = nac.newAuthz(mac, no_duplicate_source=True, source=auth_type, till_disconnect=True, **extra_kwargs)
     
-    if assignments['bridge']:
-        nac.allowMAC(mac, assignments['vlan'], till_disconnect=True)
-    session.notify_new_authorization_session(mac, assignments['vlan'], type=auth_type, till_disconnect=True, authorized=assignments['bridge'], **extra_kwargs)
-    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(assignments['vlan'])), ), ()
+        if not authz:
+            # log no assignment rule matched....
+            event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
+            event.add_data('mac', mac, 'mac')
+            event.add_data('port', port, 'port')
+            if auth_type == 'dot1x':
+                event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
+                event.add_data('login', extra_kwargs['login'])
+            event.notify()
+    
+            return radiusd.RLM_MODULE_REJECT
+        
+        #session.notify_new_authorization_session(mac, assignments['vlan'], type=auth_type, till_disconnect=True, authorized=assignments['bridge'], **extra_kwargs)
+        return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.vlan)), ), ()
+    except:
+        # TODO: send notification
+        traceback.print_exc()
+        raise
