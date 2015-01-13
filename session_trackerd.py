@@ -5,11 +5,9 @@ from impacket.IP6_Address import IP6_Address
 from impacket.IP6 import IP6
 from impacket.NDP import NDP, NDP_Option
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
-from origin import session
+from origin import session, event, nac
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
-SESSION_END_NOTIFICATION_PATH = 'device:session_end_notification'
-DISCONNECT_NOTIFICATION_PATH = 'device:vlan_mac_disconnected' # TODO Factorize: also in nac
 
 PING_OBJECTS_AFTER = 240    #  4 minutes
 PING_EVERY = 10             # 10 seconds
@@ -105,19 +103,12 @@ def getSecondsBeforeNextCheck(dendrite, now=None):
         # No objects to be watched, we can sleep for PING_OBJECTS_AFTER
         return PING_OBJECTS_AFTER
 
-def notify_disconnection(dendrite, **kwargs):
-    dendrite.synapse.lpush(DISCONNECT_NOTIFICATION_PATH, kwargs)
     
 def check_session(dendrite):
     now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
     synapse = dendrite.synapse
 
-
-    # Use pipeline to delete and retrieve all objects that have expired...
-    pipe = synapse.pipe
-    pipe.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
-    pipe.zremrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
-    expired_objects = pipe.execute()[0]
+    expired_objects = synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
     #TODO: used last seen time (score) as end of sessions rather than now
     
     
@@ -126,7 +117,8 @@ def check_session(dendrite):
     mac_expired = []
     vlan_expired = []
     ip_expired = []
-    for obj in expired_objects:
+    for utf_obj in expired_objects:
+        obj = { str(k): str(v) for k,v in utf_obj.items()} # stupid utf8 strings from redis must be set as strings in python 2
         if 'ip' in obj:
             ip_expired.append(obj)
         elif 'vlan' in obj:
@@ -136,17 +128,15 @@ def check_session(dendrite):
 
     for obj in ip_expired:
         if {'mac': obj['mac'], 'vlan': obj['vlan']} not in vlan_expired and {'mac': obj['mac']} not in mac_expired:
-            session.notify_end_IP_session(end=now, **obj)
+            session.end(time=now, **obj)
 
     for obj in vlan_expired:
         if {'mac': obj['mac']} not in mac_expired:
-            session.notify_end_VLAN_session(end=now, **obj)
-        # Notify device disconnected from VLAN
-        notify_disconnection(dendrite, mac=obj['mac'], vlan=obj['vlan'])
+            session.end(time=now, **obj)
 
     for obj in mac_expired:
-        session.remove_till_disconnect_authentication_session(obj['mac'])
-        session.notify_end_MAC_session(end=now, **obj)
+        # Consider Mac as disconnected...
+        nac.macDisconnected(mac=obj['mac'], time=now)
 
 
     # ping Objects
@@ -160,23 +150,19 @@ def check_session(dendrite):
     dendrite.timeout = getSecondsBeforeNextCheck(dendrite, now)
     
 
-def process_notification(dendrite):
-    pass
-    
 if __name__ == '__main__':
     import signal # Todo: clean exit...
     import datetime, time, traceback
     from origin.neuron import Dendrite
     
     dendrite = Dendrite('session-tracker', timeout_cb=check_session, timeout=1) # make it run almost straight away on first run
-    dendrite.add_channel(SESSION_END_NOTIFICATION_PATH, process_notification)
     
     count = 0
     while count < 100:
         try:
             dendrite.run_for_ever()
         except:
-            traceback.print_exc()
+            event.ExceptionEvent().notify()
             time.sleep(1) # avoid locking CPU if exception on each loop
             dendrite.timeout = 4
             count = count + 1

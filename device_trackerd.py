@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from origin import session
+from origin import session, nac
 from origin.event import Event, ExceptionEvent
 
 def getPacketParams(packet):
@@ -75,18 +75,18 @@ def process_packet(pktlen, data, timestamp):
     time = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
 
     if 'ip' in pkt_params and not ignoreIP(pkt_params['ip']):
-        added = session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], time=time)
+        mac_added, vlan_added, ip_added = session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], ip=pkt_params['ip'], time=time)
     else:
-        added = session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], time=time)
+        mac_added, vlan_added, ip_added = session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], time=time)
 
-    if added: # check mac allowed in VLAN:
-        session.add_authentication_session(pkt_params['mac'], source='mac', till_disconnect=True)
-        assignments = session.get_network_assignments(pkt_params['mac'])
-        if not assignments or assignments['vlan'] != pkt_params['vlan']:
+    if vlan_added:
+        authz = nac.checkAuthz(pkt_params['mac'])
+        if not authz or authz.vlan != pkt_params['vlan']:
             event = Event('device-not-authorized', source='network', level='danger') 
             event.add_data('mac',  pkt_params['mac'], data_type='mac')
             event.add_data('vlan', pkt_params['vlan'])
             event.notify()
+            # TODO: Try to move it to another vlan!
 
 if __name__ == '__main__':
     import signal
