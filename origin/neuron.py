@@ -532,6 +532,7 @@ class Axon:
         if self.ws:
             # if websocket closed, retrieval will be make on opening of ws....
             if self.synapse.zscore('axon:awaited_post_answers', track_id):
+                # TODO: check if some other paths that are included in this one are still awaiting answer... in that case delay send...
                 # still waiting for answer...
                 self._ws_call(
                           self.synapse.hget('axon:awaited_post_answers:path', track_id), 
@@ -614,64 +615,69 @@ class Axon:
         tornado.ioloop.IOLoop.instance().add_timeout( datetime.timedelta(seconds=self.RETRY_INTERVAL), self._open_cc_ws )
             
     def process_msg(self, message):
-        header, json_data = message.split('\n', 1)
-        if json_data:
-            data = json.loads(json_data)
-        else:
-            data = ''
-        command, args = header.split(None, 1)
-        track_id, path = args.split(None, 1)
-
-        if command in ('ANSWER', 'ERROR'):
-            if track_id == '0':
-                if command == 'ANSWER':
-                    # path received, no need to further query it if it was watched
-                    self.awaited_paths.discard(path)
-            
-                    if data != self.synapse.get(CACHE_PREFIX + path):
-                        # data modified: update cache and notify subscribers
-                        self.synapse.set(CACHE_PREFIX + path, data)
-                        
-                        for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
-                            self._answer_requester(answer_path, path=path, data=data)
-    
-                    # answer retrievers
-                    for answer_path in self.synapse.smembers('synapse:retrievers:'+path):
-                        self._answer_requester(answer_path, path=path, data=data)
-                        self.synapse.srem('synapse:retrievers:'+path, answer_path)
-                    
+        try:
+            header, json_data = message.split('\n', 1)
+            if json_data:
+                data = json.loads(json_data)
             else:
-                # remove from awaited POSTS
-                self.synapse.zrem('axon:awaited_post_answers', track_id) 
-                self.synapse.hdel('axon:awaited_post_answers:data', track_id)
-                self.synapse.hdel('axon:awaited_post_answers:path', track_id)
-
-                # find answer path
-                answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
+                data = ''
+            command, args = header.split(None, 1)
+            track_id, path = args.split(None, 1)
+    
+            if command in ('ANSWER', 'ERROR'):
+                if track_id == '0':
+                    if command == 'ANSWER':
+                        # path received, no need to further query it if it was watched
+                        self.awaited_paths.discard(path)
                 
-                # if this is an answer do REGISTER, that succeeded, intercept it and use it
-                # when not registered, only command sent is REGISTER, so the answer must be an answer to REGISTER
-                if not self.registered and command == 'ANSWER' and path == 'agent/register':
-                    self.synapse.set(self.AGENT_ID_PATH, data['id'])
-                    self.synapse.set(self.AGENT_UUID_PATH, data['uuid'])
-                    self.registered = True
-                    self.generate_nginx_conf(reload=True)
+                        if data != self.synapse.get(CACHE_PREFIX + path):
+                            # data modified: update cache and notify subscribers
+                            self.synapse.set(CACHE_PREFIX + path, data)
+                            
+                            for answer_path in self.synapse.smembers('synapse:subscribers:'+path):
+                                self._answer_requester(answer_path, path=path, data=data)
+        
+                        # answer retrievers
+                        for answer_path in self.synapse.smembers('synapse:retrievers:'+path):
+                            self._answer_requester(answer_path, path=path, data=data)
+                            self.synapse.srem('synapse:retrievers:'+path, answer_path)
+                        
+                else:
+                    # remove from awaited POSTS
+                    self.synapse.zrem('axon:awaited_post_answers', track_id) 
+                    self.synapse.hdel('axon:awaited_post_answers:data', track_id)
+                    self.synapse.hdel('axon:awaited_post_answers:path', track_id)
+    
+                    # find answer path
+                    answer_path = self.synapse.get('axon:answer_paths:' + str(track_id))
                     
-                if answer_path:
-                    if command == 'ERROR':
-                        self._answer_requester( answer_path, status=path, data=data, error=True )
-                    else:
-                        self._answer_requester( answer_path, path=path, data=data, error=False )
-
-
-        elif command == 'CALL': # Ignore if no callback was defined
-            provider_path = self.synapse.hget('synapse:providers', path)
-            if provider_path:
-                self._call_provider(provider_path, track_id, path, data)
-
-        elif command == 'LOCATION':
-            self.synapse.set(self.LOCATION_PATH, path)
-
+                    # if this is an answer do REGISTER, that succeeded, intercept it and use it
+                    # when not registered, only command sent is REGISTER, so the answer must be an answer to REGISTER
+                    if not self.registered and command == 'ANSWER' and path == 'agent/register':
+                        self.synapse.set(self.AGENT_ID_PATH, data['id'])
+                        self.synapse.set(self.AGENT_UUID_PATH, data['uuid'])
+                        self.registered = True
+                        self.generate_nginx_conf(reload=True)
+                        
+                    if answer_path:
+                        if command == 'ERROR':
+                            self._answer_requester( answer_path, status=path, data=data, error=True )
+                        else:
+                            self._answer_requester( answer_path, path=path, data=data, error=False )
+    
+    
+            elif command == 'CALL': # Ignore if no callback was defined
+                provider_path = self.synapse.hget('synapse:providers', path)
+                if provider_path:
+                    self._call_provider(provider_path, track_id, path, data)
+    
+            elif command == 'LOCATION':
+                self.synapse.set(self.LOCATION_PATH, path)
+        except:
+            from origin.event import ExceptionEvent
+            ExceptionEvent().notify()
+        
+        
     def _call_provider(self, provider_path, req_id, path, data):
         self.synapse.lpush( provider_path, dict(data=data, req_id=req_id, path=path) )
     
