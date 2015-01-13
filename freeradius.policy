@@ -1,6 +1,6 @@
 authentications.authorize {
             update request {
-                Module-Failure-Message !* ''
+                Module-Failure-Message !* ANY
             }
             switch &Origin-Auth-Provider {
               
