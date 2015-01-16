@@ -234,7 +234,7 @@ def remove_expired_authentication_session(mac, date=None):
     #TODO: redis transaction
     current_sessions = dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)) or []
     for session in current_sessions:
-        if 'till'in session and session['till'] <= date:
+        if 'till' in session and session['till'] <= date:
             dendrite.synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
     
 
