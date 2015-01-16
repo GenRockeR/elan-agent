@@ -117,8 +117,7 @@ def check_session(dendrite):
     mac_expired = []
     vlan_expired = []
     ip_expired = []
-    for utf_obj in expired_objects:
-        obj = { str(k): str(v) for k,v in utf_obj.items()} # stupid utf8 strings from redis must be set as strings in python 2
+    for obj in expired_objects:
         if 'ip' in obj:
             ip_expired.append(obj)
         elif 'vlan' in obj:
