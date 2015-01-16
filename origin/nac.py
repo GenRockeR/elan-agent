@@ -190,15 +190,16 @@ class MacAuthorizationManager(Dendrite):
         
     def init_macs(self):
         # on startup, initialize sets
-        # TODO: this should be done in a transaction but 'nft flush set ...' does not work... 
+        # TODO: this should get vlans from network conf to flush nft sets and it should use fw_allow mac for each. Even if it is not in a transaction and not very efficient, it is OK as this should not restart often  
         cmd = ''
         vlans = set()
         for mac in self.synapse.zmembers(AUTHZ_MAC_EXPIRY_PATH):
             authz = RedisMacAuthorization.getByMac(mac)
             vlans.add(authz.vlan)
-            self._fw_cache_add(mac, authz.vlan)
-            for family in ['bridge', 'ip', 'ip6']:
-                cmd += 'nft add element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=authz.vlan, mac=mac)
+            if authz.bridge:
+                self._fw_cache_add(mac, authz.vlan)
+                for family in ['bridge', 'ip', 'ip6']:
+                    cmd += 'nft add element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=authz.vlan, mac=mac)
         for vlan in vlans:
             for family in ['bridge', 'ip', 'ip6']:
                 cmd = 'nft flush set {family} origin a_v_{vlan};'.format(family=family, vlan=vlan) + cmd
@@ -257,7 +258,7 @@ class MacAuthorizationManager(Dendrite):
             
     def authzChanged(self, mac):
         authz = RedisMacAuthorization.getByMac(mac)
-        if authz:
+        if authz and authz.bridge:
             self.fw_allow_mac(mac, authz.vlan)
         else:
             self.fw_disallow_mac(mac)

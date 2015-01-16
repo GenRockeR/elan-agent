@@ -83,17 +83,17 @@ def find_port(request_hash):
         else:
             # If not found with NAS-IP-Address, try with Radius client IP
             switch = snmp_manager.poll(radius_client_ip)
-        if switch:
-            switch_ip = radius_client_ip
-        else:
-            # if switch not found, nothing we can do
-            event = Event('runtime-failure', source='radius', dendrite=dendrite)
-            if nas_ip_address:
-                event.add_data('nas_ip_address', nas_ip_address)
-            if radius_client_ip != nas_ip_address:
-                event.add_data('radius_client_ip', radius_client_ip)
-            event.notify()
-            return
+            if switch:
+                switch_ip = radius_client_ip
+            else:
+                # if switch not found, nothing we can do
+                event = Event('runtime-failure', source='snmp', dendrite=dendrite)
+                if nas_ip_address:
+                    event.add_data('nas_ip_address', nas_ip_address)
+                if radius_client_ip != nas_ip_address:
+                    event.add_data('radius_client_ip', radius_client_ip)
+                event.notify()
+                return
     
     called_station_id = extract_mac(request_hash.get('Called-Station-Id', None))
     found_ports_by_mac = set()
@@ -220,8 +220,8 @@ def get_assignments(request):
         mac = extract_mac(request_hash.get('Calling-Station-Id', None))
     
         port = find_port(request_hash)
-        if port:
-            session.seen(mac, port=port)
+
+        session.seen(mac, port=port)
     
         auth_type = request_hash.get('Origin-Auth-Type', None)
         

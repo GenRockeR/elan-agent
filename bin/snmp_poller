@@ -10,7 +10,6 @@ use Redis;
 use JSON;
 use File::Find;
 use Origin::NetdiscoDevice;
-use threads;
 
 use constant SNMP_POLL_REQUEST_CHANNEL => 'snmp:poll:request';
 use constant SNMP_PARSE_TRAP_CHANNEL => 'snmp:trap:parse';
@@ -20,6 +19,9 @@ use constant SNMP_READ_PARAMS_CACHE_PATH => 'snmp:read:params'; # Per IP
 use constant SNMP_DEFAULT_CREDENTIALS_PATH => 'snmp:default_credentials';
 use constant MIB_BASE_PATH => '/origin/nac/mibs';
 
+
+my $json = JSON->new();
+$json->utf8()->allow_nonref();
 
 # Need all the directories.
 my $mib_paths = [];
@@ -40,15 +42,15 @@ sub snmp_poll {
   my $redis = shift;
   
   # check if params are cached
-  my $json_connection_params = $redis->hget(SNMP_READ_PARAMS_CACHE_PATH, $ip);
+  my $json_connection_params = $redis->hget(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip));
   if($json_connection_params) {
-    my $data = _snmp_poll( $ip, decode_json($json_connection_params) );
+    my $data = _snmp_poll( $ip, $json->decode($json_connection_params) );
     # check if we got an answer
     if($data) {
       return $data;
     }
     # Cached creds are not valid: delete them
-    $redis->hdel(SNMP_READ_PARAMS_CACHE_PATH, $ip)
+    $redis->hdel(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip));
   }
 
   
@@ -56,7 +58,7 @@ sub snmp_poll {
   my $json_default_creds = $redis->get(SNMP_DEFAULT_CREDENTIALS_PATH);
   my $default_creds_list = [{ community => "public" }]; # always try public
   if( $json_default_creds ) {
-    push( @$default_creds_list, @{decode_json($json_default_creds)} );
+    push( @$default_creds_list, @{$json->decode($json_default_creds)} );
   }
   foreach my $version ( reverse (1 .. 3) ) {
 
@@ -81,7 +83,7 @@ sub snmp_poll {
       if($data) {
         # Store connection params for that swicth for next poll
         $connection_params->{class} = delete($data->{snmp_info_class});
-        $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $ip, encode_json($connection_params));
+        $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip), $json->encode($connection_params));
         
         return $data;
       }
@@ -287,30 +289,25 @@ eval {
   while(1) {
     my ($channel, $json_request) = $redis->brpop(SNMP_POLL_REQUEST_CHANNEL, SNMP_PARSE_TRAP_CHANNEL, SNMP_NASPORT_TO_IFINDEX_CHANNEL, 0);
     if($json_request) {
-      my $request = decode_json($json_request);
-      # start thread to take care of request...
-      threads->create(
-        sub {
-          my $request = shift;
-          my $channel = shift;
-          my $redis = Redis->new(); # use new redis object in thread, seems to work better...
-          my $answer;
-          if($channel eq SNMP_POLL_REQUEST_CHANNEL){
-            $answer = snmp_poll($request->{ip}, $redis);
-          }
-          elsif($channel eq SNMP_PARSE_TRAP_CHANNEL) {
-            $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection}, $redis);
-          }
-          elsif($channel eq SNMP_NASPORT_TO_IFINDEX_CHANNEL) {
-            $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection}, $redis);
-          }
-          if($answer){
-            $redis->lpush( $request->{answer_path}, encode_json($answer) );
-          }
-        }, 
-        $request, 
-        $channel
-      )->detach();
+      my $request = $json->decode($json_request);
+      # fork to take care of request...
+      my $pid = fork();
+      if($pid == 0) {
+        my $redis = Redis->new(); # reopen connections after fork 
+        my $answer;
+        if($channel eq SNMP_POLL_REQUEST_CHANNEL){
+          $answer = snmp_poll($request->{ip}, $redis);
+        }
+        elsif($channel eq SNMP_PARSE_TRAP_CHANNEL) {
+          $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection}, $redis);
+        }
+        elsif($channel eq SNMP_NASPORT_TO_IFINDEX_CHANNEL) {
+          $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection}, $redis);
+        }
+        if($answer){
+          $redis->lpush( $request->{answer_path}, $json->encode($answer) );
+        }
+      }
     }
   }
 };
