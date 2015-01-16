@@ -42,10 +42,11 @@ class Synapse(redis.StrictRedis):
                 'GET':           self.parse_single_object,
                 'HGETALL':       self.parse_hgetall,
                 'HGET':          self.parse_single_object,
+                'HKEYS':         self.parse_list,
                 'SMEMBERS':      self.parse_smembers, 
                 'ZRANGE':        self.parse_zrange,
                 'ZRANGEBYSCORE': self.parse_zrange,
-                'LRANGE':        self.parse_lrange,
+                'LRANGE':        self.parse_list,
                 'LPOP':          self.parse_single_object,
                 'BLPOP':         self.parse_bpop,
                 'BRPOP':         self.parse_bpop,
@@ -115,12 +116,36 @@ class Synapse(redis.StrictRedis):
      
             pipe.execute()
 
-    # Hashes
+    # Hashes: fields can be objects
     def parse_hgetall(self, response, **options):
-        return { k: json.loads(v) for k, v in response.items() }
+        return { json.loads(k): json.loads(v) for k, v in response.items() }
+
+    def hget(self, key, field):
+        return super(Synapse, self).hget(key, json.dumps(field, sort_keys=True))
+
+    def hmget(self, key, *fields):
+        return super(Synapse, self).hmget(key, *list(json.dumps(field, sort_keys=True) for field in fields))
+
+    def hexists(self, key, field):
+        return super(Synapse, self).hexists(key, json.dumps(field, sort_keys=True))
+
+    def hincrby(self, key, field, increment):
+        return super(Synapse, self).hincrby(key, json.dumps(field, sort_keys=True), increment)
+
+    def hincrbyfloat(self, key, field, increment):
+        return super(Synapse, self).hincrbyfloat(key, json.dumps(field, sort_keys=True), increment)
+
+    def hdel(self, key, *fields):
+        return super(Synapse, self).hdel(key, *list(json.dumps(field, sort_keys=True) for field in fields) )
 
     def hset(self, key, field, value):
-        return super(Synapse, self).hset(key, field, json.dumps(value, sort_keys=True))
+        return super(Synapse, self).hset(key, json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True))
+
+    def hsetnx(self, key, field, value):
+        return super(Synapse, self).hsetnx(key, json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True))
+
+    def hmset(self, key, mapping):
+        return super(Synapse, self).hset(key, [ json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True)] for field, value in mapping)
 
     # Sets
     def sismember(self, key, value):
@@ -173,7 +198,7 @@ class Synapse(redis.StrictRedis):
     def lmembers(self, key):
         return self.lrange(key, 0, -1)
     
-    def parse_lrange(self, response, **options):
+    def parse_list(self, response, **options):
         return [json.loads(v) for v in response]
 
     def lpush(self, key, *args):
