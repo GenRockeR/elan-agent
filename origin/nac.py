@@ -30,7 +30,7 @@ def newAuthz(mac, source, no_duplicate_source=False, **auth):
     return checkAuthz(mac)
 
 
-def checkAuthz(mac, remove_source=None, end_reason='overridden'):
+def checkAuthz(mac, remove_source=None, end_reason='overridden', **kwargs):
     '''
     Asks CC what Authorization should be granted to the mac, based on current authentications
     First, an authentication source can be removed using remove_source
@@ -48,7 +48,7 @@ def checkAuthz(mac, remove_source=None, end_reason='overridden'):
         if authz != old_authz:
             if old_authz:
                 RedisMacAuthorization.deleteByMac(mac)
-                notify_end_authorization_session(old_authz, reason=end_reason)
+                notify_end_authorization_session(old_authz, reason=end_reason, **kwargs)
             authz.save()
             authzChanged(mac)
             notify_new_authorization_session(authz)
@@ -87,9 +87,6 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
         current_auth_sessions = session.get_authentication_sessions(mac)
     if port is None:
         port = synapse.hget(session.MAC_PORT_PATH, mac)
-
-    # cleanup
-    session.remove_expired_authentication_session(mac)
         
     return dendrite.sync_post('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
 
@@ -101,10 +98,19 @@ def notify_new_authorization_session(authz, start=None):
     '''
         start and end are Epoch
     '''
-    # CC expects vlan_id, not vlan
     data = authz.__dict__.copy()
+    
+    # CC expects vlan_id, not vlan
     data['vlan_id'] = authz.vlan
     del data['vlan']
+    
+    # CC expects authorized, not bridge
+    data['authorized'] = authz.bridge
+    del data['bridge']
+    
+    if 'till' in data: # format date
+        data['till'] = session.format_date(data['till'])
+        
     dendrite.post('mac/{mac}/authorization'.format(mac=authz.mac), dict(start=session.format_date(start), **data))
 
 def notify_end_authorization_session(authz, reason, end=None, **kwargs):
@@ -115,6 +121,10 @@ def notify_end_authorization_session(authz, reason, end=None, **kwargs):
 
     dendrite.post('mac/{mac}/authorization/local_id:{local_id}/end'.format(mac=authz.mac, local_id=authz.local_id), kwargs)
 
+
+def macAllowed(mac, vlan):
+    authz = RedisMacAuthorization.getByMac(mac)
+    return authz is not None and str(authz.vlan) == str(vlan) 
 
 class RedisMacAuthorization(object):
     def __init__(self, mac, vlan, bridge, till_disconnect, till=None, local_id=None, **kwargs):
@@ -211,9 +221,9 @@ class MacAuthorizationManager(Dendrite):
             authz = RedisMacAuthorization.getByMac(mac)
         if authz:
             RedisMacAuthorization.deleteByMac(mac)
-            self.fw_disallow_mac(mac)
             notify_end_authorization_session(authz, reason=reason)
-
+        self.fw_disallow_mac(mac)
+        
         return authz
     
     def fw_allowed_vlans(self, mac):
@@ -285,12 +295,15 @@ class MacAuthorizationManager(Dendrite):
         
     def check_expired_authz(self):
         now = tzaware_datetime_to_epoch(datetime.datetime.now(datetime.timezone.utc))
-        next_expiry_date = float('inf')
         for mac in self.synapse.zrangebyscore(AUTHZ_MAC_EXPIRY_PATH, float('-inf'), now):
             self.removeAuthz(mac, reason='expired')
-            self.authzChanged(mac)
+            # check new authz in other thread to not block.
+            import threading
+            thread = threading.Thread(target=checkAuthz, args=(mac,))
+            thread.start()
         
         # get next mac to expire
+        next_expiry_date = float('inf')
         for mac, epoch_expire in self.synapse.zrange(AUTHZ_MAC_EXPIRY_PATH, 0, 0, withscores=True): # returns first mac to expire
             if next_expiry_date > epoch_expire:
                 next_expiry_date = epoch_expire

@@ -19,7 +19,7 @@ class SnmpConfiguration(Dendrite):
     def answer_cb(self, path, answer):
         if path == 'agent/self':
             self.agent_path = 'agent/{id}'.format(id=answer['id']) 
-            self.subscribe(self.agentl_path)
+            self.subscribe(self.agent_path)
         elif path == self.agent_path:
             self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, answer['snmp_credentials'])            
 
