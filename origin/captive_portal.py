@@ -1,9 +1,11 @@
 from origin.neuron import Dendrite, Synapse
 from origin.event import Event
 from origin import nac, session
+import datetime, re
 
 CONF_PATH = 'conf:captive-portal'
 GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
+PENDING_GUEST_REQUESTS_PATH = 'captive-portal:guest-request:pending'
 
 def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
@@ -11,18 +13,12 @@ def submit_guest_request(request):
     r = d.sync_post('guest-request', request)
     request_id = r['id']
     
-    d.synapse.sadd('guest-request:authz_pending:{vlan}'.format(vlan=r['vlan_id']),request['mac'])
-    #d.synapse.rpush('guest-request:mac_request:'+request['mac'], request_id)
-    
-    # Subscribe to any changes
-    # TODO subscribe to something like guest-request/active that would send only updates on active (granted) requests
-    d.subscribe('guest-request/' + request_id)
-    
+    d.synapse.sadd(PENDING_GUEST_REQUESTS_PATH,request['mac'])
     
     return request_id
 
-def is_authz_pending(mac, vlan):
-    return Synapse().sismember('guest-request:authz_pending:{vlan}'.format(vlan=vlan), mac)
+def is_authz_pending(mac):
+    return Synapse().sismember(PENDING_GUEST_REQUESTS_PATH, mac)
 
 class Administrator:
     ADMINISTRATOR_CONF_PATH = 'conf:administrator'
@@ -58,43 +54,41 @@ class Administrator:
         return check_password(password, self.password)
         
 class GuestAccessManager(Dendrite):
+    MAC_AUTHS_PATH = 'guest-access:auth:mac'
     def __init__(self):
         super().__init__('guest-access-manager')
+        self.subscribe('guest-authorization/active')
     
-    def answer_cb(self, path, answer):
-        if answer['authorizations']:
-            last_authz = answer['authorizations'][-1]
-            mac = answer['mac']
-            vlan_id = answer['vlan_id']
+    def answer_cb(self, path, authorizations):
+        if path == 'guest-authorization/active':
+            # Here we get only valid authz/authentications
+            authz_by_mac = {}
+            for authz in authorizations:
+                # check authz has not expired: we do not receive updates on expiration, this means on restart of the service we receive a cached response with potentially expired authz.
+                till = datetime.datetime.strptime(authz['till'][0:19], '%Y-%m-%dT%H:%M:%S')
+                if till > datetime.datetime.utcnow(): # dates sent back are UTC
+                    mac = authz['mac']
+                    if mac not in authz_by_mac:
+                        authz_by_mac[mac] = []
+                    authz_by_mac[mac].append(authz)
             
-            # Authz not pending any more
-            self.synapse.srem('guest-request:authz_pending:{vlan}'.format(vlan=vlan_id), mac)
-            
-            if not last_authz['end']:
-                if last_authz['end_authorization']:
-                    import dateutil.parser
-                    till_date=dateutil.parser.parse(last_authz['end_authorization'])
-                else:
-                    till_date=None
-
-                session.add_authentication_session(mac, source='guest', till_date=till_date, login=last_authz['login'], authentication_provider=last_authz['authentication_provider'])
-
-                assignments = session.get_network_assignments(mac)
-                if assignments:
-                    Event( 'device-authorization', source='guest-access')\
-                        .add_data('mac', mac, 'mac')\
-                        .add_data('authentication_provider', last_authz['authentication_provider'], 'authentication_provider')\
-                        .add_data('login', last_authz['login'])\
-                        .add_data('authorized', assignments['bridge'] , 'bool')\
-                        .add_data('vlan', assignments['vlan'])\
-                        .notify()
+            current_mac_with_authz = self.synapse.smembers(self.MAC_AUTHS_PATH)
+    
+            for mac in current_mac_with_authz - set(authz_by_mac.keys()):
+                session.remove_authentication_sessions_by_source(mac, 'guest')
+                nac.checkAuthz(mac, 'guest', end_reason='revoked') # TODO: add revoker info + comment
+                self.synapse.srem(self.MAC_AUTHS_PATH, mac)
+    
+            for mac in set(authz_by_mac.keys()):
+                # Authz not pending any more
+                self.synapse.srem(PENDING_GUEST_REQUESTS_PATH, mac)
+                
+                self.synapse.sadd(self.MAC_AUTHS_PATH, mac)
+                session.remove_authentication_sessions_by_source(mac, 'guest')
+                for authz in authz_by_mac[mac]:
+                    till_str = authz['till'][0:19] # get rid of milliseconds if present
                     
-                    if assignments['vlan'] != vlan_id:
-                        pass  # TODO: move to new vlan + async disconnect on this VLAN.-> do we have current vlan ?
-                    if assignments['bridge']:
-                        nac.allowMAC(mac, assignments['vlan'], till_disconnect=True)
-                    #TODO: update authorisation with vlan ???? 
-
-            elif last_authz['termination_reason'] == 'revoked':
-                nac.disallowMAC(mac, vlan_id, reason='revoked')
+                    till = (datetime.datetime.strptime(till_str, '%Y-%m-%dT%H:%M:%S') - datetime.datetime(1970, 1, 1)).total_seconds()
+                    session.add_authentication_session(mac, source='guest', till=till, login=authz['sponsor_login'], authentication_provider=authz['sponsor_authentication_provider'], guest_authorization=authz['id'])
+                nac.checkAuthz(mac)
             

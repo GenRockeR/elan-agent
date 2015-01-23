@@ -17,7 +17,7 @@ def conf_updated(dendrite, path, data):
             Administrator.add(**profile)
             
 conf = Dendrite('captive-portal', answer_cb = conf_updated)
-conf.subscribe('captive-portal')
+#conf.subscribe('captive-portal')
 conf.subscribe('guest-access')
 conf.subscribe('administrator')
 
