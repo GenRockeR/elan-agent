@@ -33,14 +33,11 @@ class AuthenticationProvider(Dendrite):
         super().__init__('authentication')
 
         self.agent_id = None
-        self.providers = [] # list of providers
-        self.provider_confs = {} # providers configuration by id
-        self.groups = [] # list of authentication groups 
-        self.group_authentications = {}
+        self.providers = {} # indexed by id
+        self.groups = {}  # indexed by id
 
         self.retrieve('agent/self')
-        self.subscribe('authentication/provider')
-        self.subscribe('authentication/group')
+        self.subscribe('authentication')
 
 
     def answer_cb(self, path, conf):
@@ -50,37 +47,23 @@ class AuthenticationProvider(Dendrite):
             if self.agent_id != conf['id']:
                 self.agent_id = conf['id']
                 conf_changed = True
-        elif path == 'authentication/provider':
-            new_providers = conf
-            if self.providers != new_providers:
-                conf_changed = True
-                self.providers = new_providers
-                for provider in new_providers:
-                    # subscribe to new providers conf
-                    if provider['id'] not in self.provider_confs:
-                        self.subscribe( 'authentication/provider/{}'.format(provider['id']) )
-
-        elif path == 'authentication/group':
-            new_groups = conf
-            if self.groups != new_groups:
-                conf_changed = True
+        elif path == 'authentication':
+            new_groups = {}
+            new_providers = {}
+            for auth in conf:
+                if auth['type'] == 'group':
+                    new_groups[auth['id']] = auth
+                else:
+                    new_providers[auth['id']] = auth
+            
+            if new_groups != self.groups:
                 self.groups = new_groups
-                for group in new_groups:
-                    # subscribe to new providers conf
-                    if group['id'] not in self.group_authentications:
-                        self.subscribe('authentication/group/{}/authentications'.format(group['id']))
-        elif re.match('authentication/provider/', path):
-            if conf['id'] not in self.provider_confs or self.provider_confs[ conf['id'] ] != conf:
-                self.provider_confs[ conf['id'] ] = conf
-                conf_changed = True
-        else: 
-            m = re.match('authentication/group/(\d+)/authentications', path)
-            if m:
-                if int(m.group(1)) not in self.group_authentications or self.group_authentications[ int(m.group(1)) ] != conf:
-                    self.group_authentications[ int(m.group(1)) ] = conf
-                    conf_changed = True
+                conf_changed = True 
+            if new_providers != self.providers:
+                self.providers = new_providers
+                conf_changed = True 
 
-        if self.agent_id and conf_changed:
+        if self.agent_id and conf_changed: # we may receive agent id after conf
             # Grab templates
             policy_template = Template(filename="/origin/authentication/freeradius/policy")
             ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
@@ -99,14 +82,10 @@ class AuthenticationProvider(Dendrite):
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
             new_provided_services = set()
-            for provider in self.providers:
-                if provider['id'] not in self.provider_confs:
-                    # we do not have all the info to generate conf file, abort
-                    return
-                provider_conf = self.provider_confs[ provider['id'] ]
-                if provider_conf['type'] == 'LDAP':
-                    if self.agent_id in provider_conf['agents']:
-                        module_conf += "\n" + ldap_template.render(**provider_conf)
+            for provider in self.providers.values():
+                if provider['type'] == 'LDAP':
+                    if self.agent_id in provider['agents']:
+                        module_conf += "\n" + ldap_template.render(**provider)
                         inner_switch_server_conf += '''
                             case {id} {{
                                 update reply {{
@@ -124,19 +103,14 @@ class AuthenticationProvider(Dendrite):
                                     }}
                                 }}
                             }}
-                        '''.format(**provider_conf)
+                        '''.format(**provider)
                         # also notify that we provide this auth
                         new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=provider['id']) )
-            for group in self.groups:
-                if group['id'] not in self.group_authentications:
-                    # wait until we get the info
-                    return
+            for group in self.groups.values():
                 first = True
                 inner_case = ""
-                for auth in self.group_authentications[ group['id'] ]:
-                    if auth['authentication'] not in self.provider_confs:
-                        return
-                    provider_conf = self.provider_confs[ auth['authentication'] ]
+                for provider_id in group['providers']:
+                    provider_conf = self.providers[ provider_id ]
                     if not first:
                         inner_case += "if( notfound || fail ) {\n"
                     if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
