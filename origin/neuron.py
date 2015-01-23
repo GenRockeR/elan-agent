@@ -145,7 +145,7 @@ class Synapse(redis.StrictRedis):
         return super(Synapse, self).hsetnx(key, json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True))
 
     def hmset(self, key, mapping):
-        return super(Synapse, self).hset(key, [ json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True)] for field, value in mapping)
+        return super(Synapse, self).hset( key, ([ json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True)] for field, value in mapping) )
 
     # Sets
     def sismember(self, key, value):

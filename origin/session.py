@@ -200,6 +200,8 @@ def add_authentication_session(mac, **session):
     dendrite.synapse.sadd(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
 
 def get_authentication_sessions(mac):
+    # cleanup
+    remove_expired_authentication_session(mac)
     return dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
 
 def source_in_authentication_sessions(mac, source):
@@ -225,11 +227,11 @@ def remove_till_disconnect_authentication_session(mac):
             
 def remove_expired_authentication_session(mac, date=None):
     '''
-    remove all sessions that have expired
+    remove all sessions that have expired, or all sessions that have/will expire at date (epoch)
     '''
     
     if date is None:
-        date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        date = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # now as EPOCH
 
     #TODO: redis transaction
     current_sessions = dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)) or []
