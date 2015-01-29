@@ -148,7 +148,7 @@ class AuthenticationProvider(Dendrite):
                 policy_file.write( policy_template.render(inner_switch=inner_switch_server_conf) )
             
             # CAs
-            for provider in self.provider_confs.values():
+            for provider in self.providers.values():
                 if provider.get('server_ca', None):
                     with open ("/etc/freeradius/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
                         server_ca_file.write(provider['server_ca'])
