@@ -11,11 +11,12 @@ def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
     d = GuestAccessManager()
     r = d.sync_post('guest-request', request)
-    request_id = r['id']
-    
-    d.synapse.sadd(PENDING_GUEST_REQUESTS_PATH,request['mac'])
-    
-    return request_id
+    if r:
+        request_id = r['id']
+        
+        d.synapse.sadd(PENDING_GUEST_REQUESTS_PATH,request['mac'])
+        
+        return request_id
 
 def is_authz_pending(mac):
     return Synapse().sismember(PENDING_GUEST_REQUESTS_PATH, mac)

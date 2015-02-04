@@ -12,6 +12,10 @@
 
   <form action="{% url 'guest-access' %}" method="post" class="form-horizontal" role="form">
     {% csrf_token %}
+    <input type="hidden" name="guest_access_modification_time" value="{{guest_access.modification_time}}">
+    {% for msg in guest_request_errors.guest_access_modification_time %}
+    <small class="help-block">guest_access_modification_time: {{msg}}</small>
+    {% endfor %}
 
     {% for field in guest_registration_fields %}
     <div class="form-group{% if field.errors %} has-error{% endif %}">

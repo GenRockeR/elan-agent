@@ -13,6 +13,7 @@ from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
 from origin.network import NetworkConfiguration
 from origin.mail import send_mail
+from origin.event import Event
 import time
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
@@ -43,10 +44,11 @@ def status(request):
     if not nac.macAllowed(clientMAC, request.META['vlan_id']):
         return redirect('login')
     
-    guest_access = request.META['guest_access']
-    guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
-    web_authentication = request.META['web_authentication']
-    context = {'guest_access': guest_access_conf, 'web_authentication': web_authentication}
+    context = {'web_authentication': request.META['web_authentication']}
+    
+    guest_access_id = request.META['guest_access']
+    if guest_access_id:
+        context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(guest_access_id))
     
     return render(request, 'captive-portal/status.html', context)
 
@@ -63,16 +65,16 @@ def login(request, context=None):
         return redirect('status')
 
     
-    guest_access = request.META['guest_access']
-    guest_access_conf = Synapse().hget(GUEST_ACCESS_CONF_PATH, guest_access)
     web_authentication = request.META['web_authentication']
     default_context = { 
-              'guest_access': guest_access_conf,
-              'guest_access_pending': is_authz_pending(clientMAC, vlan_id),
+              'guest_access_pending': is_authz_pending(clientMAC),
               'web_authentication': web_authentication,
     }
-    if guest_access_conf:
-        default_context.update(guest_registration_fields = guest_access_conf['registration_fields'])
+    guest_access_id = request.META['guest_access']
+    if guest_access_id:
+        default_context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(guest_access_id))
+        if default_context['guest_access']:
+            default_context.update(guest_registration_fields = default_context['guest_access']['registration_fields'])
 
     for key in default_context:
         if key not in context:
@@ -97,14 +99,14 @@ def login(request, context=None):
 
     # start session
     # TODO: use effective auth_provider, this one could be a group
-    session.add_authentication_session(clientMAC, source='web', till_disconnect=True, login=username, authentication_provider=web_authentication)
-    assignments = session.get_network_assignments(clientMAC)
-    if assignments:
-        if assignments['vlan'] != vlan_id:
-            pass # TODO: move to new vlan + async disconnect on this VLAN
-        if assignments['bridge']:
-            nac.allowMAC(clientMAC, assignments['mac'], till_disconnect=True)
-        session.notify_new_authorization_session(mac=clientMAC, vlan=assignments['mac'], type='web', login=username, authentication_provider=web_authentication, till_disconnect=True, authorized=assignments['bridge'])
+    authz = nac.newAuthz(clientMAC, source='web', till_disconnect=True, login=username, authentication_provider=web_authentication)
+    if not authz:
+        # log no assignment rule matched....
+        event = Event( event_type='device-not-authorized', source='web')
+        event.add_data('mac', clientMAC, 'mac')
+        event.add_data('authentication_provider', web_authentication, 'authentication_provider')
+        event.add_data('login', username)
+        event.notify()
     
     return redirect('status')
 
@@ -113,7 +115,8 @@ def login(request, context=None):
 def logout(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
-    nac.disallowMAC(clientMAC, request.META['vlan_id'])
+    session.remove_authentication_sessions_by_source(clientMAC, 'web')
+    nac.authzChanged(clientMAC)
     
     return redirect('login')
 
@@ -149,6 +152,7 @@ class DynamicFieldForm(forms.Form):
 
 def get_request_form(guest_registration_fields, guest_access_conf, data=None):
     form_fields = [{'name':'field-{}'.format(f['id']), 'required':f.get('required', False), 'type':f.get('type')} for f in guest_registration_fields]
+    form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'date-time'})
     if guest_access_conf['validation_patterns']:
         form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
     return DynamicFieldForm( data, fields=form_fields )
@@ -159,7 +163,7 @@ def guest_access(request):
         return redirect('login')
     
     vlan = request.META['vlan'] # cc agent vlan *object* ID
-    guest_access = request.META['guest_access'] 
+    guest_access = int(request.META['guest_access']) 
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
     synapse = Synapse()
@@ -169,11 +173,9 @@ def guest_access(request):
     guest_registration_fields = guest_access_conf['registration_fields']
     
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
-    
-    request.POST
-    
+
     if form.is_valid():
-        guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], sponsor_email=request.POST.get('sponsor_email', ''))
+        guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
         for field in guest_registration_fields:
             guest_request['fields'].append( dict( 
                                          display_name=field['display_name'],
