@@ -9,33 +9,40 @@ table bridge origin {
   chain allowed_macs  { 
   }
   
+  chain vlan2mark { 
+  }
+  
+  chain prerouting { 
+    type filter hook prerouting priority -160;
+
+    iif eth0 accept 
+
+    jump global_ac
+
+    jump allowed_macs
+    
+    ether type 0x0806 accept
+    
+    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-neighbor-solicit accept
+    iif @dhcp_pt_ifs ip protocol udp udp sport bootpc udp dport bootps accept
+    iif @dhcp_pt_ifs ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server accept
+    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-router-solicit accept
+
+    iif @dns_pt_ifs ip protocol udp udp dport domain accept
+    iif @dns_pt_ifs ip6 nexthdr udp udp dport domain accept
+
+    jump vlan2mark
+    ip protocol tcp tcp dport {http, https} accept 
+
+    drop
+  }
+
   chain forward { 
     type filter hook forward priority -200;
 
-    iif eth0 accept 
-    
-    oif eth0 ether type 0x0806 accept
-    oif eth0 iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-neighbor-solicit accept
-
-    oif eth0 jump global_ac
-
-    oif eth0 jump allowed_macs
-    
-    oif eth0 iif @dhcp_pt_ifs mark 10067 accept
-    oif eth0 iif @dns_pt_ifs mark 10053 accept
-    
-    #oif eth0 iif @dhcp_pt_ifs ip protocol udp udp sport bootpc udp dport bootps accept
-    #oif eth0 iif @dhcp_pt_ifs ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server accept
-    #oif eth0 iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-router-solicit accept
-
-    #oif eth0 iif @dns_pt_ifs ip protocol udp udp dport domain accept
-    #oif eth0 iif @dns_pt_ifs ip6 nexthdr udp udp dport domain accept
-
-    oif eth0 iif @ac_ifs drop
-
+    iif eth0 accept
     oif eth0 accept
-
-    drop
+    drop 
   }
 
   chain output {
@@ -48,20 +55,16 @@ table bridge origin {
 flush table ip origin
 
 table ip origin {
-  chain global_ac {
-  }
   
   chain captive_portal  { 
   }
 
-  chain allowed_macs  { 
-  }
-  
   chain prerouting  { 
     type nat hook prerouting priority -150;
-
-    jump global_ac
+    
+    mark 0 accept
     tcp dport {80, 443} jump captive_portal
+    drop
   }
   
   chain postrouting { 
@@ -69,24 +72,19 @@ table ip origin {
   } 
 }
 
-
 flush table ip6 origin
 
 table ip6 origin {
-  chain global_ac {
-  }
   
   chain captive_portal  { 
   }
 
-  chain allowed_macs  { 
-  }
-  
   chain prerouting  { 
     type nat hook prerouting priority -150;
     
-    jump global_ac
+    mark 0 accept
     tcp dport {80, 443} jump captive_portal
+    drop
   }
   
   chain postrouting { 

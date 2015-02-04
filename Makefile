@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-network
 PACKAGE-DESC := Edge Agent Network module
-PACKAGE-DEPENDS := bridge-utils, vlan, nftables, ebtables, rdnssd
+PACKAGE-DEPENDS := bridge-utils, vlan, nftables, rdnssd
 
 include ../core/packaging.mk
 

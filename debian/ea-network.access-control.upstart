@@ -1,6 +1,6 @@
 description "Access Control"
  
-start on (filesystem and net-device-up IFACE=br0 and started nginx)
+start on started nginx
 
 env PYTHONPATH=/origin/lib/python
 
@@ -8,6 +8,9 @@ respawn
 
 pre-start script
 
+  nft add table bridge origin
+  nft add table ip origin
+  nft add table ip6 origin
   nft -f /origin/network/nftables.sets || true
   nft -f /origin/network/nftables.chains
   

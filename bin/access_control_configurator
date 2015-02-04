@@ -48,13 +48,12 @@ class AccessControlConfigurator(Dendrite):
             # Only do something if access_control has changed....
             if conf['access_control'] != self.active:
                 self.active = conf['access_control']
-                for family in ['bridge', 'ip', 'ip6']:
-                    if conf['access_control']:
-                        # enable Access Control
-                        cmd += "nft flush chain {family} origin global_ac;".format(family=family)
-                    else:
-                        # disable Access Control
-                        cmd += "nft add rule {family} origin global_ac accept;".format(family=family)
+                if conf['access_control']:
+                    # enable Access Control
+                    cmd += "nft flush chain bridge origin global_ac;"
+                else:
+                    # disable Access Control
+                    cmd += "nft add rule bridge origin global_ac accept;"
         elif self.vlans_path and path == self.vlans_path:
             # conf if list of all VLANS -> when a Vlan is modified, all VLANs are sent
             new_vlans = {}
@@ -84,57 +83,38 @@ class AccessControlConfigurator(Dendrite):
                 cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
                 cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
 
-            # Create FW rules accordingly
-            ebt_file = '/tmp/ea-network-ebt-{id}' . format(id=os.getpid())
-            
-            cmd += 'ebtables -t nat --atomic-file {} --atomic-init;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-source-port 68 --ip-destination-port 67 -j mark --set-mark 10067;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-source fe80::0/10 --ip6-destination ff02::1:2 --ip6-protocol udp --ip6-source-port 546 --ip6-destination-port 547 -j mark --set-mark 10067;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol ipv6-icmp --ip6-icmp-type router-solicitation -j mark --set-mark 10067;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip --ip-protocol udp --ip-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
-            cmd += 'ebtables -t nat --atomic-file {} -A PREROUTING --protocol ip6 --ip6-protocol udp --ip6-destination-port 53 -j mark --set-mark 10053;'.format(ebt_file)
-           
-            ip = get_ip4_address('br0')['address']
-            ip6 = get_ip6_address('br0')['address']
-            
             with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
+                nft_file.write('flush chain bridge origin allowed_macs\n')
+                nft_file.write('flush chain bridge origin vlan2mark\n')
                 nft_file.write('flush chain ip origin captive_portal\n')
                 nft_file.write('flush chain ip6 origin captive_portal\n')
                 
                 # Agent Status
-                nft_file.write('add rule ip  origin captive_portal ip  daddr {status_ip} dnat {ip}\n'.format(ip=ip, status_ip=STATUS_IP))
-                nft_file.write('add rule ip6 origin captive_portal ip6 daddr {status_ip} dnat {ip}\n'.format(ip=ip6, status_ip=STATUS_IP6))
-
-                nft_file.write('add rule ip  origin captive_portal ip  daddr != {ip}  jump allowed_macs\n'.format(ip=ip))
-                nft_file.write('add rule ip6 origin captive_portal ip6 daddr != {ip} jump allowed_macs\n'.format(ip=ip6))
-                
-                for family in ['bridge', 'ip', 'ip6']:
-                    nft_file.write('flush chain {} origin allowed_macs\n'.format(family))
+                nft_file.write('add rule ip  origin captive_portal ip  daddr {status_ip} redirect\n'.format(status_ip=STATUS_IP))
+                nft_file.write('add rule ip6 origin captive_portal ip6 daddr {status_ip} redirect\n'.format(status_ip=STATUS_IP6))
 
                 for vlan_id in new_vlans:
                     nic = self.internalNIC
                     if vlan_id:
                         nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
                         
-                    for family in ['bridge', 'ip', 'ip6']:
-                        cmd += "nft add set {family} origin a_v_{vlan} '{{type ether_addr;}}';".format(family=family, vlan=vlan_id) 
+                    cmd += "nft add set bridge origin a_v_{vlan} '{{type ether_addr;}}';".format(vlan=vlan_id) 
     
                     # configure Access Contol
                     if new_vlans[vlan_id]['access_control']:
                         cmd += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
 
-                        nft_file.write('add rule bridge origin allowed_macs iif {nic} ether saddr @a_v_{vlan} accept\n'.format(nic=nic, vlan=vlan_id))
-                        for family in ['ip', 'ip6']:
-                            nft_file.write('add rule {family} origin allowed_macs mark {mark} ether saddr @a_v_{vlan} accept\n'.format(family=family, nic=nic, vlan=vlan_id, mark=vlan_id+1000))
+                        nft_file.write('''add rule bridge origin vlan2mark iif {nic} mark set {mark}
+add rule bridge origin allowed_macs iif {nic} ether saddr @a_v_{vlan} accept
+'''.format(nic=nic, vlan=vlan_id, mark = vlan_id+1000))
                         
                         # configure captive portal if access control is enabled
                         if new_vlans[vlan_id]['web_authentication'] or new_vlans[vlan_id]['guest_access']:
-                            cmd += 'ebtables -t nat --atomic-file {file} -A PREROUTING -i {nic} -j mark --mark-set {mark};'.format(file=ebt_file, nic=nic, mark=vlan_id+1000)
-                            nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} dnat {ip}:{http}
-add rule origin captive_portal tcp dport 443 mark {mark} dnat {ip}:{https}
-add rule ip6 origin captive_portal tcp dport 80 mark {mark} dnat {ip6}:{http}
-add rule ip6 origin captive_portal tcp dport 443 mark {mark} dnat {ip6}:{https}
-'''.format(mark = vlan_id+1000, http = vlan_id + 20000, https = vlan_id + 25000, ip = ip, ip6 = ip6 ))
+                            nft_file.write('''add rule origin captive_portal tcp dport 80 mark {mark} redirect to {http}
+add rule origin captive_portal tcp dport 443 mark {mark} redirect to {https}
+add rule ip6 origin captive_portal tcp dport 80 mark {mark} redirect to {http}
+add rule ip6 origin captive_portal tcp dport 443 mark {mark} redirect to {https}
+'''.format(mark = vlan_id+1000, http = vlan_id + 20000, https = vlan_id + 25000))
 
                         # configure DHCP passthrough
                         if new_vlans[vlan_id]['dhcp_passthrough']:
@@ -152,7 +132,6 @@ add rule ip6 origin captive_portal tcp dport 443 mark {mark} dnat {ip6}:{https}
                         cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
                         
                 cmd += 'nft -f {};'.format(nft_file.name)
-                cmd += 'ebtables -t nat --atomic-file {} --atomic-commit;'.format(ebt_file)
                             
             # Set captive portals
             nginx_captive_portals = Template(filename = '/origin/network/nginx/server')
