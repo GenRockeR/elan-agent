@@ -208,11 +208,9 @@ class MacAuthorizationManager(Dendrite):
             vlans.add(authz.vlan)
             if authz.bridge:
                 self._fw_cache_add(mac, authz.vlan)
-                for family in ['bridge', 'ip', 'ip6']:
-                    cmd += 'nft add element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=authz.vlan, mac=mac)
+                cmd += 'nft add element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=authz.vlan, mac=mac)
         for vlan in vlans:
-            for family in ['bridge', 'ip', 'ip6']:
-                cmd = 'nft flush set {family} origin a_v_{vlan};'.format(family=family, vlan=vlan) + cmd
+            cmd = 'nft flush set bridge origin a_v_{vlan};'.format(vlan=vlan) + cmd
              
         subprocess.call(cmd, shell=True)
 
@@ -250,12 +248,10 @@ class MacAuthorizationManager(Dendrite):
         cmd = ''
         for vlan in self.fw_allowed_vlans(mac) - vlans:
             self._fw_cache_del(mac, vlan)
-            for family in ['bridge', 'ip', 'ip6']:
-                cmd += 'nft delete element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=vlan, mac=mac) 
+            cmd += 'nft delete element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=vlan, mac=mac) 
         for vlan in vlans - self.fw_allowed_vlans(mac):
             self._fw_cache_add(mac, vlan)
-            for family in ['bridge', 'ip', 'ip6']:
-                cmd += 'nft add element {family} origin a_v_{vlan} {{{mac}}};'.format(family=family, vlan=vlan, mac=mac) 
+            cmd += 'nft add element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=vlan, mac=mac) 
         subprocess.call(cmd, shell=True)
         
 
