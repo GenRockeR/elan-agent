@@ -105,7 +105,7 @@ if __name__ == '__main__':
             hostname = options.get('hostname', None)
             if hostname:
                 if TrackedDHCPOptions.isNewHostname(mac, hostname):
-                    dendrite.post('device/dhcp-name', {'mac': mac, 'name': hostname})
+                    dendrite.post('device/dhcp-name', {'mac': mac, 'name': hostname, 'source': 'dhcp'})
                 del options['hostname'] # delete it so it does not get posted with fingerprint
 
             if 'fingerprint' in options and TrackedDHCPOptions.isNewFingerprint(mac, options):
