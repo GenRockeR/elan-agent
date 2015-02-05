@@ -4,51 +4,59 @@ from django.template import RequestContext, loader
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
-from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator
+from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from origin.neuron import Synapse, Axon, Dendrite
 from origin.authentication import pwd_authenticate
-from origin.utils import get_ip4_address, ip4_to_mac, is_iface_up
+from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up
 from origin import nac, session, utils
 from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
 from origin.network import NetworkConfiguration
 from origin.mail import send_mail
 from origin.event import Event
+from django.core.urlresolvers import reverse
 import time
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
+
 
 def requirePortalURL(fn):
     '''
     View decorator to make sure url used is the one of the agent and not the target URL 
     '''
     def wrapper(request, *args, **kwargs):
-        agent_ip = get_ip4_address('br0')['address']
-        if str(get_current_site(request)) != agent_ip:
-            return HttpResponseRedirect( 'http://' + agent_ip)
+        agent_ips = [ ip['address'] for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
+        allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
+        if str(get_current_site(request)) not in allowed_sites:
+            return redirect2status(request)
         return fn(request, *args, **kwargs)
     return wrapper
 
 
 
 def redirect2status(request):
-    if 'vlan_id' in request.META:
-        return redirect('status')
-    return redirect('dashboard')
+    if 'dashboard' in request.META:
+        return HttpResponseRedirect( 'http://' + EDGE_AGENT_FQDN + reverse('dashboard'))
+    return HttpResponseRedirect( 'http://' + CAPTIVE_PORTAL_FQDN + reverse('status'))
 
 @requirePortalURL
 @never_cache
 def status(request):
-    clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip4_to_mac(clientIP)
-    if not nac.macAllowed(clientMAC, request.META['vlan_id']):
+    if 'vlan_id' in request.META:
+        # VlanID present, means it has been redirected, so MAC is not allowed on VLAN
         return redirect('login')
     
-    context = {'web_authentication': request.META['web_authentication']}
+    # if looking for edgeagent, redirect to it... 
+    if str(get_current_site(request)) in [EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6]:
+        return HttpResponseRedirect( 'http://' + EDGE_AGENT_FQDN + reverse('dashboard'))
     
-    guest_access_id = request.META['guest_access']
-    if guest_access_id:
-        context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(guest_access_id))
+    context = {}
+    
+    if 'web_authentication' in request.META:
+        context['web_authentication'] = request.META['web_authentication']
+
+    if 'guest_access' in request.META:
+        context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
     
     return render(request, 'captive-portal/status.html', context)
 
@@ -59,9 +67,9 @@ def login(request, context=None):
 
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
-    vlan_id = request.META['vlan_id']
     
-    if nac.macAllowed(clientMAC, vlan_id):
+    if 'vlan_id' not in request.META:
+        # VlanID not present, means it has been not been redirected, so MAC is allowed on VLAN (maybe not from web or captive portal)
         return redirect('status')
 
     
@@ -153,7 +161,7 @@ class DynamicFieldForm(forms.Form):
 def get_request_form(guest_registration_fields, guest_access_conf, data=None):
     form_fields = [{'name':'field-{}'.format(f['id']), 'required':f.get('required', False), 'type':f.get('type')} for f in guest_registration_fields]
     form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'date-time'})
-    if guest_access_conf['validation_patterns']:
+    if guest_access_conf.get('validation_patterns', None):
         form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
     return DynamicFieldForm( data, fields=form_fields )
 
@@ -186,28 +194,29 @@ def guest_access(request):
         
         guest_request['id'] = submit_guest_request(guest_request)
 
-        # send mail
-        html_template = loader.get_template('captive-portal/guest-request-email.html')
-        text_template = loader.get_template('captive-portal/guest-request-email.txt')
-        context = RequestContext(request, {
-            'guest_request': guest_request,
-        })
-        html = html_template.render(context)
-        text = text_template.render(context)
-
-        if not guest_request['sponsor_email']:
-            recipients = guest_access_conf['fixed_recipients']
-            bcc_recipients = []
-        else:
-            recipients = [guest_request['sponsor_email']]
-            bcc_recipients = guest_access_conf['fixed_recipients']
-        
-        send_mail(  recipients = recipients,
-                    bcc_recipients = bcc_recipients,
-                    html = html,
-                    text = text,
-                    mail_subject = 'Guest Request for Network Access'
-        )
+        if guest_access_conf['type'] == 'sponsored':
+            # send mail
+            html_template = loader.get_template('captive-portal/guest-request-email.html')
+            text_template = loader.get_template('captive-portal/guest-request-email.txt')
+            context = RequestContext(request, {
+                'guest_request': guest_request,
+            })
+            html = html_template.render(context)
+            text = text_template.render(context)
+    
+            if not guest_request['sponsor_email']:
+                recipients = guest_access_conf['fixed_recipients']
+                bcc_recipients = []
+            else:
+                recipients = [guest_request['sponsor_email']]
+                bcc_recipients = guest_access_conf['fixed_recipients']
+            
+            send_mail(  recipients = recipients,
+                        bcc_recipients = bcc_recipients,
+                        html = html,
+                        text = text,
+                        mail_subject = 'Guest Request for Network Access'
+            )
         
         
         return redirect('status')
@@ -254,7 +263,7 @@ def save_admin_session(fn):
         return fn(request, *args, **kwargs)
     return wrapper
 
-
+@requirePortalURL
 @save_admin_session
 def dashboard(request, context=None):
     if context is None:
@@ -285,11 +294,13 @@ def dashboard(request, context=None):
 
     return render(request, 'captive-portal/dashboard.html', context)
 
+@requirePortalURL
 def admin_logout(request):
     admin_session_logout(request.session)
     
     return redirect('dashboard')
 
+@requirePortalURL
 @require_post
 def admin_login(request):
     context = {}                    
@@ -419,6 +430,7 @@ class Ip6ConfigurationForm(forms.Form):
         return gateway
 
 
+@requirePortalURL
 @require_post
 @require_admin
 @save_admin_session
@@ -431,6 +443,7 @@ def admin_ipv4_conf(request):
     
     return dashboard(request, context={'ipv4_form': form})
 
+@requirePortalURL
 @require_post
 @require_admin
 @save_admin_session
