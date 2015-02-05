@@ -40,7 +40,7 @@ def get_ip4_address(if_name):
         return None
 
 def get_ip4_addresses(if_name):
-    ''' returns first ip4 address found, None if not found'''
+    ''' returns ip4 addresses found, empty list if not found'''
     try:
         return  [ 
                     { 'address': iface['addr'], 'mask': iface['netmask'], 'prefix_length': IPNetwork('0/'+iface['netmask']).prefixlen } 
