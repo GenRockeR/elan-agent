@@ -108,7 +108,7 @@ def notify_new_authorization_session(authz, start=None):
     data['authorized'] = authz.bridge
     del data['bridge']
     
-    if 'till' in data: # format date
+    if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
     dendrite.post('mac/{mac}/authorization'.format(mac=authz.mac), dict(start=session.format_date(start), **data))
