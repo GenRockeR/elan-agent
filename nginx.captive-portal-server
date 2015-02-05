@@ -6,6 +6,24 @@ server {
 
     listen 0.0.0.0:80;
     listen [::]:80;
+    server_name allowed_macs;
+
+    # no need for logs
+    access_log off;
+    
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    location / {
+      uwsgi_pass portal;
+      include uwsgi_params;
+    }
+}
+
+server {
+
+    listen 0.0.0.0:19998;
+    listen [::]:80;
     server_name dashboard;
 
     # no need for logs
@@ -17,6 +35,7 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
+      uwsgi_param "dashboard" "1";
     }
 }
 

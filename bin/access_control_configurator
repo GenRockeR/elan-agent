@@ -4,10 +4,8 @@ import subprocess, time, os
 from origin.neuron import Dendrite
 from origin.utils import get_ip4_address, get_ip6_address
 from mako.template import Template
-
-STATUS_IP = '8.8.8.8'
-STATUS_IP6 = '2001:41d0:2:ba47::1000:1000'
-
+from origin import captive_portal 
+ 
 class AccessControlConfigurator(Dendrite):
     internalNIC = 'eth1'
     bridge = 'br0'
@@ -90,8 +88,9 @@ class AccessControlConfigurator(Dendrite):
                 nft_file.write('flush chain ip6 origin captive_portal\n')
                 
                 # Agent Status
-                nft_file.write('add rule ip  origin captive_portal ip  daddr {status_ip} redirect\n'.format(status_ip=STATUS_IP))
-                nft_file.write('add rule ip6 origin captive_portal ip6 daddr {status_ip} redirect\n'.format(status_ip=STATUS_IP6))
+                agent_rule = 'add rule ip{v}  origin captive_portal ip{v}  daddr {status_ip} tcp dport 80 redirect to 19998\nadd rule ip{v}  origin captive_portal ip{v}  daddr {status_ip} tcp dport 443 redirect to 19999\n'
+                nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP, v=''))
+                nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP6, v='6'))
 
                 for vlan_id in new_vlans:
                     nic = self.internalNIC
@@ -130,7 +129,13 @@ add rule ip6 origin captive_portal tcp dport 443 mark {mark} redirect to {https}
     
                     else:
                         cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
-                        
+                
+                
+                # when accessing captive portal ip redirect locally (if not allowed, would already have been redirected by marked traffic)
+                captive_rule = 'add rule ip{v} origin captive_portal ip{v} daddr {captive_ip} tcp dport {{80, 443}} redirect\n'
+                nft_file.write(captive_rule.format(captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP, v=''))
+                nft_file.write(captive_rule.format(captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP6, v='6'))
+        
                 cmd += 'nft -f {};'.format(nft_file.name)
                             
             # Set captive portals

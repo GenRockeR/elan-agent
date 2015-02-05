@@ -27,7 +27,7 @@ class NetworkConfiguration:
         self.synapse.set(self.IPv6_CONF_PATH, self.ipv6)
         
     def apply_configuration(self):
-        subprocess.call('sudo ifdown br0', shell=True) # bring down br0 with old config to decofnigure it properly (DHCP release...)
+        subprocess.call('sudo ifdown br0', shell=True) # bring down br0 with old config to deconfigure it properly (DHCP release...)
         self.generate_configuration_files()
         subprocess.call('sudo ifup br0', shell=True)
     
