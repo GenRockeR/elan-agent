@@ -165,7 +165,6 @@
 
     </div>
 
-    {% if not is_registered or is_admin %}
     <div class="row">
 
       <div class="col-sm-5">
@@ -202,6 +201,7 @@
                 {% endfor %}
               </td>
             </tr>
+            {% if not is_registered or is_admin %}
             <tr>
               <td colspan="2">
                 <form role="form" method="post" action="{% url 'admin-ipv4' %}" novalidate>
@@ -256,6 +256,7 @@
                 </form>
               </td>
             </tr>
+            {% endif %}
           </table>
         </div>
       </div>
@@ -294,6 +295,7 @@
                 {% endfor %}
               </td>
             </tr>
+            {% if not is_registered or is_admin %}
             <tr>
               <td colspan="2">
                 <form role="form" method="post" action="{% url 'admin-ipv6' %}" novalidate>
@@ -348,12 +350,12 @@
                 </form>
               </td>
             </tr>
+            {% endif %}
           </table>
         </div>
       </div>
 
     </div>
-    {% endif %}
 
   </div>
 
