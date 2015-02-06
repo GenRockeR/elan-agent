@@ -14,7 +14,7 @@ EDGE_AGENT_FQDN_IP6 = '2001:41d0:2:ba47::1000:1000'
 
 CAPTIVE_PORTAL_FQDN = 'captive-portal.origin-nexus.com'
 CAPTIVE_PORTAL_FQDN_IP = '8.8.8.9'
-CAPTIVE_PORTAL_FQDN_IP6 = '2001:41d0:2:ba47::1000:1000'
+CAPTIVE_PORTAL_FQDN_IP6 = '2001:41d0:2:ba47::1000:1010'
 
 
 def submit_guest_request(request):

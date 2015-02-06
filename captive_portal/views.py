@@ -36,8 +36,8 @@ def requirePortalURL(fn):
 
 def redirect2status(request):
     if 'dashboard' in request.META:
-        return HttpResponseRedirect( 'http://' + EDGE_AGENT_FQDN + reverse('dashboard'))
-    return HttpResponseRedirect( 'http://' + CAPTIVE_PORTAL_FQDN + reverse('status'))
+        return HttpResponseRedirect( 'https://' + EDGE_AGENT_FQDN + reverse('dashboard'))
+    return HttpResponseRedirect( 'https://' + CAPTIVE_PORTAL_FQDN + reverse('status'))
 
 @requirePortalURL
 @never_cache
