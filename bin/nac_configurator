@@ -10,7 +10,7 @@ import logging
 logging.basicConfig()
 
 class NacConfigurator(Dendrite):
-    FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret')
+    FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'certificate')
     SNMPTRAPD_KEYS  = ('snmp_credentials', )
     
     def __init__(self):
@@ -55,6 +55,11 @@ class NacConfigurator(Dendrite):
             
             with open ("/etc/freeradius/sites-enabled/nac", "w") as server_file:
                 server_file.write( server_template.render(**self.conf) )
+                
+            with open ("/etc/freeradius/certs/nac.pem", "w") as cert_file:
+                cert_file.write( self.conf['ca_cert'] )
+                cert_file.write( self.conf['certificate'] )
+                cert_file.write( self.conf['cert_key'] )
 
             # Reload freeradius
             subprocess.call('restart freeradius || start freeradius', shell=True)

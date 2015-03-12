@@ -28,11 +28,11 @@ eap nac-eap {
 
   ## Common TLS configuration for TLS-based EAP types
   tls-config tls-common {
-    private_key_password = whatever
-    private_key_file = ${certdir}/server.pem
+    #private_key_password = whatever
+    private_key_file = ${certdir}/nac.pem
 
     # cert + full cert chain (can be same file as private key)
-    certificate_file = ${certdir}/server.pem
+    certificate_file = ${certdir}/nac.pem
 
     # Trusted CA for EAP-TLS
     ca_file = ${cadir}/ca.pem
