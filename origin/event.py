@@ -34,8 +34,8 @@ class Event(object):
         })
 
 class InternalEvent(Event):
-    def __init__(self, *args, **kwargs):
-        super(InternalEvent, self).__init__('internal', *args, **kwargs)
+    def __init__(self, source, event_type='runtime', **kwargs):
+        super(InternalEvent, self).__init__(event_type, source, level='internal', **kwargs)
 
 class ExceptionEvent(InternalEvent):
     def __init__(self, *args, **kwargs):
