@@ -25,9 +25,9 @@ def requirePortalURL(fn):
     View decorator to make sure url used is the one of the agent and not the target URL 
     '''
     def wrapper(request, *args, **kwargs):
-        agent_ips = [ ip['address'] for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
+        agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
         allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
-        if str(get_current_site(request)) not in allowed_sites:
+        if str(get_current_site(request)).replace('[','').replace(']','').lower() not in allowed_sites:
             return redirect2status(request)
         return fn(request, *args, **kwargs)
     return wrapper
