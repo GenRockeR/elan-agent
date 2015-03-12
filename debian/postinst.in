@@ -1,6 +1,18 @@
 ifdown -a --exclude=lo
 # Generate default net configuration if needed
-if[ ! -e /etc/network/interfaces.d/ea-network ]
-PYTHONPATH=/origin/lib/python python3 -c 'import origin.network; origin.network.NetworkConfiguration().generate_configuration_files()'
-ifup -a
+if [ ! -e /etc/network/interfaces.d/ea-network ]
+  PYTHONPATH=/origin/lib/python python3 -c 'import origin.network; origin.network.NetworkConfiguration().generate_configuration_files()'
+  ifup -a
+fi
+
+# Create certs
+mkdir -p /origin/network/certs/
+for domain in edge-agent.origin-nexus.com captive-portal.origin-nexus.com
+do
+  if [ ! -e /origin/network/certs/$domain.crt ]
+  then 
+    openssl req  -x509 -newkey rsa:2048 -keyout /origin/network/certs/$domain.key -out /origin/network/certs/$domain.crt -nodes -subj /CN=$domain
+  fi
+done
+
 exit 0
