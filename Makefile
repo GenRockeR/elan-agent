@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-core
 PACKAGE-DESC := Edge Agent Core
-PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, linux-image-3.19.0-031900rc7-generic, linux-headers-3.19.0-031900rc7-generic, python-netaddr, python3-netaddr, postfix
+PACKAGE-DEPENDS := nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix
 
 include ../core/packaging.mk
 
@@ -44,3 +44,4 @@ nginx:
 	ln -s ../sites-available/axon ${DESTDIR}/etc/nginx/sites-enabled/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/nginx
 	install -m 644 nginx.site.axon ${DESTDIR}${ORIGIN_PREFIX}/core/nginx/axon
+	install -m 644 control-center-ca.crt ${DESTDIR}${ORIGIN_PREFIX}/core/

@@ -7,7 +7,9 @@ server {
     access_log off;
 
     location / {
-        proxy_pass http://controlcenter;
+        proxy_pass https://controlcenter;
+        proxy_ssl_trusted_certificate /origin/core/control-center-ca.crt
+        proxy_ssl_verify on
     }
 }
 
@@ -32,6 +34,6 @@ proxy_read_timeout 7200;
 
 
 upstream controlcenter {
-	server 192.168.0.6:8000;
+	server control-center.origin-nexus.com;
 	keepalive 3;
 }
