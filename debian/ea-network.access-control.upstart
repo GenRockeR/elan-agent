@@ -15,6 +15,12 @@ pre-start script
   nft -f /origin/network/nftables.chains
   
   echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/7
+
+  if [ ! -e /etc/network/interfaces.d/ea-network ]
+  then
+    python3 -c 'import origin.network; origin.network.NetworkConfiguration().apply_configuration()'
+  fi
+
 end script
 
 exec  /origin/bin/access-control-configurator

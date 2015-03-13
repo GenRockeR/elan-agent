@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-network
 PACKAGE-DESC := Edge Agent Network module
-PACKAGE-DEPENDS := bridge-utils, vlan, nftables, rdnssd
+PACKAGE-DEPENDS := bridge-utils, vlan, nftables, rdnssd, python3-mako
 
 include ../core/packaging.mk
 
