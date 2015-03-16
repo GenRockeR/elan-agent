@@ -1,6 +1,6 @@
 description "Allow MACs on VLANs"
 
-start on started authentication_freeradius_configurator
+start on started redis
 
 env PYTHONPATH=/origin/lib/python
 
