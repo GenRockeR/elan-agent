@@ -50,6 +50,8 @@ server {
 }
 
 % for vlan_id in vlans:
+  % if vlans[vlan_id]['access_control']:
+
 server {
 
     listen 0.0.0.0:${vlan_id + 20000};
@@ -80,4 +82,5 @@ server {
       uwsgi_param "guest_access" "${vlans[vlan_id]['guest_access'] or ''}";
     }
 }
+  % endif
 % endfor

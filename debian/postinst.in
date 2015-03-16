@@ -8,4 +8,7 @@ do
   fi
 done
 
+# remove default FW that blocks all incoming...
+update-rc.d -f nftables remove
+
 exit 0

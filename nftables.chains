@@ -12,12 +12,7 @@ table bridge origin {
   chain vlan2mark { 
   }
   
-  chain prerouting { 
-    type filter hook prerouting priority -160;
-
-    iif eth0 accept 
-
-    jump global_ac
+  chain access_control {
 
     jump allowed_macs
     
@@ -35,6 +30,16 @@ table bridge origin {
     ip protocol tcp tcp dport {http, https} accept 
 
     drop
+  }
+
+  chain prerouting { 
+    type filter hook prerouting priority -160;
+
+    iif eth0 accept 
+
+    jump global_ac
+
+    iif @ac_ifs jump access_control
   }
 
   chain forward { 
@@ -56,14 +61,18 @@ flush table ip origin
 
 table ip origin {
   
-  chain captive_portal  { 
+  chain captive_portal_all { 
   }
 
+  chain captive_portal_unauthorized { 
+  }
+  
   chain prerouting  { 
     type nat hook prerouting priority -150;
     
+    tcp dport {80, 443} jump captive_portal_all
     mark 0 accept
-    tcp dport {80, 443} jump captive_portal
+    tcp dport {80, 443} jump captive_portal_unauthorized
     drop
   }
   
@@ -76,14 +85,18 @@ flush table ip6 origin
 
 table ip6 origin {
   
-  chain captive_portal  { 
+  chain captive_portal_all { 
+  }
+
+  chain captive_portal_unauthorized { 
   }
 
   chain prerouting  { 
     type nat hook prerouting priority -150;
     
+    tcp dport {80, 443} jump captive_portal_all
     mark 0 accept
-    tcp dport {80, 443} jump captive_portal
+    tcp dport {80, 443} jump captive_portal_unauthorized
     drop
   }
   
