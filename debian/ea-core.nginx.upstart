@@ -5,12 +5,11 @@ stop on runlevel [!2345]
 
 env PYTHONPATH=/origin/lib/python
  
-expect fork
 respawn
 respawn limit 10 5
  
-exec /usr/sbin/nginx
+exec /usr/sbin/nginx -g 'daemon off;'
 
 pre-start script
-  python -c 'from origin.neuron import Axon; Axon.generate_nginx_conf()'
+  python3 -c 'from origin.neuron import Axon; Axon.generate_nginx_conf()'
 end script
