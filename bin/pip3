@@ -1,4 +1,4 @@
-#!/home/michael/Documents/Origin/workspace/core/bin/python
+#!/usr/bin/env python
 
 # -*- coding: utf-8 -*-
 import re

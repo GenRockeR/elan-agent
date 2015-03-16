@@ -1,4 +1,4 @@
-#!/home/michael/Documents/Origin/workspace/core/bin/python3.3
+#!/usr/bin/env python
 if __name__ == '__main__':
     import sys, pydoc
     sys.exit(pydoc.cli())
