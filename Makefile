@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-captive-portal
 PACKAGE-DESC := Captive Portal component of Edge Agent
-PACKAGE-DEPENDS := ea-core, python3, uwsgi-plugin-python3, ea-authentication, python-pyrad, ea-network, python3-dateutil
+PACKAGE-DEPENDS := ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six
 
 include ../core/packaging.mk
 
