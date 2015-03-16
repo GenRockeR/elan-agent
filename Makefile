@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-authentication
 PACKAGE-DESC := Authentication component of Edge Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python-mako
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako
 
 include ../core/packaging.mk
 

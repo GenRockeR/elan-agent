@@ -4,3 +4,10 @@ then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
                 --divert "/etc/init.d/freeradius.diverted-%{PACKAGE-NAME}" "/etc/init.d/freeradius"
 fi
+
+if [ ! -e /etc/init.d/freeradius ]
+then
+	touch /etc/init.d/freeradius
+	chmod 755 /etc/init.d/freeradius
+fi
+
