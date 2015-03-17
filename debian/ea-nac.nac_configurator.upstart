@@ -1,6 +1,6 @@
 description "Authentications"
 
-start on started authentication_freeradius_configurator
+start on started redis
 
 env PYTHONPATH=/origin/lib/python
 

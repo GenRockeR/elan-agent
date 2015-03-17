@@ -1,6 +1,6 @@
 description "Poll Switches"
 
-start on started authentication_freeradius_configurator
+start on started redis
 
 env PERL5LIB=/origin/lib/perl5
 
