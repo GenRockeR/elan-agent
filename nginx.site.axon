@@ -36,11 +36,11 @@ proxy_read_timeout 7200;
 
 
 upstream controlcenter {
-  % for ip in cc_ipv4:
-  	server ${ip};
-	% endif
-  % for ip in cc_ipv6:
-  	server [${ip}]:443;
-	% endif
+% for ip in cc_ipv4:
+  server ${ip};
+% endfor
+% for ip in cc_ipv6:
+  server [${ip}]:443;
+% endfor
 	keepalive 3;
 }
