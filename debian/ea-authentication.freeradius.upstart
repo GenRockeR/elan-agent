@@ -28,7 +28,7 @@ end script
 
 pre-start script
   rm -f /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
-  mkdir -p /etc/freeradius/certs/server_CA
+  perl -p -i -e "s/allow_vulnerable_openssl *= *no/allow_vulnerable_openssl = 'CVE-2014-0160'/" /etc/freeradius/radiusd.conf
   if ! grep -q '/origin/authentication/freeradius/dictionary' /etc/freeradius/dictionary
   then
     echo '' >> /etc/freeradius/dictionary
