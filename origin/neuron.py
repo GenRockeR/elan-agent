@@ -433,6 +433,8 @@ class Axon:
     AGENT_LOCATION_PATH = 'agent:location'
     synapse = Synapse() # for sync operations
     URL = 'ws://127.0.0.1:8000/ws'
+    CC_IPv4 = ['87.98.150.15'] # Control center IPs to be used in NGINX conf: indeed, when no resolver available, NGINX fails if we use fqdn
+    CC_IPv6 = ['2001:41d0:2:ba47::1:10'] 
 
     def __init__(self, url=None):
         self.url = url
@@ -463,7 +465,11 @@ class Axon:
         axon_template = Template(filename="/origin/core/nginx/axon")
         
         with open ("/etc/nginx/sites-available/axon", "w") as axon_file:
-            axon_file.write( axon_template.render(uuid = cls.agent_uuid()) )
+            axon_file.write( axon_template.render(
+                                      uuid = cls.agent_uuid(),
+                                      cc_ipv4 = cls.CC_IPv4,
+                                      cc_ipv6 = cls.CC_IPv6,
+                           ) )
 
         # Reload Nginx
         if reload:
@@ -643,7 +649,10 @@ class Axon:
         try:
             header, json_data = message.split('\n', 1)
             if json_data:
-                data = json.loads(json_data)
+                try:
+                    data = json.loads(json_data)
+                except:
+                    data = json_data
             else:
                 data = ''
             command, args = header.split(None, 1)
@@ -697,10 +706,10 @@ class Axon:
                     self._call_provider(provider_path, track_id, path, data)
     
             elif command == 'LOCATION':
-                self.synapse.set(self.LOCATION_PATH, path)
+                self.synapse.set(self.AGENT_LOCATION_PATH, path)
         except:
             from origin.event import ExceptionEvent
-            ExceptionEvent().notify()
+            ExceptionEvent(source='axon').notify()
         
         
     def _call_provider(self, provider_path, req_id, path, data):

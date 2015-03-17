@@ -36,8 +36,11 @@ proxy_read_timeout 7200;
 
 
 upstream controlcenter {
-	server control-center.origin-nexus.com:443;
-	server 87.98.150.15:443 backup;
-	server [2001:41d0:2:ba47::1:10]:443 backup;
+  % for ip in cc_ipv4:
+  	server ${ip};
+	% endif
+  % for ip in cc_ipv6:
+  	server [${ip}]:443;
+	% endif
 	keepalive 3;
 }
