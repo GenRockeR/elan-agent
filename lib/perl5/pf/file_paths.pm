@@ -95,7 +95,7 @@ BEGIN {
     );
 }
 
-$install_dir = '/home/michael/workspace/pfTest/run';
+$install_dir = '/origin/nac/pf';
 
 # TODO bug#920 all application config data should use Readonly to avoid accidental post-startup alterration
 $bin_dir  = catdir( $install_dir,"bin" );

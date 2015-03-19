@@ -44,7 +44,7 @@ use Net::Radius::Dictionary;
 use IO::Select;
 use IO::Socket qw/:DEFAULT :crlf/;
 
-my $dictionary = new Net::Radius::Dictionary "/home/michael/workspace/pfTest/pf/util/dictionary";
+my $dictionary = new Net::Radius::Dictionary "/origin/nac/pf/conf/dictionary";
 my $default_port = '3799';
 my $default_timeout = 10;
 

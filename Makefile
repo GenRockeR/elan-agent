@@ -1,7 +1,14 @@
 PACKAGE-NAME := ea-nac
 PACKAGE-DESC := Network Access control module
-PACKAGE-DEPENDS := ea-authentication, ea-core, ea-captive-portal, libdancer-perl, libdancer-plugin-dbic-perl, libsnmp-perl, libredis-perl, snmpd, libswitch-perl, \
-                    libnetaddr-ip-perl, libjson-perl
+PACKAGE-DEPENDS := ea-authentication, ea-captive-portal, ea-core, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
+                   libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
+                   libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
+                   libdbi-perl, libfile-flock-perl, libfile-slurp-perl, libfile-which-perl, libhash-merge-perl, libhttp-browserdetect-perl, \
+                   libio-interface-perl, libjson-perl, liblog-any-adapter-log4perl-perl, liblog-log4perl-perl, libnamespace-autoclean-perl, \
+                   libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
+                   libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
+                   libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
+                   libwww-curl-perl, libxml-simple-perl, snmpd
 
 include ../core/packaging.mk
 
@@ -58,6 +65,11 @@ snmp: perl-lib mibs
 perl-lib:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib
 	cp -r lib/perl5 ${DESTDIR}${ORIGIN_PREFIX}/lib
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf
+	install -m 644 pf/chi.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	install -m 644 pf/log.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	install -m 644 pf/switches.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	install -m 644 pf/dictionnary ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
 
 .PHONY: mibs
 mibs:
