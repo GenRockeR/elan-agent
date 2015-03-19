@@ -10,7 +10,7 @@ import logging
 logging.basicConfig()
 
 class NacConfigurator(Dendrite):
-    FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'certificate')
+    FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'cert_chain')
     SNMPTRAPD_KEYS  = ('snmp_credentials', )
     
     def __init__(self):
@@ -57,8 +57,9 @@ class NacConfigurator(Dendrite):
                 server_file.write( server_template.render(**self.conf) )
                 
             with open ("/etc/freeradius/certs/nac.pem", "w") as cert_file:
-                cert_file.write( self.conf['ca_cert'] )
-                cert_file.write( self.conf['certificate'] )
+                # reverse certchain so that freeradius/openssl finds the cert matching the private key in first position...
+                cert_list = [ cert + '-----END CERTIFICATE-----\n' for cert in self.conf['cert_chain'].split('-----END CERTIFICATE-----') if '-----BEGIN CERTIFICATE-----' in cert ]
+                cert_file.write( ''.join(reversed(cert_list)) )
                 cert_file.write( self.conf['cert_key'] )
 
             # Reload freeradius
