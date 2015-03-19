@@ -3,7 +3,9 @@ import ctypes
 import ctypes.util
 from netaddr import IPNetwork
 
-def get_ip6_address(if_name):
+DEFAULT_IFACE = 'br0'
+
+def get_ip6_address(if_name=DEFAULT_IFACE):
     ''' returns first ip6 global address found , else first ipv6 found, None if not found'''
     try:
         return get_ip6_global_addresses(if_name)[0]
@@ -15,7 +17,7 @@ def get_ip6_address(if_name):
         return None
 
 
-def get_ip6_addresses(if_name):
+def get_ip6_addresses(if_name=DEFAULT_IFACE):
     ''' returns first ip6 address found, None if not found'''
     try:
         return [ 
@@ -25,21 +27,21 @@ def get_ip6_addresses(if_name):
     except (KeyError, IndexError):
         return []
 
-def get_ip6_global_addresses(if_name):
+def get_ip6_global_addresses(if_name=DEFAULT_IFACE):
     ''' returns first ip6 address found, None if not found'''
     return [ 
                 addr for addr in get_ip6_addresses(if_name) 
                      if not addr['address'].startswith('fe80') # not local link
            ]
 
-def get_ip4_address(if_name):
+def get_ip4_address(if_name=DEFAULT_IFACE):
     ''' returns first ip4 address found, None if not found'''
     try:
         return get_ip4_addresses(if_name)[0]
     except (KeyError, IndexError):
         return None
 
-def get_ip4_addresses(if_name):
+def get_ip4_addresses(if_name=DEFAULT_IFACE):
     ''' returns ip4 addresses found, empty list if not found'''
     try:
         return  [ 
@@ -50,7 +52,7 @@ def get_ip4_addresses(if_name):
         return []
 
     
-def get_ether_address(if_name):
+def get_ether_address(if_name=DEFAULT_IFACE):
     try:
         return netifaces.ifaddresses(if_name)[netifaces.AF_PACKET][0]['addr']
     except (KeyError, IndexError):
