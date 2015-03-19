@@ -36,7 +36,14 @@ def requirePortalURL(fn):
 
 def redirect2status(request):
     if 'dashboard' in request.META:
-        return HttpResponseRedirect( 'https://' + EDGE_AGENT_FQDN + reverse('dashboard'))
+        host = request.META.get('HTTP_HOST', EDGE_AGENT_FQDN)
+        agent_ips = [ip['address'] for ip in utils.get_ip4_addresses() + utils.get_ip6_addresses()]
+        if host in agent_ips:
+            # if trying to get to agent with ip, redirect to IP
+            redirect_fqdn = host
+        else:
+            redirect_fqdn = EDGE_AGENT_FQDN
+        return HttpResponseRedirect( 'https://' + redirect_fqdn + reverse('dashboard'))
     return HttpResponseRedirect( 'https://' + CAPTIVE_PORTAL_FQDN + reverse('status'))
 
 @requirePortalURL
