@@ -97,9 +97,9 @@ class AccessControlConfigurator(Dendrite):
             
             # Agent Status + captive portal when authorized
             agent_rule = '''
-add rule ip{v} origin captive_portal_all ip{v} daddr {status_ip}  tcp dport 80 redirect to 19998
-add rule ip{v} origin captive_portal_all ip{v} daddr {status_ip}  tcp dport 443 redirect to 19999
-add rule ip{v} origin captive_portal_all mark 0 ip{v} daddr {captive_ip} tcp dport {{80, 443}} redirect
+add rule ip{v} origin captive_portal_all ip{v} daddr {status_ip}  tcp dport {{80, 443}} redirect
+add rule ip{v} origin captive_portal_all mark 0 ip{v} daddr {captive_ip} tcp dport 80  redirect to 19998
+add rule ip{v} origin captive_portal_all mark 0 ip{v} daddr {captive_ip} tcp dport 443 redirect to 19999
 '''
             nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP, captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP, v=''))
             nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP6, captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP6, v='6'))

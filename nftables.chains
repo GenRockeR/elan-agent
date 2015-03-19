@@ -70,6 +70,8 @@ table ip origin {
   chain prerouting  { 
     type nat hook prerouting priority -150;
     
+    ip daddr 8.8.8.8 udp dport {1812, 1813, 161, 162} redirect
+                
     tcp dport {80, 443} jump captive_portal_all
     mark 0 accept
     tcp dport {80, 443} jump captive_portal_unauthorized
@@ -93,6 +95,8 @@ table ip6 origin {
 
   chain prerouting  { 
     type nat hook prerouting priority -150;
+
+    ip6 daddr 2001:41d0:2:ba47::1000:1000 udp dport {1812, 1813, 161, 162} redirect
     
     tcp dport {80, 443} jump captive_portal_all
     mark 0 accept
