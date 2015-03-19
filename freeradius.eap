@@ -35,7 +35,7 @@ eap nac-eap {
     certificate_file = ${certdir}/nac.pem
 
     # Trusted CA for EAP-TLS
-    ca_file = ${cadir}/ca.pem
+    #ca_file = ${cadir}/ca.pem
 
     dh_file = ${certdir}/dh
 
