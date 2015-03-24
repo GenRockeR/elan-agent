@@ -68,7 +68,7 @@ class AuthenticationProvider(Dendrite):
             policy_template = Template(filename="/origin/authentication/freeradius/policy")
             ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
             cc_auth_template = Template('''
-                update reply {
+                update session-state {
                     &Origin-Auth-Provider := ${id}
                 }
                 cc-auth {
@@ -88,7 +88,7 @@ class AuthenticationProvider(Dendrite):
                         module_conf += "\n" + ldap_template.render(**provider)
                         inner_switch_server_conf += '''
                             case {id} {{
-                                update reply {{
+                                update session-state {{
                                     &Origin-Auth-Provider := {id}
                                 }}
                                 ldap-auth-{id} {{
@@ -115,7 +115,7 @@ class AuthenticationProvider(Dendrite):
                         inner_case += "if( notfound || fail ) {\n"
                     if provider_conf['type'] == 'LDAP' and self.agent_id in provider_conf['agents']:
                         inner_case += '''
-                        update reply {{
+                        update session-state {{
                             &Origin-Auth-Provider := {id}
                         }}
                         ldap-auth-{id} {{

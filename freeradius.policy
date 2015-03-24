@@ -1,18 +1,21 @@
 authentications.authorize {
-            update request {
-                Module-Failure-Message !* ANY
-            }
-            switch &Origin-Auth-Provider {
-              
-              ${inner_switch}
-          
-              case { 
-                cc-auth
-              }
-            }
-            if(reply:Cleartext-Password) {
-                update control {
-                  &Cleartext-Password := &reply:Cleartext-Password
-                }
-            }
+    update request {
+        Module-Failure-Message !* ANY
+    }
+    switch &Origin-Auth-Provider {
+      
+      ${inner_switch}
+    
+      case { 
+        cc-auth
+      }
+    }
+    if(reply:Cleartext-Password) {
+        update control {
+          &Cleartext-Password := &reply:Cleartext-Password
+        }
+        update reply {
+          &Cleartext-Password !* ANY
+        }
+    }
 }

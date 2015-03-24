@@ -2,7 +2,7 @@ rest cc-auth {
         connect_uri = "http://127.0.0.1:8000"
 
         authorize {
-                uri = "<%text>$</%text>{..connect_uri}/api/authentication/%{%{reply:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}/user/authorize/%{User-Name}"
+                uri = "<%text>$</%text>{..connect_uri}/api/authentication/%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}/user/authorize/%{User-Name}"
                 method = "get"
         }
         post-auth {

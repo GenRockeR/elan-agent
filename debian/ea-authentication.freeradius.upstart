@@ -19,14 +19,12 @@ script
 end script
 
 pre-start script
-# /var/run may be a tmpfs
-if [ ! -d /var/run/freeradius ]; then
-  mkdir -p /var/run/freeradius
-  chown freerad:freerad /var/run/freeradius
-fi
-end script
+  # /var/run may be a tmpfs
+  if [ ! -d /var/run/freeradius ]; then
+    mkdir -p /var/run/freeradius
+    chown freerad:freerad /var/run/freeradius
+  fi
 
-pre-start script
   rm -f /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
   perl -p -i -e "s/allow_vulnerable_openssl *= *no/allow_vulnerable_openssl = 'CVE-2014-0160'/" /etc/freeradius/radiusd.conf
   if ! grep -q '/origin/authentication/freeradius/dictionary' /etc/freeradius/dictionary
