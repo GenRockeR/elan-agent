@@ -2,7 +2,7 @@
 
 import radiusd
 from origin import neuron, snmp, session, nac
-from origin.event import Event, InternalEvent
+from origin.event import Event, InternalEvent, ExceptionEvent
 import re, traceback
 
 # TODO: maybe put this in instanciate ?
@@ -29,34 +29,20 @@ def extract_ssid(string):
         return m.group(1)
 
 def seen(request):
-    try:
-        request_hash = request_as_hash_of_values(request)
-    
-        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-    
-        port = find_port(request_hash)
-        session.seen(mac, port=port)
-    except:
-        # TODO: send notification
-        traceback.print_exc()
-        raise
+    mac = extract_mac(request.get('Calling-Station-Id', None))
+
+    port = find_port(request)
+    session.seen(mac, port=port)
 
 def end(request):
-    try:
-        request_hash = request_as_hash_of_values(request)
-    
-        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-        nac.macDisconnected(mac)
-    except:
-        # TODO: send notification
-        traceback.print_exc()
-        raise
+    mac = extract_mac(request.get('Calling-Station-Id', None))
+    nac.macDisconnected(mac)
 
 
-def find_port(request_hash):
+def find_port(request):
     # will try to find port 
-    nas_ip_address = request_hash.get('NAS-IP-Address', None)
-    radius_client_ip = request_hash.get('Packet-Src-IP-Address', request_hash.get('Packet-Src-IPv6-Address', None))
+    nas_ip_address = request.get('NAS-IP-Address', None)
+    radius_client_ip = request.get('Packet-Src-IP-Address', request.get('Packet-Src-IPv6-Address', None))
 
     switch_polled = False
     switch = None
@@ -95,7 +81,7 @@ def find_port(request_hash):
                 event.notify()
                 return
     
-    called_station_id = extract_mac(request_hash.get('Called-Station-Id', None))
+    called_station_id = extract_mac(request.get('Called-Station-Id', None))
     found_ports_by_mac = set()
     if called_station_id:
         for port in switch[u'ports']:
@@ -107,7 +93,7 @@ def find_port(request_hash):
 
     # Try to find SSID
     ssid = None
-    for k,v in request_hash.items():
+    for k,v in request.items():
         if '-avpair' in k.lower():
             if not isinstance(v, list):
                 v=[v]
@@ -119,7 +105,7 @@ def find_port(request_hash):
                 break
     if not ssid:
         # try from called Station ID
-        ssid = extract_ssid(request_hash.get('Called-Station-Id', None))
+        ssid = extract_ssid(request.get('Called-Station-Id', None))
 
     found_ports_by_ssid = set()
     if ssid:
@@ -135,7 +121,7 @@ def find_port(request_hash):
 
 
     # try to find by nas port id
-    nas_port_id = request_hash.get('NAS-Port-ID', None)
+    nas_port_id = request.get('NAS-Port-ID', None)
     found_ports_by_nas_port_id = set()
     if nas_port_id:
         for port in switch[u'ports']:
@@ -147,7 +133,7 @@ def find_port(request_hash):
     
     
     # If still, try nasport to ifindex
-    nas_port = request_hash.get('NAS-Port', None)
+    nas_port = request.get('NAS-Port', None)
     found_ports_by_nas_port = set()
     if nas_port:
         ifIndexes = snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
@@ -181,7 +167,7 @@ def find_port(request_hash):
     InternalEvent(source='radius')\
         .add_data('module', 'origin.freeradius.mac')\
         .add_data('details', 'Port not found')\
-        .add_data('request', request_hash)\
+        .add_data('request', request)\
         .add_data('switch', switch)\
         .notify()
 
@@ -214,41 +200,58 @@ def request_as_hash_of_values(request):
 
 def get_assignments(request):
     ''' Will create new session for Mac and allow it on VLAN and on the net if authorized'''
-    try:
-        request_hash = request_as_hash_of_values(request)
-            
-        mac = extract_mac(request_hash.get('Calling-Station-Id', None))
-    
-        port = find_port(request_hash)
+    mac = extract_mac(request.get('Calling-Station-Id', None))
 
-        session.seen(mac, port=port)
+    port = find_port(request)
+
+    session.seen(mac, port=port)
+
+    auth_type = request.get('Origin-Auth-Type', None)
     
-        auth_type = request_hash.get('Origin-Auth-Type', None)
-        
-        extra_kwargs = {}
+    extra_kwargs = {}
+    if auth_type == 'dot1x':
+        extra_kwargs = dict(
+                authentication_provider = request.get('Origin-Auth-Provider'),
+                login = request.get('Origin-Login', request.get('User-Name'))
+        )
+    
+    authz = nac.newAuthz(mac, no_duplicate_source=True, source=auth_type, till_disconnect=True, **extra_kwargs)
+
+    if not authz:
+        # log no assignment rule matched....
+        event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
+        event.add_data('mac', mac, 'mac')
+        event.add_data('port', port, 'port')
         if auth_type == 'dot1x':
-            extra_kwargs = dict(
-                    authentication_provider = request_hash.get('Origin-Auth-Provider'),
-                    login = request_hash.get('Origin-Login', request_hash.get('User-Name'))
-            )
-        
-        authz = nac.newAuthz(mac, no_duplicate_source=True, source=auth_type, till_disconnect=True, **extra_kwargs)
+            event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
+            event.add_data('login', extra_kwargs['login'])
+        event.notify()
+
+        return radiusd.RLM_MODULE_REJECT
     
-        if not authz:
-            # log no assignment rule matched....
-            event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
-            event.add_data('mac', mac, 'mac')
-            event.add_data('port', port, 'port')
-            if auth_type == 'dot1x':
-                event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
-                event.add_data('login', extra_kwargs['login'])
-            event.notify()
-    
-            return radiusd.RLM_MODULE_REJECT
+    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.vlan)), ), ()
+
+
+def post_auth(req):
+    try:
+        request = request_as_hash_of_values(req)
         
-        #session.notify_new_authorization_session(mac, assignments['vlan'], type=auth_type, till_disconnect=True, authorized=assignments['bridge'], **extra_kwargs)
-        return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.vlan)), ), ()
+        if request.get('Origin-Auth-Type', None) == 'Reject':
+            return seen(request)
+        else:
+            return get_assignments(request)
     except:
-        # TODO: send notification
-        traceback.print_exc()
+        ExceptionEvent(source='radius').notify()
         raise
+
+def accounting(req):
+    try:
+        request = request_as_hash_of_values(req)
+        if request.get('Acct-Status-Type') == 'Stop':
+            return end(request)
+        elif request.get('Acct-Status-Type') in ['Start', 'Interim-Update']:
+            return seen(request)
+    except:
+        ExceptionEvent(source='radius').notify()
+        raise
+            

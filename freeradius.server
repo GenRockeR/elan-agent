@@ -35,36 +35,36 @@ server nac {
 % endif
   
   authorize {
-    preprocess
-    nac-eap {
-      ok = return
-    }
-
-    if ( ( ! EAP-Message || EAP-TYPE == MD5 ) \
-      && Calling-Station-Id \
-      && User-Name =~ /^([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})$/i ) {
-        # Check Username Looks like Calling-station-ID
-        if ( "%{Calling-Station-Id}" =~ /^(%{1})[.:-]?(%{2})[.:-]?(%{3})[.:-]?(%{4})[.:-]?(%{5})[.:-]?(%{6})/i ) {
-            # Looks like Mac Auth
-            update control {
-                ClearText-Password := "%{User-Name}"
-            }
-            update reply {
-                Origin-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
-            }
-            # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {
-        }
-        if ( ! EAP-Message ) {
-          chap
-          pap
-        }
-    }
-    elsif( EAP-TYPE == MD5 ) {
-        update request {
-            &Origin-Auth-Provider := "${dot1x_authentication}"
-        }
-        authentications
-    }
+      preprocess
+      nac-eap {
+        ok = return
+      }
+  
+      if ( ( ! EAP-Message || EAP-TYPE == MD5 ) \
+        && Calling-Station-Id \
+        && User-Name =~ /^([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})$/i ) {
+          # Check Username Looks like Calling-station-ID
+          if ( "%{Calling-Station-Id}" =~ /^(%{1})[.:-]?(%{2})[.:-]?(%{3})[.:-]?(%{4})[.:-]?(%{5})[.:-]?(%{6})/i ) {
+              # Looks like Mac Auth
+              update control {
+                  ClearText-Password := "%{User-Name}"
+              }
+              update session-state {
+                  Origin-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
+              }
+              # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {
+          }
+          if ( ! EAP-Message ) {
+            chap
+            pap
+          }
+      }
+      elsif( EAP-TYPE == MD5 ) {
+          update request {
+              &Origin-Auth-Provider := "${dot1x_authentication}"
+          }
+          authentications
+      }
   }
   
   authenticate {
@@ -104,20 +104,13 @@ server nac {
   accounting {
   #  -sql
   # sql_log
-  # TODO: acct interim: seen mac + port if found...
-  # TODO: acct stop: end Mac
     
   update request {
     &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
     # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
   }
 
-  if( Acct-Status-Type == Stop ){
-    end
-  }
-  elsif(Acct-Status-Type == Start || Acct-Status-Type == Interim-Update) {
-    seen
-  }
+  nac
 
   attr_filter.accounting_response
   
@@ -133,16 +126,16 @@ server nac {
   
   post-auth {
   
-    if( reply:Origin-MAC) {
+    if( session-state:Origin-MAC) {
       update request {
           &Origin-Auth-Type := "mac"
-          &Origin-MAC := &reply:Origin-MAC
+          &Origin-MAC := &session-state:Origin-MAC
       }
     }
     else {
       update request {
-          &Origin-Auth-Provider := "%{%{reply:Origin-Auth-Provider}:-${dot1x_authentication}}"
-          &Origin-Login         := &reply:Origin-Login
+          &Origin-Auth-Provider := "%{%{session-state:Origin-Auth-Provider}:-${dot1x_authentication}}"
+          &Origin-Login         := &session-state:Origin-Login
           &Origin-Auth-Type     := "dot1x"
           &Origin-MAC           := &Calling-Station-ID
       }
@@ -153,8 +146,7 @@ server nac {
       # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
     }
     
-    get-assignments
-    
+    nac
     
     if( &reply:Origin-VLAN-ID && &reply:Origin-VLAN-ID != "0" ) {
       update reply {
@@ -193,7 +185,10 @@ server nac {
         &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
         # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
       }
-      seen
+      update request {
+         Origin-Auth-Type := "Reject" # Tell nac that we are in post-auth reject
+      }
+      nac
   
       remove_reply_message_if_eap
     }
@@ -218,26 +213,35 @@ server inner-eap-tunnel {
   
     mschap
   
-    update control {
-           Proxy-To-Realm := LOCAL
-    }
-  
     nac-eap {
       ok = return
     }
-  
-    expiration
-    logintime
   
     update request {
         &Origin-Auth-Provider := "${dot1x_authentication}"
     }
   
-    authentications
+    if( session-state:ClearText-Password ){
+        update control {
+            ClearText-Password := &session-state:Cleartext-Password
+        }
+    }
+    else {
+        authentications
+    }
+
+    expiration
+    logintime
     
     pap
+  }
+  
+  post-auth {
+    update {
+       &outer.session-state: += &session-state:
+    }
 
-    update reply {
+    update outer.session-state {
         &Origin-Login := User-Name
     }
 
