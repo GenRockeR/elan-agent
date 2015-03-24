@@ -69,7 +69,7 @@ perl-lib:
 	install -m 644 pf/chi.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
 	install -m 644 pf/log.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
 	install -m 644 pf/switches.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
-	install -m 644 pf/dictionnary ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	install -m 644 pf/dictionary ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
 
 .PHONY: mibs
 mibs:
