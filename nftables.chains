@@ -50,8 +50,8 @@ table bridge origin {
     drop 
   }
 
-  chain output {
-    type filter hook output priority 200;
+  chain postrouting {
+    type filter hook postrouting priority 200;
   }
 
 }
