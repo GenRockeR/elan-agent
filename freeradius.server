@@ -63,6 +63,7 @@ server nac {
           update request {
               &Origin-Auth-Provider := "${dot1x_authentication}"
           }
+          # TODO: Send alert when dot1x_authentication is None
           authentications
       }
   }
@@ -217,16 +218,16 @@ server inner-eap-tunnel {
       ok = return
     }
   
-    update request {
-        &Origin-Auth-Provider := "${dot1x_authentication}"
-    }
-  
     if( session-state:ClearText-Password ){
         update control {
             ClearText-Password := &session-state:Cleartext-Password
         }
     }
     else {
+        update request {
+            &Origin-Auth-Provider := "${dot1x_authentication}"
+        }
+        # TODO: Send alert when dot1x_authentication is None
         authentications
     }
 
