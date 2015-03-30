@@ -42,7 +42,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION $DEBUG %MIBS %FUNCS %GLOBALS %MUNGE $INIT/;
 
-$VERSION = '3.23';
+$VERSION = '3.26';
 
 %MIBS = (
     'BRIDGE-MIB'   => 'dot1dBaseBridgeAddress',
@@ -224,9 +224,9 @@ sub qb_fdb_index {
 
     # Strip the TimeFilter
     my $vl_fdb_index = {};
-    for my $orig (keys(%$qb_fdb_ids)) {
-        (my $new = $orig) =~ s/^\d+\.//;
-        $vl_fdb_index->{$new} = $qb_fdb_ids->{$orig};
+    for my $fdb_entry (keys(%$qb_fdb_ids)) {
+        (my $vlan = $fdb_entry) =~ s/^\d+\.//;
+        $vl_fdb_index->{$qb_fdb_ids->{$fdb_entry}} = $vlan;
     }
 
     return $vl_fdb_index;

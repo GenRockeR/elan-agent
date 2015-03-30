@@ -24,7 +24,7 @@ use vars
     qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE $AUTOLOAD $INIT $DEBUG %SPEED_MAP
     $NOSUCH $BIGINT $REPEATERS/;
 
-$VERSION = '3.23';
+$VERSION = '3.26';
 
 =head1 NAME
 
@@ -32,7 +32,7 @@ SNMP::Info - OO Interface to Network devices and MIBs through SNMP
 
 =head1 VERSION
 
-SNMP::Info - Version 3.23
+SNMP::Info - Version 3.26
 
 =head1 AUTHOR
 
@@ -4545,7 +4545,8 @@ sub _validate_autoload_method {
     my $table_leaf = 0;
 
     if ( !$globals->{$attr}
-        && ( defined $indexes && scalar( @{$indexes} ) > 0 ) )
+        && ( ( defined $indexes && scalar( @{$indexes} ) > 0 )
+            || $funcs->{$attr} ))
     {
         $table_leaf = 1;
     }

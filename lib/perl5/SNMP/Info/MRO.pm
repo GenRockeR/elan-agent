@@ -4,7 +4,7 @@ use warnings;
 use strict;
 
 use vars qw/$VERSION/;
-$VERSION = '3.23';
+$VERSION = '3.26';
  
 use PPI;
 use Class::ISA;
@@ -363,7 +363,7 @@ Pretty print the output of C<superclasses()>.
 =cut
 
 sub print_superclasses {
-    print join ("\n", (shift)->superclasses), "\n";
+    print join ("\n", superclasses(@_)), "\n";
 }
 
 =back
