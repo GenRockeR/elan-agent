@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import signal, subprocess, os, sys
-from origin.synapse import Synapse
+from origin.neuron import Synapse
 import yaml, re
 
 file = open('/etc/suricata/suricata.yaml', 'r')

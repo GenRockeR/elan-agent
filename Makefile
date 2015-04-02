@@ -28,7 +28,7 @@ install-suricata:
 .PHONY: install-logger
 install-logger:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/sbin
-	install ids-loggerd ${DESTDIR}${ORIGIN_PREFIX}/sbin/
+	install ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/sbin/ids-loggerd
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py # this is added by core
