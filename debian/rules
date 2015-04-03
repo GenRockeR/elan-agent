@@ -1,6 +1,9 @@
 #!/usr/bin/make -f
+override_dh_installcron:
+	dh_installcron --name=rule-fetcher
 override_dh_installinit:
 	dh_installinit --name=suricata
 	dh_installinit --name=ids-loggerd
+	dh_installinit --name=ids-monitor
 %:
 	dh $@

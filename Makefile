@@ -13,14 +13,13 @@ install: install-suricata install-logger
 
 .PHONY: install-suricata
 install-suricata:
-	install -d ${DESTDIR}/etc/suricata
-	install -m 644 suricata/suricata.yaml ${DESTDIR}/etc/suricata/
-	install -m 644 suricata/reference.origin ${DESTDIR}/etc/suricata/
-	install -m 644 suricata/classification.origin ${DESTDIR}/etc/suricata/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata
+	install -m 644 suricata.conf ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/conf
+	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
+	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install rule_fetcher ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
-	install -d ${DESTDIR}/etc/cron.d
-	install -m 644 rule-fetcher.cron ${DESTDIR}/etc/cron.d/
+	install ids_monitor ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
 
 .PHONY: install-logger
 install-logger:

@@ -7,10 +7,15 @@ respawn
 respawn limit 10 5
 umask 022
 
+reload signal USR2
+
 exec /usr/bin/suricata --pcap
 
+
+env PYTHONPATH=/origin/lib/python
 pre-start script
     mkdir -p /var/log/suricata
     mkdir -p /etc/suricata/rules
-    PYTHONPATH=/origin/lib/python /origin/sbin/rule-fetcher --no-rule-reload || true
+    python3 -c 'from origin.ids import generate_suricata_conf; generate_suricata_conf(force=True)'
+    /origin/bin/rule-fetcher --no-rule-reload || true
 end script

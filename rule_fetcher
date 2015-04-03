@@ -19,7 +19,6 @@ for rule in conf['rule-files']:
     
 if rules_updated and len(sys.argv) > 1 and sys.argv[1] != '--no-rule-reload' :
     # send USR2 SIG to suricata to reload the rules
-    output = subprocess.check_output(['status', 'suricata'])
-    m = re.search('process *(?P<pid>\d+)', output)
-    if m and m.group('pid'):
-        os.kill(int(m.group('pid')), signal.SIGUSR2)
+    subprocess.call("reload suricata")
+
+
