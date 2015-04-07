@@ -90,7 +90,7 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
         pipe.hset(MAC_LAST_PORT_PATH, mac, port) # Keep track of last port when port is deleted
         pipe.execute()
         if not mac_added: # TODO check if can write 'and not vlan_added and not ip_added': in CC will port be updated if mac already present and new vlan or ip session ? 
-            notify_MAC_port(mac=mac, port=port, time=time)
+            notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port, time=time)
             
     if ip_added:
         notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)

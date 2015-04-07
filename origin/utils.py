@@ -1,4 +1,4 @@
-import netifaces, subprocess, re
+import netifaces, subprocess, re, netaddr
 import ctypes
 import ctypes.util
 from netaddr import IPNetwork
@@ -80,6 +80,26 @@ def get_ip6_default_gateway():
         gw = None
     
     return gw
+
+def get_cidr6_global_networks(if_name=DEFAULT_IFACE):
+    networks = set()
+    for ip in get_ip6_global_addresses(if_name):
+        ip_network = netaddr.IPNetwork( '{}/{}'.format(ip['address'], ip['prefix_length']) ) 
+        networks.add( '{}/{}'.format(ip_network.network, ip_network.prefixlen) )
+    
+    return networks
+
+def get_cidr4_networks(if_name=DEFAULT_IFACE):
+    networks = set()
+    for ip in get_ip4_addresses(if_name):
+        ip_network = netaddr.IPNetwork( '{}/{}'.format(ip['address'], ip['prefix_length']) ) 
+        networks.add( '{}/{}'.format(ip_network.network, ip_network.prefixlen) )
+    
+    return networks
+
+def get_cidr_networks(if_name=DEFAULT_IFACE):
+    return get_cidr6_global_networks(if_name) | get_cidr4_networks(if_name)
+
 
 def get_dns_servers():
     dns_ips = []
