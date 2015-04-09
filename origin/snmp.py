@@ -1,5 +1,6 @@
 from origin.neuron import Dendrite;
 from origin import session, nac
+from origin.event import Event
 import datetime
 
 SNMP_POLL_REQUEST_CHANNEL       = 'snmp:poll:request'
@@ -86,6 +87,9 @@ class DeviceSnmpManager(Dendrite):
         device_snmp = self._poll(ip, timeout=timeout)
         
         if device_snmp is None:
+            event = Event('runtime-failure', source='snmp', level='warning')
+            event.add_data('ip', ip)
+            event.notify()
             return
         
         # Try to find a cached device
@@ -142,7 +146,7 @@ class DeviceSnmpManager(Dendrite):
         # Grab SNMP read credentials of device
         read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
         if not read_params:
-            if self.poll(device_ip):
+            if self.poll(device_ip, timeout=600): # No Cached params, may take time to test them all
                 read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
             # TOTO: send alert to CC ON if not read_params here
         return read_params
@@ -173,48 +177,52 @@ class DeviceSnmpManager(Dendrite):
         
         trap = self._parse_trap_str(device_ip, trap_str, read_params, timeout)
         
-        if trap and trap['trapType'] != 'unknown':
-            '''
-            Trap types: 
-              - up:
-                  - trapIfIndex
-              - down 
-                  - trapIfIndex
-              - mac:
-                  - trapOperation:
-                      - learnt
-                      - removed
-                      - unknown -> what do we do ? -> macsuck ?
-                  - trapIfIndex
-                  - trapMac
-                  - trapVlan
-              - secureMacAddrViolation:
-                  - trapIfIndex
-                  - trapMac
-                  - trapVlan
-              - dot11Deauthentication:
-                  - trapMac
-              - wirelessIPS 
-                  - trapMac
-              - roaming
-                  - trapSSID
-                  - trapIfIndex
-                  - trapVlan
-                  - trapMac
-                  - trapClientUserName
-                  - trapConnectionType
-            '''
-            if 'trapMac' in trap: 
-                if trap['trapType'] in ['secureMacAddrViolation', 'wirelessIPS', 'roaming'] or \
-                  (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
-                    port = self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
-                    vlan=trap.get('vlan', None)
-                    session.seen(trap['trapMac'], vlan=vlan, port=port, time=trap_time)
-                elif trap['trapType'] == 'dot11Deauthentication'or \
-                    (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
-                    nac.macDisconnected(trap['trapMac'], time=trap_time)
-            # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
-    
+        if trap:
+            if trap['trapType'] != 'unknown':
+                '''
+                Trap types: 
+                  - up:
+                      - trapIfIndex
+                  - down 
+                      - trapIfIndex
+                  - mac:
+                      - trapOperation:
+                          - learnt
+                          - removed
+                          - unknown -> what do we do ? -> macsuck ?
+                      - trapIfIndex
+                      - trapMac
+                      - trapVlan
+                  - secureMacAddrViolation:
+                      - trapIfIndex
+                      - trapMac
+                      - trapVlan
+                  - dot11Deauthentication:
+                      - trapMac
+                  - wirelessIPS 
+                      - trapMac
+                  - roaming
+                      - trapSSID
+                      - trapIfIndex
+                      - trapVlan
+                      - trapMac
+                      - trapClientUserName
+                      - trapConnectionType
+                '''
+                if 'trapMac' in trap: 
+                    if trap['trapType'] in ['secureMacAddrViolation', 'wirelessIPS', 'roaming'] or \
+                      (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
+                        port = self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
+                        vlan=trap.get('vlan', None)
+                        session.seen(trap['trapMac'], vlan=vlan, port=port, time=trap_time)
+                    elif trap['trapType'] == 'dot11Deauthentication'or \
+                        (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
+                        nac.macDisconnected(trap['trapMac'], time=trap_time)
+                # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
+            else:
+                event = Event(event_type='runtime-failure', source='snmp-notification', level='warning')
+                event.add_data('ip', device_ip)
+                event.notify()
                     
     
     def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):

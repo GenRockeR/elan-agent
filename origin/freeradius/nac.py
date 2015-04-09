@@ -73,12 +73,6 @@ def find_port(request):
                 switch_ip = radius_client_ip
             else:
                 # if switch not found, nothing we can do
-                event = Event('runtime-failure', source='snmp', dendrite=dendrite)
-                if nas_ip_address:
-                    event.add_data('nas_ip_address', nas_ip_address)
-                if radius_client_ip != nas_ip_address:
-                    event.add_data('radius_client_ip', radius_client_ip)
-                event.notify()
                 return
     
     called_station_id = extract_mac(request.get('Called-Station-Id', None))
