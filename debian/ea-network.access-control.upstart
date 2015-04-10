@@ -1,6 +1,6 @@
 description "Access Control"
  
-start on started nginx
+start on started redis
 
 env PYTHONPATH=/origin/lib/python
 
