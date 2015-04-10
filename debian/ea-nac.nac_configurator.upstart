@@ -1,6 +1,6 @@
 description "Authentications"
 
-start on started redis
+start on started axon
 
 env PYTHONPATH=/origin/lib/python
 

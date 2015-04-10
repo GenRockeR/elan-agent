@@ -1,6 +1,6 @@
 description "Poll Switches"
 
-start on started redis
+start on started axon
 
 env PERL5LIB=/origin/lib/perl5
 
