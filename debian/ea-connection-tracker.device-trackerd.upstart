@@ -1,7 +1,6 @@
 description "Device Tracker"
 
-start on started access-control
-stop on stopping access-control
+start on started axon
 
 respawn
 respawn limit 10 5
