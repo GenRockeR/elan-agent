@@ -210,7 +210,7 @@ class MacAuthorizationManager(Dendrite):
                 self._fw_cache_add(mac, authz.vlan)
                 cmd += 'nft add element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=authz.vlan, mac=mac)
         for vlan in vlans:
-            cmd = 'nft flush set bridge origin a_v_{vlan};'.format(vlan=vlan) + cmd
+            cmd = "nft add set bridge origin a_v_{vlan} '{{type ether_addr;}}';nft flush set bridge origin a_v_{vlan};".format(vlan=vlan) + cmd
              
         subprocess.call(cmd, shell=True)
 
