@@ -9,3 +9,9 @@ setuid redis
 setgid redis
 
 exec /usr/bin/redis-server /origin/core/redis/conf
+
+env PYTHONPATH=/origin/lib/python
+
+post-start script
+  python3 -c 'from origin.neuron import wait_for_synapse_ready; wait_for_synapse_ready()'
+end script

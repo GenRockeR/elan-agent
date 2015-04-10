@@ -1,5 +1,5 @@
 import tornado.ioloop, tornado.websocket, tornado.gen, tornado.options
-import json, datetime, traceback
+import json, datetime, traceback, time
 import tornadoredis
 import redis
 
@@ -13,6 +13,24 @@ AXON_CALLS = 'axon:calls:{name}'
 
 CALL_TIMEOUT = 60 # seconds
 SYNC_CALL_TIMEOUT = 40 #seconds
+
+def wait_for_synapse_ready():
+    started = False
+    s = Synapse()
+    
+    while not started:
+        try:
+            started = s.ping()
+        except redis.exceptions.ConnectionError:
+            time.sleep(1)
+
+def wait_registered():
+    wait_for_synapse_ready()
+    registered = Axon.is_registered()
+    
+    while not registered:
+        time.sleep(1)
+        registered = Axon.is_registered()
 
 class Synapse(redis.StrictRedis):
     '''
@@ -315,11 +333,19 @@ class Dendrite(object):
         
     # REST
         
-    def post(self, path, data):
+    def post(self, path, data, wait_connection=True):
         '''
             POST and forget
+            if no connection, wait and retry (unless wait_connection is set to False)
         '''
-        self.call(path, data)
+        while True:
+            try:
+                self.call(path, data)
+                break
+            except redis.exceptions.ConnectionError:
+                if not wait_connection:
+                    break
+                time.sleep(1)
 
 
     def sync_post(self, path, data, timeout=SYNC_CALL_TIMEOUT):

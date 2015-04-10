@@ -1,7 +1,6 @@
 description "nginx http daemon"
  
 start on started redis
-stop on runlevel [!2345]
 
 env PYTHONPATH=/origin/lib/python
  
