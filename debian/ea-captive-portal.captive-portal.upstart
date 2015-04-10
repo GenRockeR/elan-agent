@@ -1,8 +1,7 @@
 description "Captive Portal"
  
-start on starting access-control
+start on started redis
 
-stop  on stopped  nginx
 
 respawn
 respawn limit 10 5

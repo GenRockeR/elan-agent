@@ -1,7 +1,6 @@
-description "Captive Portal"
+description "Captive Portal Conf retriever"
 
-start on starting access-control
-stop  on stopped  nginx
+start on started axon
 
 env PYTHONPATH=/origin/lib/python
 
