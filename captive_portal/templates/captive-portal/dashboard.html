@@ -25,11 +25,11 @@
               {% trans "Control Center Connection" %}
               <span class="fa {% spaceless %}
                         {% if not is_connected %}
-                          fa-warning text-danger pull-right
+                          fa-warning fa-2x text-danger
                         {% elif is_registered %}
-                          fa-circle text-success pull-right
+                          fa-circle text-success
                         {% else %}
-                          fa-warning text-warning
+                          fa-warning fa-2x text-warning
                         {% endif%}
                     {% endspaceless %} pull-right">
               </span>

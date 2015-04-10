@@ -167,7 +167,7 @@ class DynamicFieldForm(forms.Form):
 
 def get_request_form(guest_registration_fields, guest_access_conf, data=None):
     form_fields = [{'name':'field-{}'.format(f['id']), 'required':f.get('required', False), 'type':f.get('type')} for f in guest_registration_fields]
-    form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'date-time'})
+    form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'text'})
     if guest_access_conf.get('validation_patterns', None):
         form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
     return DynamicFieldForm( data, fields=form_fields )
