@@ -1,7 +1,6 @@
 description	"Suricata server"
 
-start on runlevel [2345]
-stop on shutdown
+start on started axon
 
 respawn
 respawn limit 10 5
