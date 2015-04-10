@@ -15,7 +15,7 @@ decoder = EthDecoder()
 
 def get_bridge_port(mac):
     # TODO: find a better way to get port
-    return subprocess.Popen("bridge fdb | grep  '00:21:70:bc:28:fd' | grep -v permanent | cut -f1 -d' '", shell=True, stdout=subprocess.PIPE)\
+    return subprocess.Popen("bridge fdb | grep  '{mac}' | grep -v permanent | cut -f3 -d' '".format(mac=mac), shell=True, stdout=subprocess.PIPE)\
             .communicate()[0]\
             .split('\n',1)[0]
 
@@ -35,8 +35,6 @@ def notify_alert(alert):
             src_mac = packet.as_eth_addr(packet.get_ether_shost())
             dst_mac = packet.as_eth_addr(packet.get_ether_dhost())
             
-            src_fdb = subprocess.Popen("bridge fdb | grep  '{mac}' | grep -v permanent".format(mac=src_mac), shell=True, stdout=subprocess.PIPE).communicate()[0]
-            
             src_port = get_bridge_port(src_mac)
             dst_port = get_bridge_port(dst_mac)
             
@@ -50,9 +48,11 @@ def notify_alert(alert):
             else:
                 lan_mac = dst_mac
                 wan_mac = src_mac
-                
-            event.add_data( 'lan_mac', lan_mac, 'mac' )
-            event.add_data( 'wan_mac', wan_mac, 'mac' )
+            
+            if lan_mac != '00:00:00:00:00:00':    
+                event.add_data( 'lan_mac', lan_mac, 'mac' )
+            if wan_mac != '00:00:00:00:00:00':    
+                event.add_data( 'wan_mac', wan_mac, 'mac' )
             try:
                 event.add_data( 'vlan_id', packet.get_tag(0).get_vid() )
             except IndexError:
