@@ -23,14 +23,23 @@ def format_date(date):
     else:
         return datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-
+def is_online(mac, vlan=None, ip=None):
+    ''' returns True if Mac (optionnaly, on VLAN, with IP) is connected '''
+    
+    data = dict(mac=mac)
+    if vlan is not None:
+        data['vlan'] = vlan
+    if ip is not None:
+        data['ip'] = ip
+    
+    return bool(dendrite.synapse.zscore(LAST_SEEN_PATH, data))
 
 def seen(mac, vlan=None, port=None, ip=None, time=None ):
     '''
     marks mac as seen on VLAN 'vlan', on Port 'port' with IP 'ip' at Time 'time' and notifies CC if new session.
     time should be epoch.
     ip ignored if vlan not specified
-    returns true if MAC was new
+    returns 3 booleans whether MAC, VLAN and IP were new
     '''
     if time is None:
         time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
