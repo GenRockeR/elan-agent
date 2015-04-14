@@ -1,6 +1,7 @@
 from origin.neuron import Synapse, Dendrite
 import subprocess, datetime, re
 from origin import session
+import threading
 
 DISCONNECT_NOTIFICATION_PATH = 'device:vlan_mac_disconnected' # TODO Factorize: also in session_trackerd
 
@@ -9,6 +10,10 @@ AUTHORIZATION_CHANGE_CHANNEL = 'nac:authz:change' " notify that authz changed fo
 AUTHZ_MAC_EXPIRY_PATH = 'nac:authz:expiry' # sorted set with expiry as score, mac will be used as key of session (we only keep current sessions)
 AUTHZ_SESSIONS_BY_MAC_PATH = 'nac:authz:sessions' # hash
 AUTHZ_SESSIONS_SEQUENCE_PATH = 'nac:authz:sequence'
+
+
+CHECK_AUTHZ_PATH = 'mac/check-authz'
+
 
 dendrite = Dendrite('nac')
 synapse = dendrite.synapse
@@ -59,6 +64,7 @@ def checkAuthz(mac, remove_source=None, end_reason='overridden', **kwargs):
             RedisMacAuthorization.deleteByMac(mac)
             authzChanged(mac)
             notify_end_authorization_session(old_authz, reason='expired')
+        return None
 
 def getAuthz(mac):
     ''' Returns current authz, and if none, checks if there should be one... '''
@@ -89,6 +95,7 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
         port = synapse.hget(session.MAC_PORT_PATH, mac)
         
     return dendrite.sync_post('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    # TODO: when CC unreachable or Error, retry in a few seconds (maybe use mac authz manager daemon for that) 
 
 def tzaware_datetime_to_epoch(dt):
     return (dt - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
@@ -186,6 +193,9 @@ class RedisMacAuthorization(object):
             return cls(**auth_session)
     
 class MacAuthorizationManager(Dendrite):
+    ''' Class to manage FW authz of Macs
+        It also provides a service to check Authz of Macs when something has changed (Tags, ...)
+    '''
     def __init__(self):
         super().__init__(self, 'mac-authorizations')
 
@@ -193,6 +203,8 @@ class MacAuthorizationManager(Dendrite):
         
         self.add_channel(AUTHORIZATION_CHANGE_CHANNEL, self.handle_authz_changed)
         self.add_channel(DISCONNECT_NOTIFICATION_PATH, self.handle_disconnection)
+        
+        self.provide(CHECK_AUTHZ_PATH)
 
         self.check_expired_authz()
 
@@ -294,7 +306,6 @@ class MacAuthorizationManager(Dendrite):
         for mac in self.synapse.zrangebyscore(AUTHZ_MAC_EXPIRY_PATH, float('-inf'), now):
             self.removeAuthz(mac, reason='expired')
             # check new authz in other thread to not block.
-            import threading
             thread = threading.Thread(target=checkAuthz, args=(mac,))
             thread.start()
         
@@ -310,6 +321,11 @@ class MacAuthorizationManager(Dendrite):
         else:
             self.timeout = int(next_expiry_date - now) + 1
     
-        
+    def call_cb(self, path, data):
+        if path == CHECK_AUTHZ_PATH:
+            for mac in data['macs']:
+                if session.is_online(mac):
+                    thread = threading.Thread(target=checkAuthz, args=(mac,))
+                    thread.start()
     
     
