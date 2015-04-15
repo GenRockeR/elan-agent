@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from origin import session, nac
 from origin.event import Event, ExceptionEvent
+import threading
 
 def getPacketParams(packet):
     '''
@@ -63,6 +64,15 @@ def ignoreIP(ip):
     
     return False
 
+def checkAuthzOnVlan(mac, vlan):
+    authz = nac.checkAuthz(mac)
+    if not authz or authz.vlan != vlan:
+        event = Event('device-not-authorized', source='network', level='danger') 
+        event.add_data('mac',  mac, data_type='mac')
+        event.add_data('vlan', vlan)
+        event.notify()
+        # TODO: Try to move it to another vlan!
+
 def process_packet(pktlen, data, timestamp):
     if not data:
         return
@@ -80,13 +90,9 @@ def process_packet(pktlen, data, timestamp):
         mac_added, vlan_added, ip_added = session.seen(pkt_params['mac'], vlan=pkt_params['vlan'], time=time)
 
     if vlan_added:
-        authz = nac.checkAuthz(pkt_params['mac'])
-        if not authz or authz.vlan != pkt_params['vlan']:
-            event = Event('device-not-authorized', source='network', level='danger') 
-            event.add_data('mac',  pkt_params['mac'], data_type='mac')
-            event.add_data('vlan', pkt_params['vlan'])
-            event.notify()
-            # TODO: Try to move it to another vlan!
+        thread = threading.Thread(target=checkAuthzOnVlan, args=(pkt_params['mac'],pkt_params['vlan']))
+        thread.start()
+
 
 if __name__ == '__main__':
     import signal
