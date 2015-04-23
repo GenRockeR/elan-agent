@@ -73,26 +73,26 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
     if mac_added or vlan_added or ip_added:
         local_id = dendrite.synapse.get_unique_id(SESSION_IDS_SEQUENCE_PATH)
 
-        if mac_added:
-            pipe.hset(SESSION_IDS_PATH, dict(mac=mac), local_id)
-            mac_local_id = local_id
-        else:
-            pipe.hget(SESSION_IDS_PATH, dict(mac=mac))
-            
-        if vlan_added:
-            pipe.hset(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan), local_id)
-            vlan_local_id = local_id
-        else:
-            pipe.hget(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan))
-            
-        if ip_added:
-            pipe.hset(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan, ip=ip), local_id)
-            
-        results = pipe.execute()
-        if not mac_added:
-            mac_local_id = results[0] 
-        if not vlan_added:
-            vlan_local_id = results[1] 
+    if mac_added:
+        pipe.hset(SESSION_IDS_PATH, dict(mac=mac), local_id)
+        mac_local_id = local_id
+    else:
+        pipe.hget(SESSION_IDS_PATH, dict(mac=mac))
+        
+    if vlan_added:
+        pipe.hset(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan), local_id)
+        vlan_local_id = local_id
+    else:
+        pipe.hget(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan))
+        
+    if ip_added:
+        pipe.hset(SESSION_IDS_PATH, dict(mac=mac, vlan=vlan, ip=ip), local_id)
+        
+    results = pipe.execute()
+    if not mac_added:
+        mac_local_id = results[0] 
+    if not vlan_added:
+        vlan_local_id = results[1] 
     
     if port is not None and port != old_port:
         pipe.hset(MAC_PORT_PATH, mac, port)
