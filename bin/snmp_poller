@@ -119,8 +119,9 @@ sub _snmp_poll {
   return unless $s;
   
   my $data = { ip => $device_ip, ports => [], snmp_info_class => ref($s) }; # requested IP is part of the answer for tracking in in the answer_path...
-  $data->{snmp_name}          = $s->name;
-  $data->{snmp_description}   = $s->description;
+  $data->{mac}              = $s->mac;
+  $data->{snmp_name}        = $s->name;
+  $data->{snmp_description} = $s->description;
   $data->{location}      = $s->location;
   $data->{layers}        = $s->layers;
   $data->{nb_ports}      = $s->ports;
