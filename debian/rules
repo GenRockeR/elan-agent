@@ -2,7 +2,6 @@
 
 override_dh_installinit:
 	dh_installinit --name=connection-trackerd
-	dh_installinit --name=dhcp-trackerd
 	dh_installinit --name=device-trackerd
 	dh_installinit --name=session-trackerd
 
