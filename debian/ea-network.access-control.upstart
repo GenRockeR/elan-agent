@@ -19,7 +19,7 @@ pre-start script
   nft -f /origin/network/nftables.sets || true
   nft -f /origin/network/nftables.chains
   
-  echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/7
+  #echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/7
 
 end script
 
