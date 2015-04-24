@@ -34,8 +34,15 @@ server {
     }
     location /ws {
         proxy_pass https://controlcenter/ws;
+
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
+
+        # proxy_set_header must be defined here because they are not inherited if there is an other proxy_set_header in the location
+        proxy_set_header Host control-center.origin-nexus.com;
+      % if uuid:
+        proxy_set_header  Authorization "Token ${uuid}";
+      % endif
     }
     
 }
