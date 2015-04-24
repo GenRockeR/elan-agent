@@ -492,9 +492,10 @@ class Axon:
         
         with open ("/etc/nginx/sites-available/axon", "w") as axon_file:
             axon_file.write( axon_template.render(
-                                      uuid = cls.agent_uuid(),
-                                      cc_ipv4 = cls.CC_IPv4,
-                                      cc_ipv6 = cls.CC_IPv6,
+                                      uuid       = cls.agent_uuid(),
+                                      cc_ipv4    = cls.CC_IPv4,
+                                      cc_ipv6    = cls.CC_IPv6,
+                                      registered = cls.is_registered() 
                            ) )
 
         # Reload Nginx
