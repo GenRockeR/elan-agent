@@ -203,13 +203,16 @@ def get_assignments(request):
     auth_type = request.get('Origin-Auth-Type', None)
     
     extra_kwargs = {}
-    if auth_type == 'dot1x':
-        extra_kwargs = dict(
-                authentication_provider = request.get('Origin-Auth-Provider'),
-                login = request.get('Origin-Login', request.get('User-Name'))
-        )
-    
-    authz = nac.newAuthz(mac, no_duplicate_source=True, source=auth_type, till_disconnect=True, **extra_kwargs)
+    if auth_type == 'mac':
+        nac.checkAuthz(mac)
+    elif auth_type == 'dot1x':
+        authz = nac.newAuthz( mac, 
+                              no_duplicate_source = True,
+                              source = 'dot1x',
+                              till_disconnect = True,
+                              authentication_provider = request.get('Origin-Auth-Provider'),
+                              login = request.get('Origin-Login', request.get('User-Name'))
+                            )
 
     if not authz:
         # log no assignment rule matched....
