@@ -5,8 +5,8 @@ import redis
 
 CACHE_PREFIX = 'cache:'
 
-DENDRITE_COMMANDS = 'synapse:commands'
-DENDRITE_ANSWERS = 'synapse:answers'
+DENDRITE_COMMANDS = 'dendrite:commands'
+DENDRITE_ANSWERS = 'dendrite:answers'
  
 AXON_ANSWERS = 'axon:answers:{name}'
 AXON_CALLS = 'axon:calls:{name}'
