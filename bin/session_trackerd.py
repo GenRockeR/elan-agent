@@ -23,7 +23,6 @@ def pingIP(mac, vlan, ip):
 def ndpPing(dst_mac, vlan, dst_ip):
     src_mac = get_ether_address('br0')
 
-    if_name = 'eth1'
 
     src_ip = get_ip6_address('br0')['address']
 
@@ -32,10 +31,12 @@ def ndpPing(dst_mac, vlan, dst_ip):
     ethernet.set_ether_dhost( tuple(int(v,16) for v in dst_mac.split(':')) )
 
     if vlan:
+        if_name = 'eth1'
         tag = EthernetTag()
         tag.set_vid(int(vlan))
         ethernet.push_tag(tag)
-
+    else:
+        if_name = 'br0'
 
     ip6 = IP6()
     ip6.set_source_address(src_ip)
@@ -62,16 +63,18 @@ def ndpPing(dst_mac, vlan, dst_ip):
 
     
 def arpPing(mac, vlan, ip):    
-    if_name = 'eth1'
 
     ethernet = Ethernet()
     ethernet.set_ether_shost( tuple(int(v,16) for v in get_ether_address('br0').split(':')) )
     ethernet.set_ether_dhost( tuple(int(v,16) for v in mac.split(':')) )
 
     if vlan:
+        if_name = 'eth1'
         tag = EthernetTag()
         tag.set_vid(int(vlan))
         ethernet.push_tag(tag)
+    else:
+        if_name = 'br0'
 
     arp = ARP()
     
@@ -108,34 +111,40 @@ def check_session(dendrite):
     now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
     synapse = dendrite.synapse
 
-    expired_objects = synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER)
-    #TODO: used last seen time (score) as end of sessions rather than now
+    expired_objects = synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER, withscores=True)
     
     
     # Expire all objects
     # Don't send expire if object level up has expired as it will be done on its own
-    mac_expired = []
-    vlan_expired = []
-    ip_expired = []
-    for obj in expired_objects:
+    expired_macs = []
+    expired_vlans = []
+    expired_ips = []
+    last_seen_macs = []
+    last_seen_vlans = []
+    last_seen_ips = []
+
+    for obj, last_seen in expired_objects:
         if 'ip' in obj:
-            ip_expired.append(obj)
+            expired_ips.append(obj)
+            last_seen_ips.append((obj, last_seen))
         elif 'vlan' in obj:
-            vlan_expired.append(obj)
+            expired_vlans.append(obj)
+            last_seen_vlans.append((obj, last_seen))
         else:
-            mac_expired.append(obj)
+            expired_macs.append(obj)
+            last_seen_macs.append((obj, last_seen))
 
-    for obj in ip_expired:
-        if {'mac': obj['mac'], 'vlan': obj['vlan']} not in vlan_expired and {'mac': obj['mac']} not in mac_expired:
-            session.end(time=now, **obj)
+    for obj, last_seen in last_seen_ips:
+        if {'mac': obj['mac'], 'vlan': obj['vlan']} not in expired_vlans and {'mac': obj['mac']} not in expired_macs:
+            session.end(time=int(last_seen), **obj)
 
-    for obj in vlan_expired:
-        if {'mac': obj['mac']} not in mac_expired:
-            session.end(time=now, **obj)
+    for obj, last_seen in last_seen_vlans:
+        if {'mac': obj['mac']} not in expired_macs:
+            session.end(time=last_seen, **obj)
 
-    for obj in mac_expired:
+    for obj, last_seen in last_seen_macs:
         # Consider Mac as disconnected...
-        nac.macDisconnected(mac=obj['mac'], time=now)
+        nac.macDisconnected(mac=obj['mac'], time=last_seen)
 
 
     # ping Objects
@@ -151,7 +160,7 @@ def check_session(dendrite):
 
 if __name__ == '__main__':
     import signal # Todo: clean exit...
-    import datetime, time, traceback
+    import datetime, time
     from origin.neuron import Dendrite
     
     dendrite = Dendrite('session-tracker', timeout_cb=check_session, timeout=1) # make it run almost straight away on first run
