@@ -118,9 +118,6 @@ def _create_dumpcap_args(command, child_mode=True, interfaces=None,
     if child_mode:
         # TODO Use the named pipe on windows
         args += ['-Z', 'none']
-    if interfaces is not None:
-        for iface in interfaces:
-            args += ['-i', str(iface)]
     if capture_filter:
         args += ['-f', str(capture_filter)]
     if snaplen:
@@ -161,6 +158,9 @@ def _create_dumpcap_args(command, child_mode=True, interfaces=None,
         args += ['-C', str(int(max_buffered_bytes))]
     if separate_threads:
         args.append('-t')
+    if interfaces is not None:
+        for iface in interfaces:
+            args += ['-i', str(iface)]
     return args
 
 
