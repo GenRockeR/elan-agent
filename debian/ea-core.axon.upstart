@@ -11,6 +11,7 @@ exec /origin/bin/axon
 
 post-start script
   python3 -c 'from origin.neuron import wait_registered; wait_registered()'
+end script
 
 post-stop script
   # Make sure to mark WS disconnected....
