@@ -4,6 +4,7 @@ flush table bridge origin
 
 table bridge origin {
   chain global_ac {
+    accept
   }
 
   chain allowed_macs  { 
