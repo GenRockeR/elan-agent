@@ -317,10 +317,7 @@ def admin_login(request):
         dendrite = Dendrite('dashboard')
         response = dendrite.sync_register(post_dict)
         if response['error']:
-            context.update(field_errors = response['data'])
-            if '__all__' in context['field_errors']:
-                # Template Engine does not like variables starting with double underscores (__)
-                context['errors'] = context['field_errors']['__all__']
+            context.update(form_errors = response['data'])
         else:
             # Registration succeeded -> redirect to same to avoid repost
             admin_session_login(request.session, post_dict['login'])
@@ -334,7 +331,7 @@ def admin_login(request):
                 admin_session_login(request.session, login)
                 return redirect('dashboard')
         
-        context['errors'] = [_('Invalid Credentials')]
+        context['form_errors'] = [_('Invalid Credentials')]
 
     context.update(**post_dict)
     return dashboard(request, context)

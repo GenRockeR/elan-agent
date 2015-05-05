@@ -96,10 +96,10 @@
               {% trans 'Registration requires an IP address and to be connected with the Control Center.' %}
             </div>
             {% endif %}
-            {% if errors %}
+            {% if form_errors.non_field_errors %}
             <div class="alert alert-danger" role="alert">
               <ul class="list-unstyled"> 
-                {% for msg in errors %}
+                {% for msg in form_errors.non_field_errors %}
                 <li>{{msg}}</li>
                 {% endfor %}
               </ul>
@@ -108,42 +108,42 @@
             <form class="form-horizontal" role="form" method="post" action="{% url 'admin-login' %}">
               {% csrf_token %}
               {% if not is_registered %}
-              <div class="form-group{% if 'location' in field_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'location' in form_errors%} has-error{% endif %}">
                 <label for="inputLocation" class="col-sm-3 control-label">{% trans 'Location' %}</label>
                 <div class="col-sm-9">
                   <input type="text" class="form-control" id="inputLocation" name="location" value="{{location}}" required>
-                  {% for msg in field_errors.location %}                 
+                  {% for msg in form_errors.location %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
-              <div class="form-group{% if 'default_secret' in field_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'default_secret' in form_errors%} has-error{% endif %}">
                 <label for="inputSecret" class="col-sm-3 control-label small">{% trans 'Default Secret' %}</label>
                 <div class="col-sm-9">
                   <input type="text" class="form-control" id="inputSecret" name="default_secret" value={{default_secret}}>
-                  {% for msg in field_errors.default_secret %}                 
+                  {% for msg in form_errors.default_secret %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
               {% endif %}
-              <div class="form-group{% if 'account' in field_errors or 'login' in field_errors%} has-error{% endif %}">
+              <div class="form-group{% if 'account' in form_errors or 'login' in form_errors%} has-error{% endif %}">
                 <label for="inputLogin" class="col-sm-3 control-label">{% trans 'Login' %}</label>
                 <div class="col-sm-9">
                   <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required  value={{login}}>
-                  {% for msg in field_errors.account %}                 
+                  {% for msg in form_errors.account %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
-                  {% for msg in field_errors.login %}                 
+                  {% for msg in form_errors.login %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
               </div>
-              <div class="form-group{% if 'account' in field_errors or 'password' in field_errors %} has-error{% endif %}">
+              <div class="form-group{% if 'account' in form_errors or 'password' in form_errors%} has-error{% endif %}">
                 <label for="inputPassword" class="col-sm-3 control-label">{% trans 'Password' %}</label>
                 <div class="col-sm-9">
                   <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" required>
-                  {% for msg in field_errors.password %}                 
+                  {% for msg in form_errors.password %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
                 </div>
