@@ -3,6 +3,7 @@
 from origin import session, nac, neuron
 from origin.event import Event, ExceptionEvent
 import os
+import time
 from wirepy.lib import column, dfilter, dumpcap, epan, wtap, prefs
 import threading
 
@@ -210,4 +211,5 @@ if __name__ == '__main__':
                 process_frame(wt, frame)
         except:
             ExceptionEvent(source='network').notify()
+            time.sleep(1)
 
