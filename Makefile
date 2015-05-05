@@ -45,7 +45,6 @@ python: origin/nac.py origin/snmp.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/snmp.py
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/__init__.py
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/nac.py
   
 .PHONY: authz

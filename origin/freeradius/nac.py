@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import radiusd
+from . import request_as_hash_of_values
 from origin import neuron, snmp, session, nac
 from origin.event import Event, InternalEvent, ExceptionEvent
 import re, traceback
@@ -166,30 +167,6 @@ def find_port(request):
         .notify()
 
     return { 'local_id': str(switch[u'local_id']), 'interface': None }
-
-def request_as_hash_of_values(request):
-    class MultiDict(dict):
-        'Dictionary that returns only last value when get is used and value is a list'
-        def get(self, *args, **kwargs):
-            v = super(MultiDict, self).get(*args, **kwargs)
-            if isinstance(v, list):
-                return v[-1]
-            return v
-            
-    ret = MultiDict()
-    
-    for key, value in request:
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        if key in ret:
-            if isinstance(ret[key], list):
-                ret[key].append(value)
-            else:
-                ret[key] = [ ret[key], value ]
-        else:
-            ret[key] = value
-
-    return ret
 
 
 def get_assignments(request):
