@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-connection-tracker
 PACKAGE-DESC := Connection Tracker Package
-PACKAGE-DEPENDS := ea-core, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev
+PACKAGE-DEPENDS := ea-core, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common
 
 
 include ../core/packaging.mk
