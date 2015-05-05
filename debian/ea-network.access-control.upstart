@@ -12,7 +12,9 @@ pre-start script
   then
     python3 -c 'import origin.network; origin.network.NetworkConfiguration().apply_configuration()'
   fi
-
+  
+  modprobe br_netfilter
+  
   nft add table bridge origin
   nft add table ip origin
   nft add table ip6 origin
