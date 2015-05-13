@@ -120,18 +120,18 @@ sub _snmp_poll {
   
   my $data = { ip => $device_ip, ports => [], snmp_info_class => ref($s) }; # requested IP is part of the answer for tracking in in the answer_path...
   $data->{mac}              = $s->mac;
-  $data->{snmp_name}        = $s->name;
-  $data->{snmp_description} = $s->description;
-  $data->{location}      = $s->location;
-  $data->{layers}        = $s->layers;
-  $data->{nb_ports}      = $s->ports;
-  $data->{vendor}        = $s->vendor;
-  $data->{os}            = $s->os;
-  $data->{os_version}    = $s->os_ver;
-  $data->{ip_index}      = $s->ip_index;
-  $data->{ip_netmask}    = $s->ip_netmask;
-  $data->{model}         = Encode::decode('UTF-8', $s->model);
-  $data->{serial}        = Encode::decode('UTF-8', $s->serial);
+  $data->{snmp_name}        = $s->name || "";
+  $data->{snmp_description} = $s->description || "";
+  $data->{location}      = $s->location || "";
+  $data->{layers}        = $s->layers || "";
+  $data->{nb_ports}      = $s->ports || "";
+  $data->{vendor}        = $s->vendor || "";
+  $data->{os}            = $s->os || "";
+  $data->{os_version}    = $s->os_ver || "";
+  $data->{ip_index}      = $s->ip_index || "";
+  $data->{ip_netmask}    = $s->ip_netmask || "";
+  $data->{model}         = Encode::decode('UTF-8', $s->model || "");
+  $data->{serial}        = Encode::decode('UTF-8', $s->serial || "");
 
   my %portByIndex;
   foreach my $index (keys %{$s->interfaces || {}}) {

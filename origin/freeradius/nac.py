@@ -179,16 +179,17 @@ def get_assignments(request):
 
     auth_type = request.get('Origin-Auth-Type', None)
     
-    extra_kwargs = {}
     if auth_type == 'mac':
-        nac.checkAuthz(mac)
+        authz = nac.checkAuthz(mac)
     elif auth_type == 'dot1x':
+        authentication_provider = request.get('Origin-Auth-Provider')
+        login = request.get('Origin-Login', request.get('User-Name'))
         authz = nac.newAuthz( mac, 
                               no_duplicate_source = True,
                               source = 'dot1x',
                               till_disconnect = True,
-                              authentication_provider = request.get('Origin-Auth-Provider'),
-                              login = request.get('Origin-Login', request.get('User-Name'))
+                              authentication_provider = authentication_provider,
+                              login = login
                             )
 
     if not authz:
@@ -197,8 +198,8 @@ def get_assignments(request):
         event.add_data('mac', mac, 'mac')
         event.add_data('port', port, 'port')
         if auth_type == 'dot1x':
-            event.add_data('authentication_provider', extra_kwargs['authentication_provider'], 'authentication_provider')
-            event.add_data('login', extra_kwargs['login'])
+            event.add_data('authentication_provider', authentication_provider, 'authentication_provider')
+            event.add_data('login', login)
         event.notify()
 
         return radiusd.RLM_MODULE_REJECT

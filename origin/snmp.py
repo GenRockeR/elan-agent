@@ -112,6 +112,7 @@ class DeviceSnmpManager(Dendrite):
             
         # Update cached device if needed
         if cached_device != device_snmp:
+            self.post('snmp', device_snmp)
             with self.synapse.pipeline() as pipe:
                 pipe.hset( self.DEVICE_SNMP_CACHE_PATH, device_id, device_snmp )
                 pipe.hset( self.DEVICE_IP_SNMP_CACHE_PATH, ip, device_id )
@@ -129,7 +130,6 @@ class DeviceSnmpManager(Dendrite):
                 for mac in device_macs - cached_macs: # new macs
                     pipe.hset(self.DEVICE_MAC_SNMP_CACHE_PATH, mac, device_id)
                 pipe.execute()
-            self.post('snmp', device_snmp)
         return device_snmp
     
     def _parse_trap_str(self, ip, trap_str, read_params, timeout):
