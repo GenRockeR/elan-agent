@@ -6,35 +6,33 @@ import os
 import time
 from wirepy.lib import column, dfilter, dumpcap, epan, wtap, prefs
 import threading
+from multiprocessing import Process, Pipe
+
 
 REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
 
-# Some required setup
-epan.epan_init()
-prefs.read_prefs()
-epan.cleanup_dissection()
-epan.init_dissection()
-
-dendrite = neuron.Dendrite('device-tracker')
-
-
-
 def isNewFingerprint(mac, fingerprint, source):
+    synapse = neuron.Synapse()
+
     key = 'mac:{mac}:fingerprint:{source}'.format(mac=mac, source=source)
-    if dendrite.synapse.get(key) == fingerprint:
-        dendrite.synapse.expire(key, REDIS_LIFETIME)
+    
+    if synapse.get(key) == fingerprint:
+        synapse.expire(key, REDIS_LIFETIME)
         return False
     else:
-        dendrite.synapse.set(key, fingerprint, ex=REDIS_LIFETIME)
+        synapse.set(key, fingerprint, ex=REDIS_LIFETIME)
         return True
 
 def isNewHostname(mac, hostname, source):
+    synapse = neuron.Synapse()
+
     key = 'mac:{mac}:hostname:{source}'.format(source=source, mac=mac)
-    if dendrite.synapse.get(key) == hostname:
-        dendrite.synapse.expire(key, REDIS_LIFETIME)
+
+    if synapse.get(key) == hostname:
+        synapse.expire(key, REDIS_LIFETIME)
         return False
     else:
-        dendrite.synapse.set(key, hostname, ex=REDIS_LIFETIME)
+        synapse.set(key, hostname, ex=REDIS_LIFETIME)
         return True
 
 def ignoreMAC(mac):
@@ -75,31 +73,61 @@ def checkAuthzOnVlan(mac, vlan):
         event.notify()
         # TODO: Try to move it to another vlan!
 
-# Some general information we are interested in for every packet
-CINFO = column.ColumnInfo([
-        #column.Format(column.Type.INFO,           title='info'),
-        column.Format(column.Type.PROTOCOL,       title='protocol'),
-        column.Format(column.Type.CUSTOM,         title='interface-id',     custom_field='frame.interface_id'),
-        column.Format(column.Type.CUSTOM,         title='time',             custom_field='frame.time_epoch'),
-        column.Format(column.Type.UNRES_DL_SRC,   title='src-mac'),
-        #column.Format(column.Type.UNRES_DL_DST,   title='dst-mac'),
-        column.Format(column.Type.UNRES_NET_SRC,  title='src-ip'),
-        #column.Format(column.Type.UNRES_NET_DST,  title='dst-ip'),
-        #column.Format(column.Type.UNRES_SRC_PORT, title='src-port'),
-        #column.Format(column.Type.UNRES_DST_PORT, title='dst-port'),
-        column.Format(column.Type.CUSTOM,         title='vlan-id',          custom_field='vlan.id'),
-        column.Format(column.Type.CUSTOM,         title='src-ip',           custom_field='arp.src.proto_ipv4'),
-        #column.Format(column.Type.CUSTOM,         title='dst-ip',           custom_field='arp.dst.proto_ipv4'),
-        column.Format(column.Type.CUSTOM,         title='icmpv6-type',      custom_field='icmpv6.type'),
-        column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='dhcpv6.domain'),
-        column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='bootp.option.hostname'),
-        column.Format(column.Type.CUSTOM,         title='dhcp-request-list',custom_field='bootp.option.request_list_item'),
-        column.Format(column.Type.CUSTOM,         title='dhcp-vendor-id',   custom_field='bootp.option.vendor_class_id'),
-        column.Format(column.Type.CUSTOM,         title='browser-command',  custom_field='browser.command'),
-        column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='browser.server'),
-])
+def process_frames(fname, pipe):
+    try:
+        dendrite = neuron.Dendrite('device-tracker')
 
-def process_frame(wt, frame):
+        # Some required setup
+        epan.epan_init()
+        prefs.read_prefs()
+        epan.cleanup_dissection()
+        epan.init_dissection()
+
+        # Some general information we are interested in for every packet
+        CINFO = column.ColumnInfo([
+                #column.Format(column.Type.INFO,           title='info'),
+                column.Format(column.Type.PROTOCOL,       title='protocol'),
+                column.Format(column.Type.CUSTOM,         title='interface-id',     custom_field='frame.interface_id'),
+                column.Format(column.Type.CUSTOM,         title='time',             custom_field='frame.time_epoch'),
+                column.Format(column.Type.UNRES_DL_SRC,   title='src-mac'),
+                #column.Format(column.Type.UNRES_DL_DST,   title='dst-mac'),
+                column.Format(column.Type.UNRES_NET_SRC,  title='src-ip'),
+                #column.Format(column.Type.UNRES_NET_DST,  title='dst-ip'),
+                #column.Format(column.Type.UNRES_SRC_PORT, title='src-port'),
+                #column.Format(column.Type.UNRES_DST_PORT, title='dst-port'),
+                column.Format(column.Type.CUSTOM,         title='vlan-id',          custom_field='vlan.id'),
+                column.Format(column.Type.CUSTOM,         title='src-ip',           custom_field='arp.src.proto_ipv4'),
+                #column.Format(column.Type.CUSTOM,         title='dst-ip',           custom_field='arp.dst.proto_ipv4'),
+                column.Format(column.Type.CUSTOM,         title='icmpv6-type',      custom_field='icmpv6.type'),
+                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='dhcpv6.domain'),
+                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='bootp.option.hostname'),
+                column.Format(column.Type.CUSTOM,         title='dhcp-request-list',custom_field='bootp.option.request_list_item'),
+                column.Format(column.Type.CUSTOM,         title='dhcp-vendor-id',   custom_field='bootp.option.vendor_class_id'),
+                column.Format(column.Type.CUSTOM,         title='browser-command',  custom_field='browser.command'),
+                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='browser.server'),
+        ])
+        
+        with wtap.WTAP.open_offline(fname) as wt:
+            os.remove(fname) # unlink file now it is opened
+            
+            frameiter = iter(wt)
+    
+            while True:
+                nb_frames = pipe.recv()
+                if nb_frames == 0: # certainly EOF
+                    return
+    
+                for _i in range(nb_frames):
+                    wt.clear_eof()
+                    try:
+                        frame = next(frameiter)
+                    except StopIteration:
+                        raise RuntimeError('Dumpcap reported new packets, but the capture-file does not have them.')
+                    process_frame(wt, frame, dendrite, CINFO)
+    except:
+        ExceptionEvent(source='network').notify()
+    
+def process_frame(wt, frame, dendrite, CINFO):
     # Dissect a single frame using the wtap's current state
     edt = epan.Dissect()
 
@@ -152,8 +180,9 @@ def process_frame(wt, frame):
         fingerprint = { 'fingerprint': fields['dhcp-request-list'], 'vendor_id': fields.get('vendor_id', '') }
         if isNewFingerprint(mac, fingerprint, source=source):
             dendrite.post('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
-  
-def iter_frames():
+
+
+def capture():
     with dumpcap.CaptureSession(    interfaces=('eth0', 'eth1' ),
                                     capture_filter='inbound', 
                                     #capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) )',
@@ -161,54 +190,47 @@ def iter_frames():
                                ) as cap:
         try:
             event_type, event_msg = cap.wait_for_event()
+            count = 0
             while event_type != cap.SP_FILE:
+                count += 1
+                if count > 10:
+                    raise RuntimeError('Waited for filename from dumpcap 10 times, but did not get it')
                 print('Unexpected event from dumpcap', event_msg)
                 event_type, event_msg = cap.wait_for_event()
         except dumpcap.NoEvents:
             # Child did not start capturing...
-            errmsg = ('Dumpcap did not start receiving packets for some time.'
-                      ' Giving up.')
-            raise RuntimeError(errmsg)
-        # Received the first file dumpcap is writing to. Since we didnt request
-        # a ringbuffer, dumpcap will write to only one file for the entire
-        # session.
+            raise RuntimeError('Dumpcap did not start receiving packets for some time. Giving up.')
+
         fname = event_msg
         while True:
-            with wtap.WTAP.open_offline(fname) as wt:
-                os.remove(fname) # unlink file now it is opened
-                
-                frameiter = iter(wt)
-                # Started to read from the current savefile. Now wait for
-                # dumpcap to report about written packets.
-                for event_type, event_msg in iter(cap):
-                    if event_type == cap.SP_PACKET_COUNT:
-                        # Dissect as many packets as have been written
-                        for i in range(event_msg):
-                            wt.clear_eof()
-                            try:
-                                frame = next(frameiter)
-                            except StopIteration:
-                                errmsg = ('Dumpcap reported new packets, but the capture-file does not have them.')
-                                raise RuntimeError
-                            yield wt, frame
-                    elif event_type == cap.SP_FILE:
-                        # A new savefile has been created, stop reading from
-                        # the current file.
-                        fname = event_msg
-                        break
-                else:
-                    # The iterator on cap reaches this point if there are
-                    # no more events from dumpcap - capturing has stopped,
-                    # quit the loop
+            parent_conn, child_conn = Pipe()
+            p = Process(target=process_frames, args=(fname, child_conn,))
+            p.start()
+            
+            for event_type, event_msg in iter(cap):
+                if event_type == cap.SP_PACKET_COUNT:
+                    # Dissect as many packets as have been written
+                    if not p.is_alive():
+                        raise RuntimeError('Child processing packets died for some reason...')
+                    parent_conn.send(event_msg)
+                elif event_type == cap.SP_FILE:
+                    # A new savefile has been created, stop reading from
+                    # the current file.
+                    fname = event_msg
+                    parent_conn.send(0) # tell it should finish
+#                     p.join(5)
+#                     p.terminate()
                     break
-
-
+            else:
+                # The iterator on cap reaches this point if there are
+                # no more events from dumpcap - capturing has stopped,
+                # quit the loop
+                break
 
 if __name__ == '__main__':
     for i in range(1, 100):
         try:
-            for wt, frame in iter_frames():
-                process_frame(wt, frame)
+            capture()
         except:
             ExceptionEvent(source='network').notify()
             time.sleep(1)
