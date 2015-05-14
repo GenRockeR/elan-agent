@@ -5,7 +5,10 @@ ATTRIBUTE Origin-Mac              3604  string
 ATTRIBUTE Origin-Vlan-Id          3605  string
 ATTRIBUTE Origin-Authorized       3606  string
 ATTRIBUTE Origin-Group            3607  string
-
-ATTRIBUTE Origin-Switch-Id        3611  string
-ATTRIBUTE Origin-Switch-Interface 3612  string
+ATTRIBUTE Origin-Command          3608  string
+ATTRIBUTE Origin-Event-Level      3609  string
+ATTRIBUTE Origin-Auth-Failed      3610  string
+ATTRIBUTE Origin-Non-Failed-Auth  3611  string
+ATTRIBUTE Origin-Switch-Id        3612  string
+ATTRIBUTE Origin-Switch-Interface 3613  string
 

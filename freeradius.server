@@ -22,7 +22,7 @@ server authentication {
       }
     }
     
-    client captive-portal {
+    client authentication {
            secret          = a2e4t6u8qmlskdvcbxnw
            shortname       = captive-portal
            ipaddr          = 127.0.0.1
@@ -31,17 +31,41 @@ server authentication {
     authorize {
         preprocess
       
-        if(Connect-Info =~ /authenticator=([0-9]+)/){
+        if(Connect-Info =~ /authenticator=([0-9]+) *, *source=([^, ]+) *, *command=([^, ]+)/){
             update request {
                 &Origin-Auth-Provider := "%{1}"
-                &Origin-Auth-Type := "authentication"
-                &Origin-MAC := &Calling-Station-ID
+                &Origin-Auth-Type := "%{2}"
+                &Origin-Command := "%{3}"
             }
 
             authentications
 
         }
-        pap
+        if( &Origin-Command == "authenticate" ){
+            pap
+        } 
+        elsif( &Origin-Command == "authorize" ){
+            if( control:Cleartext-Password ) {
+                update reply {
+                   Reply-Message += "Cleartext-Password=%{control:Cleartext-Password}"
+                }
+            }
+            if( control:NT-Password ) {
+                update reply {
+                   Reply-Message += "NT-Password=%{control:NT-Password}"
+                }
+            }
+            if( control:LM-Password ) {
+                update reply {
+                   Reply-Message += "LM-Password=%{control:LM-Password}"
+                }
+            }
+            if( control:Password-With-Header ) {
+                update reply {
+                   Reply-Message += "Password-With-Header=%{control:Password-With-Header}"
+                }
+            }
+        }
     }
     
     
@@ -50,53 +74,5 @@ server authentication {
         pap
       }
     }
-    
-    
-    preacct {
-      preprocess
-      
-      acct_counters64
-    
-      acct_unique
-    }
-    
-    accounting {
-      attr_filter.accounting_response
-    
-      Acct-Type Status-Server {
-    
-      }
-    }
-    
-    
-    session {
-    }
-    
-    
-    post-auth {
-      #  Uncomment the next few lines to copy the required data into
-      #  the EAP-Key-Name attribute
-      # if (reply:EAP-Session-Id) {
-      #   update reply {
-      #     EAP-Key-Name := "%{reply:EAP-Session-Id}"
-      #   }
-      # }
-    
-      remove_reply_message_if_eap
-    
-      Post-Auth-Type REJECT {
-        attr_filter.access_reject
-    
-        eap
-    
-        remove_reply_message_if_eap
-      }
-    }
-    
-    pre-proxy {
-    }
-    
-    post-proxy {
-      eap
-    }
+
 }
