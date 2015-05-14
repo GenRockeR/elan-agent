@@ -23,7 +23,10 @@ pre-start script
     mkdir -p /var/run/freeradius
     chown freerad:freerad /var/run/freeradius
   fi
-
+  if [ ! -d  /var/log/freeradius/tlscache ]; then
+    mkdir -p /var/log/freeradius/tlscache
+    chown freerad:freerad /var/log/freeradius/tlscache
+  fi
   rm -f /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
   perl -p -i -e "s/allow_vulnerable_openssl *= *no/allow_vulnerable_openssl = 'CVE-2014-0160'/" /etc/freeradius/radiusd.conf
   if ! grep -q '/origin/authentication/freeradius/dictionary' /etc/freeradius/dictionary
