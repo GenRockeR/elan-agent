@@ -7,25 +7,34 @@ from mako.template import Template
 
 
 
-def pwd_authenticate(authenticator_id, user, pwd):
+def pwd_authenticate(authenticator_id, login, password, source):
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
                  dict=Dictionary("/origin/authentication/pyradius/dictionary"))
     
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-              User_Name=user, Connect_Info='authenticator={}'.format(authenticator_id) )
-    req["User-Password"]=req.PwCrypt(pwd)
+              User_Name=login, Connect_Info='authenticator={},source={},command=authenticate'.format(authenticator_id, source) )
+    req["User-Password"]=req.PwCrypt(password)
     
     reply = srv.SendPacket(req)
     
-    if 'Reply-Message' in reply:
-        # TODO: 
-        # - this should send event to CC login the fact there was an error...
-        # This does not always mean authentication failed (in an auth group the following auth provider may have succeeded)
-        # Or do this directly from FR....
-        # - In reply Message (or other ?), there should be the the auth provider ID that will be returned by this function... None in case of failure !   
-        pass
-    
     return reply.code == pyrad.packet.AccessAccept
+
+def get_authorization(authenticator_id, login, source):
+    srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
+                 dict=Dictionary("/origin/authentication/pyradius/dictionary"))
+    
+    req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
+              User_Name=login, Connect_Info='authenticator={},source={},command=authorize'.format(authenticator_id, source) )
+    
+    reply = srv.SendPacket(req)
+    
+    authz = {}
+    
+    for attr in reply.get(18, []): # 18 -> Reply-Message
+        key, value = attr.split('=', 1)
+        authz[key] = value
+        
+    return authz
 
 class AuthenticationProvider(Dendrite):
     
@@ -45,28 +54,22 @@ class AuthenticationProvider(Dendrite):
                 &Origin-Auth-Provider := ${id}
             }
             cc-auth {
-                fail = 1
+                fail = 10
+                notfound = 10
             }
         ''')
         self.ldap_auth_template = Template('''
             update session-state {
                 &Origin-Auth-Provider := ${id}
             }
-            ldap-auth-${id} {{
-                fail = 1
-            }
-            if(fail) {
-                update reply {
-                    Reply-Message += &Module-Failure-Message
-                }
-                update request {
-                    Module-Failure-Message !* ''
-                }
+            ldap-auth-${id} {
+                fail = 10
+                notfound = 10
             }
         ''')
         self.rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
-
-
+        with open("/origin/authentication/freeradius/python-module", 'r') as python_module_file:
+            self.python_conf = ''.join(python_module_file.readlines())
 
     def get_group_inner_case(self, auth, ignore_authentications=None):
         if ignore_authentications is None:
@@ -81,17 +84,40 @@ class AuthenticationProvider(Dendrite):
         inner_case = ''
         
         if auth['type'] == 'group':
-            for member_id in auth('members'):
-                inner_case += self.get_group_inner_case( self.authentications[member_id], ignore_authentications )
+            for member in auth['members']:
+                inner_case += self.get_group_inner_case( self.authentications[member['authentication']], ignore_authentications )
         else:
-            inner_case = 'if( notfound || fail ) {\n'   
+            inner_case = '''
+                if( notfound || fail ) {
+            '''   
 
             if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
                 inner_case += self.ldap_auth_template.render(**auth)
             else:
                 inner_case += self.cc_auth_template.render(**auth)
     
-            inner_case += "\n}\n"
+            inner_case += '''
+                    if(fail) {
+                        update request {
+                            Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                        }
+                        auth_provider_failed_in_group
+                        update request {
+                            Module-Failure-Message !* ANY
+                        }
+                    }
+                    else {
+                        update {
+                            request:Origin-Non-Failed-Auth := "True"
+                        }
+                    }
+                }
+                else {
+                    update {
+                        request:Origin-Non-Failed-Auth := "True"
+                    }
+                }
+            '''
         
         return inner_case
 
@@ -108,12 +134,13 @@ class AuthenticationProvider(Dendrite):
                 new_authentications[auth['id']] = auth
             
             if new_authentications != self.authentications:
-                self.authetications = new_authentications
+                self.authentications = new_authentications
                 conf_changed = True 
 
         if self.agent_id and conf_changed: # we may receive agent id after conf
             # Grab templates
             module_conf = self.rest_conf.render(agent_id=self.agent_id)
+            module_conf += self.python_conf
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
@@ -122,15 +149,34 @@ class AuthenticationProvider(Dendrite):
             for auth in self.authentications.values():
                 if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
                     module_conf += "\n" + self.ldap_template.render(**auth)
+                    inner_switch_server_conf +=  '''
+                        case {id} {{
+                    '''.format(id=auth['id'])
                     inner_switch_server_conf += self.ldap_auth_template.render(**auth)
+                    inner_switch_server_conf += '''
+                            if(fail) {
+                                update request {
+                                    Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                                }
+                                auth_provider_failed
+                                update request {
+                                    Module-Failure-Message !* ANY
+                                }
+                            }
+                        }
+                    '''
                     # also notify that we provide this auth
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
-                elif auth['type'] == 'group':    
+                    new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
+                elif auth['type'] == 'group':
                     # Take care of groups, that can be nested:
                     inner_switch_server_conf +=  '''
                             case {id} {{
                                 notfound
                                 {inner_case}
+                                if( ! &Origin-Non-Failed-Auth) {{
+                                    auth_all_providers_failed_in_group
+                                }}
                             }}
                     '''.format(
                            id = auth['id'],
@@ -164,6 +210,16 @@ class AuthenticationProvider(Dendrite):
         if m:
             # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
             try:
-                return { 'success': pwd_authenticate(m.group(1), data['login'], data['password']) }
+                return { 'success': pwd_authenticate(m.group(1), login=data['login'], password=data['password'], source=data['source']) }
             except KeyError:
                 return { 'success': False }
+
+        m = re.match(r'authentication/provider/(\d+)/authorize', path)
+        if m:
+            # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
+            try:
+                return get_authorization(m.group(1), login=data['login'], source=data['source'])
+            except KeyError:
+                return { 'success': False }
+        
+            
