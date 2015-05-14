@@ -108,18 +108,18 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context )
     
     context['username'] = username
-    if not pwd_authenticate(web_authentication, username, password):
+    if not pwd_authenticate(web_authentication, username, password, source='captive-portal-web'):
         context['error_message'] = _("Invalid username or password.")
         return render(request, 'captive-portal/login.html', context)
 
     # start session
     # TODO: use effective auth_provider, this one could be a group
-    authz = nac.newAuthz(clientMAC, source='web', till_disconnect=True, login=username, authentication_provider=web_authentication)
+    authz = nac.newAuthz(clientMAC, source='captive-portal-web', till_disconnect=True, login=username, authentication_provider=web_authentication)
     if not authz:
         # log no assignment rule matched....
-        event = Event( event_type='device-not-authorized', source='web')
+        event = Event( event_type='device-not-authorized', source='captive-portal-web')
         event.add_data('mac', clientMAC, 'mac')
-        event.add_data('authentication_provider', web_authentication, 'authentication_provider')
+        event.add_data('authentication_provider', web_authentication, 'authentication')
         event.add_data('login', username)
         event.notify()
     
@@ -130,7 +130,7 @@ def login(request, context=None):
 def logout(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
-    session.remove_authentication_sessions_by_source(clientMAC, 'web')
+    session.remove_authentication_sessions_by_source(clientMAC, 'captive-portal-web')
     nac.authzChanged(clientMAC)
     
     return redirect('login')
