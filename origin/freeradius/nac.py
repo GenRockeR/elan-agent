@@ -179,14 +179,14 @@ def get_assignments(request):
 
     auth_type = request.get('Origin-Auth-Type', None)
     
-    if auth_type == 'mac':
+    if auth_type == 'radius-mac':
         authz = nac.checkAuthz(mac)
-    elif auth_type == 'dot1x':
+    elif auth_type == 'radius-dot1x':
         authentication_provider = request.get('Origin-Auth-Provider')
         login = request.get('Origin-Login', request.get('User-Name'))
         authz = nac.newAuthz( mac, 
                               no_duplicate_source = True,
-                              source = 'dot1x',
+                              source = 'radius-dot1x',
                               till_disconnect = True,
                               authentication_provider = authentication_provider,
                               login = login
@@ -194,11 +194,11 @@ def get_assignments(request):
 
     if not authz:
         # log no assignment rule matched....
-        event = Event( event_type='device-not-authorized', source='radius-'+auth_type) 
+        event = Event( event_type='device-not-authorized', source=auth_type, level='warning') 
         event.add_data('mac', mac, 'mac')
         event.add_data('port', port, 'port')
-        if auth_type == 'dot1x':
-            event.add_data('authentication_provider', authentication_provider, 'authentication_provider')
+        if auth_type == 'radius-dot1x':
+            event.add_data('authentication_provider', authentication_provider, 'authentication')
             event.add_data('login', login)
         event.notify()
 

@@ -64,6 +64,9 @@ server nac {
               &Origin-Auth-Provider := "${dot1x_authentication}"
           }
           # TODO: Send alert when dot1x_authentication is None
+          update request {
+              Origin-Auth-Type := "radius-dot1x"
+          }
           authentications
       }
   }
@@ -129,7 +132,7 @@ server nac {
   
     if( session-state:Origin-MAC) {
       update request {
-          &Origin-Auth-Type := "mac"
+          &Origin-Auth-Type := "radius-mac"
           &Origin-MAC := &session-state:Origin-MAC
       }
     }
@@ -137,7 +140,7 @@ server nac {
       update request {
           &Origin-Auth-Provider := "%{%{session-state:Origin-Auth-Provider}:-${dot1x_authentication}}"
           &Origin-Login         := &session-state:Origin-Login
-          &Origin-Auth-Type     := "dot1x"
+          &Origin-Auth-Type     := "radius-dot1x"
           &Origin-MAC           := &Calling-Station-ID
       }
     }
@@ -218,17 +221,30 @@ server inner-eap-tunnel {
       ok = return
     }
   
-    if( session-state:ClearText-Password ){
+    if( outer.session-state:ClearText-Password || outer.session-state:NT-Password || outer.session-state:LM-Password || outer.session-state:Password-With-Header){
         update control {
-            ClearText-Password := &session-state:Cleartext-Password
+            ClearText-Password := &outer.session-state:Cleartext-Password
+            NT-Password := &outer.session-state:NT-Password
+            LM-Password := &outer.session-state:LM-Password
+            Password-With-Header := &outer.session-state:Password-With-Header
         }
     }
     else {
         update request {
-            &Origin-Auth-Provider := "${dot1x_authentication}"
+            Origin-Auth-Provider := "${dot1x_authentication}"
         }
         # TODO: Send alert when dot1x_authentication is None
+
+        update request {
+            Origin-Auth-Type := "radius-dot1x"
+        }
         authentications
+        update outer.session-state {
+            ClearText-Password := &control:Cleartext-Password
+            NT-Password := &control:NT-Password
+            LM-Password := &control:LM-Password
+            Password-With-Header := &control:Password-With-Header
+        }
     }
 
     expiration
@@ -238,10 +254,6 @@ server inner-eap-tunnel {
   }
   
   post-auth {
-    update {
-       &outer.session-state: += &session-state:
-    }
-
     update outer.session-state {
         &Origin-Login := User-Name
     }
