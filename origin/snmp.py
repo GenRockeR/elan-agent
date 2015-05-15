@@ -81,8 +81,16 @@ class DeviceSnmpManager(Dendrite):
             return
         return self.get_device_by_id(device_id)
     
+    def are_different_for_CC(self, device1, device2):
+        def equal_dicts(a, b, ignore_keys):
+            ka = set(a).difference(ignore_keys)
+            kb = set(b).difference(ignore_keys)
+            return ka == kb and all(a[k] == b[k] for k in ka)
+        
+        return equal_dicts(device1, device2, ['fw_mac'])
+
     
-    def poll(self, ip, timeout=5):
+    def poll(self, ip, timeout=10):
         ''' poll and cache result'''
         device_snmp = self._poll(ip, timeout=timeout)
         
@@ -112,7 +120,10 @@ class DeviceSnmpManager(Dendrite):
             
         # Update cached device if needed
         if cached_device != device_snmp:
-            self.post('snmp', device_snmp)
+            if self.are_different_for_CC(cached_device, device_snmp):
+                # send update to CC if has changed
+                self.post('snmp', device_snmp)
+            # cache the device, including dynamic fields like fw_mac
             with self.synapse.pipeline() as pipe:
                 pipe.hset( self.DEVICE_SNMP_CACHE_PATH, device_id, device_snmp )
                 pipe.hset( self.DEVICE_IP_SNMP_CACHE_PATH, ip, device_id )
@@ -233,8 +244,8 @@ class DeviceSnmpManager(Dendrite):
         self.synapse.lpush(SNMP_NASPORT_TO_IFINDEX_CHANNEL, dict(nas_port=nas_port, ip=device_ip, connection=read_params, answer_path=answer_path))
         r = self.synapse.brpop(answer_path, timeout=timeout)
         if r is None:
-            # timeout ! return empty set
-            return set() 
+            # timeout ! return None
+            return
 
         return set(r[1])
                     

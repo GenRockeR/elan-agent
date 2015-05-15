@@ -8,7 +8,7 @@ PACKAGE-DEPENDS := ea-authentication, ea-captive-portal, ea-core, libapache-htpa
                    libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, snmpd
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd
 
 include ../core/packaging.mk
 
@@ -65,10 +65,7 @@ perl-lib:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib
 	cp -r lib/perl5 ${DESTDIR}${ORIGIN_PREFIX}/lib
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf
-	install -m 644 pf/chi.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
-	install -m 644 pf/log.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
-	install -m 644 pf/switches.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
-	install -m 644 pf/dictionary ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	install -m 644 pf/* ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
 
 .PHONY: mibs
 mibs:

@@ -4,7 +4,7 @@ import radiusd
 from . import request_as_hash_of_values
 from origin import neuron, snmp, session, nac
 from origin.event import Event, InternalEvent, ExceptionEvent
-import re, traceback
+import re
 
 # TODO: maybe put this in instanciate ?
 dendrite = neuron.Dendrite('freeradius')
@@ -76,14 +76,16 @@ def find_port(request):
                 # if switch not found, nothing we can do
                 return
     
+    found_ports = {} # by method (mac, ssid, nas_port_id, etc....)
+    
     called_station_id = extract_mac(request.get('Called-Station-Id', None))
-    found_ports_by_mac = set()
+    found_ports['mac'] = set()
     if called_station_id:
         for port in switch[u'ports']:
             if port[u'mac'] == called_station_id:
-                found_ports_by_mac.add(port[u'interface'])
-        if len(found_ports_by_mac) == 1:
-            port_interface = list(found_ports_by_mac)[0]
+                found_ports['mac'].add(port[u'interface'])
+        if len(found_ports['mac']) == 1:
+            port_interface = list(found_ports['mac'])[0]
             return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
 
     # Try to find SSID
@@ -102,58 +104,62 @@ def find_port(request):
         # try from called Station ID
         ssid = extract_ssid(request.get('Called-Station-Id', None))
 
-    found_ports_by_ssid = set()
+    found_ports['ssid'] = set()
     if ssid:
         for port in switch[u'ports']:
             for ssid_obj in port.get(u'ssids', []):
                 if ssid_obj[u'ssid'] == ssid:
-                    found_ports_by_ssid.add(port[u'interface'])
+                    found_ports['ssid'].add(port[u'interface'])
                     break
-        if len(found_ports_by_ssid) == 1:
-            port_interface = list(found_ports_by_ssid)[0]
+        if len(found_ports['ssid']) == 1:
+            port_interface = list(found_ports['ssid'])[0]
             return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
         
 
 
     # try to find by nas port id
     nas_port_id = request.get('NAS-Port-ID', None)
-    found_ports_by_nas_port_id = set()
+    found_ports['nas_port_id'] = set()
     if nas_port_id:
         for port in switch[u'ports']:
             if nas_port_id in (port[u'interface'], port[u'name'], port[u'description']):
-                found_ports_by_nas_port_id.add(port[u'interface'])
-        if len(found_ports_by_nas_port_id) == 1:
-            port_interface = list(found_ports_by_nas_port_id)[0]
+                found_ports['nas_port_id'].add(port[u'interface'])
+        if len(found_ports['nas_port_id']) == 1:
+            port_interface = list(found_ports['nas_port_id'])[0]
             return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
     
     
     # If still, try nasport to ifindex
     nas_port = request.get('NAS-Port', None)
-    found_ports_by_nas_port = set()
+    found_ports['nas_port'] = set()
     if nas_port:
         ifIndexes = snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
-        force_poll = not switch_polled # force poll if not already polled
         for if_index in ifIndexes:
+            force_poll = not switch_polled # force poll if not already polled
             port = snmp_manager.getPortFromIndex(switch_ip, if_index, force_poll=force_poll, no_poll=(not force_poll))
-            force_poll = False # Polled once, no need to poll any more
+            switch_polled = True
             if port:
-                found_ports_by_nas_port.add(port['interface'])
-        if len(found_ports_by_nas_port) == 1:
-            port_interface = list(found_ports_by_nas_port)[0]
+                found_ports['nas_port'].add(port['interface'])
+        if len(found_ports['nas_port']) == 1:
+            port_interface = list(found_ports['nas_port'])[0]
             return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
         
-    # TODO: Try to use forward mac table (fw_mac) to find on what port mac is on... (but do not save that to cache...)
+    # TODO: Try to use forward mac table (fw_mac) to find on what port mac is on... ( save that to cache but do not notify CC at each change....)
+#     if switch_polled:
+#         switch = snmp_manager.get_device_by_ip(switch_ip) # may have been polled after switch was retrieved
+#     else:
+#         switch = snmp_manager.poll(switch_ip)
+#     if switch:
+#         # find porty
+        
     
-    # try to find a common one between the 3
-    intersection = found_ports_by_mac | found_ports_by_ssid | found_ports_by_nas_port_id | found_ports_by_nas_port
-    if found_ports_by_mac:
-        intersection &= found_ports_by_mac
-    if found_ports_by_ssid:
-        intersection &= found_ports_by_ssid
-    if found_ports_by_nas_port_id:
-        intersection &= found_ports_by_nas_port_id
-    if found_ports_by_nas_port:
-        intersection &= found_ports_by_nas_port
+    # try to find a common one between all methods
+    intersection = set()
+    for method in found_ports:
+        intersection |= found_ports[method]
+    for method in found_ports:
+        if found_ports[method]:
+            intersection &= found_ports[method]
     if len(intersection) == 1:
         port_interface = intersection[0]
         return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
@@ -164,7 +170,9 @@ def find_port(request):
         .add_data('details', 'Port not found')\
         .add_data('request', request)\
         .add_data('switch', switch)\
+        .add_data('found_ports', { k: list(v) for k,v in found_ports.items() })\
         .notify()
+        # sets are not JSON serializable
 
     return { 'local_id': str(switch[u'local_id']), 'interface': None }
 

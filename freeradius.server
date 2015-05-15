@@ -240,6 +240,8 @@ server inner-eap-tunnel {
         }
         authentications
         update outer.session-state {
+            Origin-Auth-Provider := &session-state:Origin-Auth-Provider
+
             ClearText-Password := &control:Cleartext-Password
             NT-Password := &control:NT-Password
             LM-Password := &control:LM-Password
