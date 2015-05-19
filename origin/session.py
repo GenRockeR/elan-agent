@@ -47,7 +47,9 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
     # if port has changed, end previous session
     if port is not None:
         old_port = dendrite.synapse.hget(MAC_PORT_PATH, mac)
-        if old_port is not None and port != old_port:
+        if old_port is not None and ( port['local_id'] != old_port['local_id'] or \
+                                    # Interface may be unknown in new or old port, assume it did not change
+                                    ((port['interface'] is not None or old_port['interface'] is not None) and port != old_port)):
             end(mac)
 
     pipe = dendrite.synapse.pipe
