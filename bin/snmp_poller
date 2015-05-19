@@ -309,6 +309,7 @@ eval {
         if($answer){
           $redis->lpush( $request->{answer_path}, $json->encode($answer) );
         }
+        exit 0;
       }
     }
   }
