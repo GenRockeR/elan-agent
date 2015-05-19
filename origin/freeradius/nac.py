@@ -150,7 +150,7 @@ def find_port(request):
 #     else:
 #         switch = snmp_manager.poll(switch_ip)
 #     if switch:
-#         # find porty
+#         # find port
         
     
     # try to find a common one between all methods
