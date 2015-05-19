@@ -83,11 +83,14 @@ class DeviceSnmpManager(Dendrite):
     
     def are_different_for_CC(self, device1, device2):
         def equal_dicts(a, b, ignore_keys):
-            ka = set(a).difference(ignore_keys)
-            kb = set(b).difference(ignore_keys)
-            return ka == kb and all(a[k] == b[k] for k in ka)
+            try:
+                ka = set(a).difference(ignore_keys)
+                kb = set(b).difference(ignore_keys)
+                return ka == kb and all(a[k] == b[k] for k in ka)
+            except:
+                return False
         
-        return equal_dicts(device1, device2, ['fw_mac'])
+        return not equal_dicts(device1, device2, ['fw_mac'])
 
     
     def poll(self, ip, timeout=10):
@@ -267,7 +270,7 @@ class DeviceSnmpManager(Dendrite):
                 device = self.poll(device_ip)
                 device_polled = True
             else:
-                device = self.get_id_by_ip(device_ip)
+                device = self.get_device_by_ip(device_ip)
                 if not device and not no_poll:
                     device = self.poll(device_ip)
                     device_polled = True
