@@ -11,7 +11,7 @@ logging.basicConfig()
 
 class NacConfigurator(Dendrite):
     FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'cert_chain')
-    SNMPTRAPD_KEYS  = ('snmp_credentials', )
+    SNMPTRAPD_KEYS  = ('snmp_credentials', 'snmp_engine_ids')
     
     def __init__(self):
         super().__init__('nac-configuration')
