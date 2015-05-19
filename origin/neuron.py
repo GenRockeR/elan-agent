@@ -479,6 +479,7 @@ class Axon:
         self.ws = None
         self._open_cc_ws()
         
+        self.nowait_on_reopen = False
         
         # Listen to commands:
         tornado.ioloop.IOLoop.instance().run_sync(self.listen_commands)
@@ -670,7 +671,12 @@ class Axon:
                     self.ws.close()
         
         # Wait 30 before reopening new connection
-        tornado.ioloop.IOLoop.instance().add_timeout( datetime.timedelta(seconds=self.RETRY_INTERVAL), self._open_cc_ws )
+        if self.nowait_on_reopen:
+            wait_for = 1
+            self.nowait_on_reopen = False
+        else:
+            wait_for = self.RETRY_INTERVAL
+        tornado.ioloop.IOLoop.instance().add_timeout( datetime.timedelta(seconds=wait_for), self._open_cc_ws )
             
     def process_msg(self, message):
         try:
@@ -719,6 +725,9 @@ class Axon:
                         self.synapse.set(self.AGENT_UUID_PATH, data['uuid'])
                         self.registered = True
                         self.generate_nginx_conf(reload=True)
+                        # close socket so we start a new one a do correct initialization...
+                        self.nowait_on_reopen = True
+                        self.ws.close()
                         
                     if answer_path:
                         if command == 'ERROR':
