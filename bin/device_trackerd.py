@@ -148,7 +148,7 @@ def process_frame(wt, frame, dendrite, CINFO):
         return
 
     mac = fields['src-mac']
-    vlan = fields.get('vlan-id', 0)
+    vlan = int(fields.get('vlan-id', 0))
     epoch = int(float(fields['time']))
     
     if(   (  fields['protocol'] == 'ARP' 
