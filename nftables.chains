@@ -30,7 +30,7 @@ table bridge origin {
     jump vlan2mark
     ip protocol tcp tcp dport {http, https} accept 
 
-    drop
+    mark set 666
   }
 
   chain prerouting { 
@@ -46,6 +46,8 @@ table bridge origin {
   chain forward { 
     type filter hook forward priority -200;
 
+    mark 666 drop
+    
     iif eth0 accept
     oif eth0 accept
     drop 
