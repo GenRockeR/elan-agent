@@ -95,7 +95,7 @@ def login(request, context=None):
         if key not in context:
             context[key] = default_context[key]
     
-    if request.method != 'POST':
+    if request.method != 'POST' or context.get('post_processed', False):
         return render(request, 'captive-portal/login.html', context)
     
     # POST
@@ -130,8 +130,7 @@ def login(request, context=None):
 def logout(request):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
-    session.remove_authentication_sessions_by_source(clientMAC, 'captive-portal-web')
-    nac.authzChanged(clientMAC)
+    nac.checkAuthz(clientMAC, remove_source='captive-portal-web', end_reason='logout')
     
     return redirect('login')
 
@@ -177,7 +176,7 @@ def guest_access(request):
     if request.method != 'POST':
         return redirect('login')
     
-    vlan = request.META['vlan'] # cc agent vlan *object* ID
+    vlan_id = request.META['vlan_id'] # cc agent vlan *object* ID
     guest_access = int(request.META['guest_access']) 
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
@@ -190,7 +189,7 @@ def guest_access(request):
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
 
     if form.is_valid():
-        guest_request = dict(mac=clientMAC, vlan=vlan, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
+        guest_request = dict(mac=clientMAC, vlan=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
         for field in guest_registration_fields:
             guest_request['fields'].append( dict( 
                                          display_name=field['display_name'],
@@ -201,40 +200,49 @@ def guest_access(request):
         
         guest_request['id'] = submit_guest_request(guest_request)
 
-        if guest_access_conf['type'] == 'sponsored':
-            # send mail
-            html_template = loader.get_template('captive-portal/guest-request-email.html')
-            text_template = loader.get_template('captive-portal/guest-request-email.txt')
-            context = RequestContext(request, {
-                'guest_request': guest_request,
-            })
-            html = html_template.render(context)
-            text = text_template.render(context)
-    
-            if not guest_request['sponsor_email']:
-                recipients = guest_access_conf['fixed_recipients']
-                bcc_recipients = []
-            else:
-                recipients = [guest_request['sponsor_email']]
-                bcc_recipients = guest_access_conf['fixed_recipients']
-            
-            send_mail(  recipients = recipients,
-                        bcc_recipients = bcc_recipients,
-                        html = html,
-                        text = text,
-                        mail_subject = 'Guest Request for Network Access'
-            )
+        if guest_request['id']:
+            if guest_access_conf['type'] == 'sponsored':
+                # send mail
+                html_template = loader.get_template('captive-portal/guest-request-email.html')
+                text_template = loader.get_template('captive-portal/guest-request-email.txt')
+                context = RequestContext(request, {
+                    'guest_request': guest_request,
+                })
+                html = html_template.render(context)
+                text = text_template.render(context)
         
-        
-        return redirect('status')
-    else:
-        # we update the field conf with passed value and error messages as it is easier to display in Template (difficult to access error.var where var='field-{id}' and to build that access in the template)
-        for field in guest_registration_fields:
-            field.update( value = request.POST.get('field-{}'.format(field['id']), '') )
-            field.update( errors = form.errors.get('field-{}'.format(field['id']), []) )
+                if not guest_request['sponsor_email']:
+                    recipients = guest_access_conf['fixed_recipients']
+                    bcc_recipients = []
+                else:
+                    recipients = [guest_request['sponsor_email']]
+                    bcc_recipients = guest_access_conf['fixed_recipients']
                 
-        context = {'guest_request_errors': form.errors, 'guest_registration_fields': guest_registration_fields, 'form': form }
-        return login(request, context)
+                send_mail(  recipients = recipients,
+                            bcc_recipients = bcc_recipients,
+                            html = html,
+                            text = text,
+                            mail_subject = 'Guest Request for Network Access'
+                )
+            
+            
+            return redirect('status')
+        else:
+            # No ID 
+            if not form.errors['non_field_errors']:
+                form.errors['non_field_errors'] = []
+            form.errors['non_field_errors'].append(_('Error during request, please try again or contact administrator.'))
+                
+    
+    # Form not valid or error when getting Guest Request Id
+    # we update the field conf with passed value and error messages as it is easier to display in Template (difficult to access error.var where var='field-{id}' and to build that access in the template)
+    for field in guest_registration_fields:
+        field.update( value = request.POST.get('field-{}'.format(field['id']), '') )
+        field.update( errors = form.errors.get('field-{}'.format(field['id']), []) )
+            
+    context = {'guest_registration_fields': guest_registration_fields, 'guest_request_form': form }
+    context['post_processed'] = True
+    return login(request, context)
 
 
 # Session function helpers

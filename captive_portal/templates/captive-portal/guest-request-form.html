@@ -9,11 +9,20 @@
     {% trans 'A Guest Access request is pending authorization.' %}
   </div>
   {% endif %}
+  {% if guest_access_forms.errors.non_field_errors %}
+  <div class="alert alert-danger">
+    <ul>
+      {% for msg in guest_access_forms.errors.non_field_errors %}
+      <li>{{ msg }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <form action="{% url 'guest-access' %}" method="post" class="form-horizontal" role="form">
     {% csrf_token %}
     <input type="hidden" name="guest_access_modification_time" value="{{guest_access.modification_time}}">
-    {% for msg in guest_request_errors.guest_access_modification_time %}
+    {% for msg in guest_request_form.errors.guest_access_modification_time %}
     <small class="help-block">guest_access_modification_time: {{msg}}</small>
     {% endfor %}
 
@@ -54,11 +63,11 @@
     {% endfor %}
 
     {% if guest_access.type == 'sponsored' and guest_access.validation_patterns %}
-    <div class="form-group{% if 'sponsor_email' in guest_request_errors %} has-error{% endif %}">
+    <div class="form-group{% if 'sponsor_email' in guest_request_form.errors %} has-error{% endif %}">
       <label for="field-sponsor-email" class="col-sm-3 control-label">{% trans 'Sponsor Email' %}</label>
       <div class="col-sm-9">
         <input type="email" class="form-control" id="field-sponsor-email" name="sponsor_email" value="{{form.sponsor_email.value}}" required>
-        {% for msg in guest_request_errors.sponsor_email %}
+        {% for msg in guest_request_form.errors.sponsor_email %}
         <small class="help-block">{{msg}}</small>
         {% endfor %}
       </div>
