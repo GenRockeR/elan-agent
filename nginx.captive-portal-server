@@ -39,7 +39,10 @@ server {
 
     # no need for logs
     access_log off;
-    
+
+    # Disable keep-alives: when logged out, browser could reuse connection to captive-portal and not end up on correct server.
+    keepalive_timeout 0;
+        
     location /static/captive-portal {
       alias /origin/captive-portal/captive_portal/static/captive-portal;
     }
