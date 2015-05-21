@@ -86,8 +86,18 @@ class GuestAccessManager(Dendrite):
             current_mac_with_authz = self.synapse.smembers(self.MAC_AUTHS_PATH)
     
             for mac in current_mac_with_authz - set(authz_by_mac.keys()):
-                session.remove_authentication_sessions_by_source(mac, 'guest')
-                nac.checkAuthz(mac, 'guest', end_reason='revoked') # TODO: add revoker info + comment
+                revoker_kwargs = {}
+                currentAuthz = nac.getAuthz(mac)
+                if currentAuthz.source == 'captive-portal-guest':
+                    # find guest authz that granted authz
+                    for authz in authz_by_mac[mac]:
+                        if authz['guest_authorization'] == currentAuthz.guest_authorization:
+                            revoker_kwargs['end_reason'] = 'revoked'
+                            revoker_kwargs['revoker_login'] = authz['revoker_login']
+                            revoker_kwargs['revoker_authentication_provider'] = authz['revoker_authentication_provider']
+                            revoker_kwargs['revoker_comment'] = authz['revoker_comment']
+                            break
+                nac.checkAuthz(mac, remove_source='captive-portal-guest', **revoker_kwargs)
                 self.synapse.srem(self.MAC_AUTHS_PATH, mac)
     
             for mac in set(authz_by_mac.keys()):
@@ -95,11 +105,11 @@ class GuestAccessManager(Dendrite):
                 self.synapse.srem(PENDING_GUEST_REQUESTS_PATH, mac)
                 
                 self.synapse.sadd(self.MAC_AUTHS_PATH, mac)
-                session.remove_authentication_sessions_by_source(mac, 'guest')
+                session.remove_authentication_sessions_by_source(mac, 'captive-portal-guest')
                 for authz in authz_by_mac[mac]:
                     till_str = authz['till'][0:19] # get rid of milliseconds if present
                     
                     till = (datetime.datetime.strptime(till_str, '%Y-%m-%dT%H:%M:%S') - datetime.datetime(1970, 1, 1)).total_seconds()
-                    session.add_authentication_session(mac, source='guest', till=till, login=authz['sponsor_login'], authentication_provider=authz['sponsor_authentication_provider'], guest_authorization=authz['id'])
+                    session.add_authentication_session(mac, source='captive-portal-guest', till=till, login=authz['sponsor_login'], authentication_provider=authz['sponsor_authentication_provider'], guest_authorization=authz['id'])
                 nac.checkAuthz(mac)
             
