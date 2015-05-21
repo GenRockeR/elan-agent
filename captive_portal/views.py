@@ -173,10 +173,10 @@ def get_request_form(guest_registration_fields, guest_access_conf, data=None):
 
 @requirePortalURL
 def guest_access(request):
-    if request.method != 'POST':
+    if request.method != 'POST' or 'vlan_id' not in request.META: # No Vlan_id -> not redirected so allowed....
         return redirect('login')
     
-    vlan_id = request.META['vlan_id'] # cc agent vlan *object* ID
+    vlan_id = request.META['vlan_id']
     guest_access = int(request.META['guest_access']) 
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
@@ -189,7 +189,7 @@ def guest_access(request):
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
 
     if form.is_valid():
-        guest_request = dict(mac=clientMAC, vlan=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
+        guest_request = dict(mac=clientMAC, vlan_id=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
         for field in guest_registration_fields:
             guest_request['fields'].append( dict( 
                                          display_name=field['display_name'],
@@ -229,7 +229,7 @@ def guest_access(request):
             return redirect('status')
         else:
             # No ID 
-            if not form.errors['non_field_errors']:
+            if 'non_field_errors' not in form.errors:
                 form.errors['non_field_errors'] = []
             form.errors['non_field_errors'].append(_('Error during request, please try again or contact administrator.'))
                 

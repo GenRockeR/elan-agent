@@ -66,7 +66,7 @@
     <div class="form-group{% if 'sponsor_email' in guest_request_form.errors %} has-error{% endif %}">
       <label for="field-sponsor-email" class="col-sm-3 control-label">{% trans 'Sponsor Email' %}</label>
       <div class="col-sm-9">
-        <input type="email" class="form-control" id="field-sponsor-email" name="sponsor_email" value="{{form.sponsor_email.value}}" required>
+        <input type="email" class="form-control" id="field-sponsor-email" name="sponsor_email" value="{{guest_request_form.sponsor_email.value}}" required>
         {% for msg in guest_request_form.errors.sponsor_email %}
         <small class="help-block">{{msg}}</small>
         {% endfor %}
