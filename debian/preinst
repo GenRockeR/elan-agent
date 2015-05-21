@@ -1,5 +1,10 @@
 if ! dpkg-divert --list "ea-ids" | grep -F "/etc/suricata/suricata.yaml.diverted-ea-ids"
 then
         dpkg-divert --package "ea-ids" --add --rename \
-                --divert "/etc/suricata/suricata.yaml.diverted-ea-ids " "/etc/suricata/suricata.yaml"
+                --divert "/etc/suricata/suricata.yaml.diverted-ea-ids" "/etc/suricata/suricata.yaml"
+fi
+if ! dpkg-divert --list "ea-ids" | grep -F "/etc/init.d/suricata.diverted-ea-ids"
+then
+        dpkg-divert --package "ea-ids" --add --rename \
+                --divert "/etc/init.d/suricata.diverted-ea-ids" "/etc/init.d/suricata"
 fi
