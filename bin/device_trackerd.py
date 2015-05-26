@@ -184,8 +184,8 @@ def process_frame(wt, frame, dendrite, CINFO):
 
 def capture():
     with dumpcap.CaptureSession(    interfaces=('eth0', 'eth1' ),
-                                    capture_filter='inbound', 
-                                    #capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) )',
+                                    #capture_filter='inbound', 
+                                    capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )',
                                     ringbuffer_filesize=10240, savefile='/tmp/device_tracker_dump'
                                ) as cap:
         try:
@@ -218,8 +218,8 @@ def capture():
                     # the current file.
                     fname = event_msg
                     parent_conn.send(0) # tell it should finish
-#                     p.join(5)
-#                     p.terminate()
+                    p.join(5)
+                    p.terminate()
                     break
             else:
                 # The iterator on cap reaches this point if there are
