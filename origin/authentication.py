@@ -1,7 +1,7 @@
 import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
-import time, subprocess, re
+import subprocess, re
 from origin.neuron import Dendrite
 from mako.template import Template
 
@@ -55,7 +55,7 @@ class AuthenticationProvider(Dendrite):
             }
             cc-auth {
                 fail = 10
-                notfound = 10
+                notfound = 11
             }
         ''')
         self.ldap_auth_template = Template('''
@@ -64,7 +64,21 @@ class AuthenticationProvider(Dendrite):
             }
             ldap-auth-${id} {
                 fail = 10
-                notfound = 10
+                notfound = 11
+            }
+        ''')
+        self.google_auth_template = Template('''
+            update session-state {
+                &Origin-Auth-Provider := ${id}
+            }
+            cc-auth.authenticate {
+                fail = 10
+                notfound = 11
+            }
+            if(ok || updated){
+                update control {
+                    Auth-Type := Accept
+                }
             }
         ''')
         self.rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
@@ -93,6 +107,8 @@ class AuthenticationProvider(Dendrite):
 
             if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
                 inner_case += self.ldap_auth_template.render(**auth)
+            elif auth['type'] == 'google-apps':
+                inner_case += self.google_auth_template.render(**auth)
             else:
                 inner_case += self.cc_auth_template.render(**auth)
     
@@ -181,6 +197,12 @@ class AuthenticationProvider(Dendrite):
                     '''.format(
                            id = auth['id'],
                            inner_case = self.get_group_inner_case(auth) )
+                elif auth['type'] == 'google-apps':
+                    inner_switch_server_conf +=  '''
+                            case {id} {{
+                    '''.format(id=auth['id'])
+                    inner_switch_server_conf += self.google_auth_template.render(**auth)
+                    inner_switch_server_conf +=  '}'
 
 
             with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
