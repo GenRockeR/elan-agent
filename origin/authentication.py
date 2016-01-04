@@ -102,7 +102,7 @@ class AuthenticationProvider(Dendrite):
                 inner_case += self.get_group_inner_case( self.authentications[member['authentication']], ignore_authentications )
         else:
             inner_case = '''
-                if( notfound || fail ) {
+                if( notfound || fail || invalid ) {
             '''   
 
             if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
