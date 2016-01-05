@@ -54,8 +54,12 @@ class AuthenticationProvider(Dendrite):
                 &Origin-Auth-Provider := ${id}
             }
             cc-auth {
-                fail = 10
-                notfound = 11
+                invalid = 1
+                fail =  2
+                reject = 3
+                notfound = 4
+                ok = return
+                updated = return
             }
         ''')
         self.ldap_auth_template = Template('''
@@ -63,8 +67,12 @@ class AuthenticationProvider(Dendrite):
                 &Origin-Auth-Provider := ${id}
             }
             ldap-auth-${id} {
-                fail = 10
-                notfound = 11
+                invalid = 1
+                fail =  2
+                reject = 3
+                notfound = 4
+                ok = return
+                updated = return
             }
         ''')
         self.google_auth_template = Template('''
@@ -72,13 +80,12 @@ class AuthenticationProvider(Dendrite):
                 &Origin-Auth-Provider := ${id}
             }
             cc-auth.authenticate {
-                fail = 10
-                notfound = 11
-            }
-            if(ok || updated){
-                update control {
-                    Auth-Type := Accept
-                }
+                invalid = 1
+                fail =  2
+                reject = 3
+                notfound = 4
+                ok = return
+                updated = return
             }
         ''')
         self.rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
@@ -101,10 +108,6 @@ class AuthenticationProvider(Dendrite):
             for member in auth['members']:
                 inner_case += self.get_group_inner_case( self.authentications[member['authentication']], ignore_authentications )
         else:
-            inner_case = '''
-                if( notfound || fail || invalid ) {
-            '''   
-
             if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
                 inner_case += self.ldap_auth_template.render(**auth)
             elif auth['type'] == 'google-apps':
@@ -122,17 +125,11 @@ class AuthenticationProvider(Dendrite):
                             Module-Failure-Message !* ANY
                         }
                     }
-                    else {
+                    elsif(! invalid) {
                         update {
                             request:Origin-Non-Failed-Auth := "True"
                         }
                     }
-                }
-                else {
-                    update {
-                        request:Origin-Non-Failed-Auth := "True"
-                    }
-                }
             '''
         
         return inner_case
@@ -188,10 +185,11 @@ class AuthenticationProvider(Dendrite):
                     # Take care of groups, that can be nested:
                     inner_switch_server_conf +=  '''
                             case {id} {{
-                                notfound
-                                {inner_case}
-                                if( ! &Origin-Non-Failed-Auth) {{
-                                    auth_all_providers_failed_in_group
+                                group {{
+                                    {inner_case}
+                                    if( ! &Origin-Non-Failed-Auth) {{
+                                        auth_all_providers_failed_in_group
+                                    }}
                                 }}
                             }}
                     '''.format(

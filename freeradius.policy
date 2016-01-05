@@ -7,7 +7,9 @@ authentications.authorize {
       ${inner_switch}
     
       case { 
-        cc-auth
+        cc-auth {
+            fail = 1
+        }
         if(fail) {
             update request {
                 Origin-Auth-Failed := &Origin-Auth-Provider
