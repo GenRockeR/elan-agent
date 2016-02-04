@@ -31,6 +31,7 @@ server authentication {
     authorize {
         preprocess
       
+        # TODO: use custom AVPs
         if(Connect-Info =~ /authenticator=([0-9]+) *, *source=([^, ]+) *, *command=([^, ]+)/){
             update request {
                 &Origin-Auth-Provider := "%{1}"
@@ -42,7 +43,9 @@ server authentication {
 
         }
         if( &Origin-Command == "authenticate" ){
-            pap
+            update control {
+                Auth-Type := PAP
+            }
         } 
         elsif( &Origin-Command == "authorize" ){
             if( control:Cleartext-Password ) {

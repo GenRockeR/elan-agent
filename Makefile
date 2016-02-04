@@ -1,6 +1,6 @@
 PACKAGE-NAME := ea-authentication
 PACKAGE-DESC := Authentication component of Edge Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit
 
 include ../core/packaging.mk
 
@@ -9,7 +9,7 @@ test:
 	
 
 .PHONY: install
-install: freeradius python
+install: freeradius python samba
 
 .PHONY: python
 python: origin/authentication.py origin/freeradius/*.py
@@ -34,5 +34,10 @@ freeradius:
 	install -d ${DESTDIR}/etc/freeradius/sites-enabled
 	install -m 644 freeradius.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
 	ln -s ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled
+	install -d ${DESTDIR}/etc/default
+	install -m 644 freeradius.default          ${DESTDIR}/etc/default/freeradius
 
-
+.PHONY: samba
+samba:
+	install -d ${DESTDIR}/etc/samba/
+	install -m 644 smb.conf ${DESTDIR}/etc/samba/smb.conf

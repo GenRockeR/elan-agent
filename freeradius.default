@@ -1,0 +1,2 @@
+KRB5_CLIENT_KTNAME=/etc/krb5.keytab
+KRB5CCNAME=/tmp/krb5cc_freeradius

@@ -1,4 +1,9 @@
 authentications.authorize {
+
+    update control {
+        MS-CHAP-Use-NTLM-Auth := No
+    }
+
     update request {
         Module-Failure-Message !* ANY
     }
@@ -21,6 +26,13 @@ authentications.authorize {
         }
       }
     }
+    
+    if(&session-state:Origin-Auth-Provider == &session-state:Origin-AD-Auth-Provider){
+        update control {
+            MS-CHAP-Use-NTLM-Auth := Yes
+        }
+    }
+    
     if(reply:Cleartext-Password) {
         update control {
           &Cleartext-Password := &reply:Cleartext-Password
@@ -53,4 +65,5 @@ authentications.authorize {
           &Password-With-Header !* ANY
         }
     }
+    
 }

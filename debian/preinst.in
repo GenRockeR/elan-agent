@@ -11,3 +11,16 @@ then
 	chmod 755 /etc/init.d/freeradius
 fi
 
+# 
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/samba/smb.conf.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/samba/smb.conf.diverted-%{PACKAGE-NAME}" "/etc/samba/smb.conf"
+fi
+
+# 
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/default/freeradius.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/default/freeradius.diverted-%{PACKAGE-NAME}" "/etc/default/freeradius"
+fi
