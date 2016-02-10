@@ -9,7 +9,7 @@ test:
 	py.test
 
 .PHONY: install
-install: authentication-install
+install: authentication-install captive-portal-install
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
 .PHONY: authentication-python
@@ -42,3 +42,35 @@ authentication-freeradius:
 authentication-samba:
 	install -d ${DESTDIR}/etc/samba/
 	install -m 644 smb.conf ${DESTDIR}/etc/samba/smb.conf
+
+.PHONY: captive-portal-install
+captive-portal-install: conf www python
+
+captive-portal-python: origin/captive_portal.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/captive_portal.py
+
+.PHONY: captive-portal-conf
+captive-portal-conf:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
+	install -m 755 bin/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
+    
+.PHONY: captive-portal-www
+captive-portal-www:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal
+	cp -p manage.py ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/
+	find captive_portal -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
+	find captive_portal -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
+	# Although virtualenv was used to install django and co in this repository, it is deployed on edgeagent under /origin/lib/python
+	( cd lib/python2.7/site-packages; \
+	  find -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+	  find -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+	  find -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
+	)
+	install -d ${DESTDIR}/etc/uwsgi
+	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
+	install -d ${DESTDIR}/etc/sudoers.d
+	install -m 440 captive-portal.sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
+  
+

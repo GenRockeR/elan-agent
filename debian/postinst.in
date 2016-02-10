@@ -2,6 +2,10 @@
 update-rc.d -f freeradius remove
 rm -f /etc/init.d/freeradius
 ln -s /lib/init/upstart-job /etc/init.d/freeradius
+  
 
 # create default params
 /etc/freeradius/certs/bootstrap
+
+perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
+

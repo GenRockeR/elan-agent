@@ -1,0 +1,364 @@
+{% extends 'captive-portal/base_angular.html' %}
+{% load i18n %}
+
+{% block body_header %}<h1>Origin Nexus <small>Edge Agent Dashboard</small></h1>{% endblock %}
+
+{% block body_main %}
+  <div class="container" ng-app>
+    <div class="row">
+
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+
+          <div class="panel-heading">{% trans "Status" %}</div>
+
+          <ul class="list-group">
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not is_connected %}
+                          {% trans 'Disconnected' %}
+                        {% elif is_registered %}
+                          {% trans 'Connected' %}
+                        {% else %}
+                          {% trans 'Connected but Not Registered' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "Control Center Connection" %}
+              <span class="fa {% spaceless %}
+                        {% if not is_connected %}
+                          fa-warning fa-2x text-danger
+                        {% elif is_registered %}
+                          fa-circle text-success
+                        {% else %}
+                          fa-warning fa-2x text-warning
+                        {% endif%}
+                    {% endspaceless %} pull-right">
+              </span>
+            </li>
+
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not wan_up %}
+                          {% trans 'Disconnected' %}
+                        {% elif ipsv4 or ipsv6 %}
+                          {% trans 'Connected' %}
+                        {% else %}
+                          {% trans 'Connected but No IP' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "WAN Connection (Internet)" %}
+              <span class="fa {% spaceless %}
+                        {% if not wan_up %}
+                          fa-warning text-danger
+                        {% elif ipsv4 or ipsv6 %}
+                          fa-circle text-success
+                        {% else %}
+                          fa-warning text-warning
+                        {% endif%}
+                   {% endspaceless %} pull-right">
+               </span>
+            </li>
+            
+            <li class="list-group-item" title="{% spaceless %}
+                        {% if not lan_up %}
+                          {% trans 'Disconnected' %}
+                        {% else %}
+                          {% trans 'Connected' %}
+                        {% endif%}
+                    {% endspaceless %}">
+              {% trans "LAN Connection (Local Network)" %}
+              <span class="fa {% spaceless %}
+                        {% if not lan_up %}
+                          fa-warning text-danger
+                        {% else %}
+                          fa-circle text-success
+                        {% endif %}
+                    {% endspaceless %} pull-right">
+              </span>
+            </li>
+          </ul>
+
+        </div>
+      </div>
+
+      {% if not is_admin %}
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% if is_registered %}
+              {% trans 'Administrator Login' %}
+            {% else %}
+              {% trans 'Register' %}
+            {% endif %}
+          </div>
+          
+          <div class="panel-body">
+            {% if not is_connected and not is_registered %}
+            <div class="alert alert-warning" role="alert">
+              {% trans 'Registration requires an IP address and to be connected with the Control Center.' %}
+            </div>
+            {% endif %}
+            {% if form_errors.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+              <ul class="list-unstyled"> 
+                {% for msg in form_errors.non_field_errors %}
+                <li>{{msg}}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            <form class="form-horizontal" role="form" method="post" action="{% url 'admin-login' %}">
+              {% csrf_token %}
+              {% if not is_registered %}
+              <div class="form-group{% if 'location' in form_errors%} has-error{% endif %}">
+                <label for="inputLocation" class="col-sm-3 control-label">{% trans 'Location' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="inputLocation" name="location" value="{{location}}" required>
+                  {% for msg in form_errors.location %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group{% if 'default_secret' in form_errors%} has-error{% endif %}">
+                <label for="inputSecret" class="col-sm-3 control-label small">{% trans 'Default Secret' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="inputSecret" name="default_secret" value={{default_secret}}>
+                  {% for msg in form_errors.default_secret %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              <div class="form-group{% if 'account' in form_errors or 'login' in form_errors%} has-error{% endif %}">
+                <label for="inputLogin" class="col-sm-3 control-label">{% trans 'Login' %}</label>
+                <div class="col-sm-9">
+                  <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required  value={{login}}>
+                  {% for msg in form_errors.account %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                  {% for msg in form_errors.login %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group{% if 'account' in form_errors or 'password' in form_errors%} has-error{% endif %}">
+                <label for="inputPassword" class="col-sm-3 control-label">{% trans 'Password' %}</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" required>
+                  {% for msg in form_errors.password %}                 
+                  <span class="help-block">{{msg}}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="col-sm-offset-3 col-sm-9">
+                  <button type="submit" class="btn btn-default">{% trans 'Sign in' %}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>            
+      </div>
+      {% else %}
+      <div class="col-sm-7">
+        <a href="{% url 'admin-logout' %}" class='btn btn-default pull-right'>{% trans 'Logout' %}</a>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div class="row">
+
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% trans 'IPv4 Configuration' %}
+          </div>
+          <table class="table">
+            <tr>
+              <td>
+                <label>{% trans 'Address' %}</label>
+              </td>
+              <td>
+                {% for ip in ipsv4 %}
+                <span class="badge pull-right">{{ip.address}}<small> / {{ip.prefix_length}}</small></span>
+                {% endfor %}
+            </td>
+            </tr>
+            <tr>
+              <td>
+                <label>{% trans 'Gateway' %}</label>
+              </td>
+              <td>
+                <span class="badge pull-right">{{ipv4_gw|default_if_none:''}}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label>{% trans 'DNS' %}</label>
+              </td>
+              <td>
+                {% for ip in ipv4_dns %}
+                <span class="badge pull-right">{{ip}}</span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% if not is_registered or is_admin %}
+            <tr>
+              <td colspan="2">
+                <form role="form" method="post" action="{% url 'admin-ipv4' %}" novalidate>
+                  {% csrf_token %}
+                  {% for e in ipv4_form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">{{e}}</div>
+                  {% endfor %}
+                  <div class="form-group col-sm-offset-2" ng-init="ipv4_type='{{ipv4_form.type.value}}'">
+                    <label class="radio-inline">
+                      <input type="radio" value="dhcp" name="type" ng-model="ipv4_type">{% trans 'DHCP' %}
+                    </label>
+                    <label class="radio-inline">
+                      <input type="radio" value="static" name="type" ng-model="ipv4_type">{% trans 'Static' %}
+                    </label>
+                    <label class="radio-inline">
+                      <input type="radio" value="disabled" name="type" ng-model="ipv4_type">{% trans 'Disabled' %}
+                    </label>
+                  </div>
+                  <div ng-if="ipv4_type == 'static'">
+                    <div class="form-group col-sm-8 {% if ipv4_form.address.errors %}has-error{% endif %}">
+                      <label class="control-label" for="ipv4_address">{% trans 'Address' %}</label>
+                      <input type="text" class="form-control" id="ipv4_address" placeholder="{% trans 'IP' %}" name="address" value="{{ipv4_form.address.value|default_if_none:''}}">
+                      {% for e in ipv4_form.address.errors %}
+                      <span class="help-block">{{e}}</span>
+                      {% endfor %}
+                    </div>        
+                    <div class="form-group col-sm-4 {% if ipv4_form.mask.errors %}has-error{% endif %}">
+                      <label class="control-label" for="ipv4_mask">/ {% trans 'Mask' %}</label>
+                      <input type="text" class="form-control" id="ipv4_mask" name="mask" min="0" max="32" value="{{ipv4_form.mask.value|default_if_none:''}}">
+                      {% for e in ipv4_form.mask.errors %}
+                      <span class="help-block">{{e}}</span>
+                      {% endfor %}
+                    </div>        
+                    <div class="form-group col-sm-12 {% if ipv4_form.gateway.errors %}has-error{% endif %}">
+                      <label class="control-label" for="ipv4_gateway">{% trans 'Gateway' %}</label>
+                      <input type="text" class="form-control" id="ipv4_gateway" placeholder="{% trans 'IP' %}" name="gateway" value="{{ipv4_form.gateway.value|default_if_none:''}}">
+                      {% for e in ipv4_form.gateway.errors %}
+                      <span class="text-danger">{{e}}</span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                  <div class="form-group col-sm-12 {% if ipv4_form.dns.errors %}has-error{% endif %}" ng-if="ipv4_type!='disabled'">
+                    <label class="control-label" for="ipv4_dns">{% trans 'DNS' %}</label>
+                    <input type="text" class="form-control" id="ipv4_dns" placeholder="{% trans 'comma separated IPs' %}" name="dns" ng-required="ipv4_type == 'static'"  value="{{ipv4_form.dns.value|default_if_none:''}}">
+                    {% for e in ipv4_form.dns.errors %}
+                    <span class="help-block">{{e}}</span>
+                    {% endfor %}
+                  </div> 
+                  <div class="form-group col-sm-12">
+                    <button type="submit" class="btn btn-default">{% trans 'Apply' %}</button> 
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            {% trans 'IPv6 Configuration' %}
+          </div>
+          <table class="table">
+            <tr>
+              <td>
+                <label>{% trans 'Address' %}</label>
+              </td>
+              <td>
+                {% for ip in ipsv6 %}
+                <span class="badge pull-right">{{ip.address}}<small> / {{ip.prefix_length}}</small></span>
+                {% endfor %}
+            </td>
+            </tr>
+            <tr>
+              <td>
+                <label>{% trans 'Gateway' %}</label>
+              </td>
+              <td>
+                <span class="badge pull-right">{{ipv6_gw|default_if_none:''}}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label>{% trans 'DNS' %}</label>
+              </td>
+              <td>
+                {% for ip in ipv6_dns %}
+                <span class="badge pull-right">{{ip}}</span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% if not is_registered or is_admin %}
+            <tr>
+              <td colspan="2">
+                <form role="form" method="post" action="{% url 'admin-ipv6' %}" novalidate>
+                  {% csrf_token %}
+                  {% for e in ipv6_form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">{{e}}</div>
+                  {% endfor %}
+                  <div class="form-group col-sm-offset-2" ng-init="ipv6_type='{{ipv6_form.type.value}}'">
+                    <label class="radio-inline">
+                      <input type="radio" value="autoconf" name="type" ng-model="ipv6_type">{% trans 'Auto Configuration' %}
+                    </label>
+                    <label class="radio-inline">
+                      <input type="radio" value="static" name="type" ng-model="ipv6_type">{% trans 'Static' %}
+                    </label>
+                    <label class="radio-inline">
+                      <input type="radio" value="disabled" name="type" ng-model="ipv6_type">{% trans 'Disabled' %}
+                    </label>
+                  </div>
+                  <div ng-if="ipv6_type == 'static'">
+                    <div class="form-group col-sm-9 {% if ipv6_form.address.errors %}has-error{% endif %}">
+                      <label class="control-label" for="ipv6_address">{% trans 'Address' %}</label>
+                      <input type="text" class="form-control" id="ipv6_address" placeholder="{% trans 'IP' %}" name="address" value="{{ipv6_form.address.value|default_if_none:''}}" required>
+                      {% for e in ipv6_form.address.errors %}
+                      <span class="text-danger">{{e}}</span>
+                      {% endfor %}
+                    </div>        
+                    <div class="form-group col-sm-3 {% if ipv6_form.mask.errors %}has-error{% endif %}">
+                      <label class="control-label" for="mask">/ {% trans 'Mask' %}</label>
+                      <input type="text" class="form-control" id="mask" name="mask" min="0" max="128" value="{{ipv6_form.mask.value|default_if_none:''}}" required>
+                      {% for e in ipv6_form.mask.errors %}
+                      <span class="text-danger">{{e}}</span>
+                      {% endfor %}
+                    </div>        
+                    <div class="form-group col-sm-12 {% if ipv6_form.gateway.errors %}has-error{% endif %}">
+                      <label class="control-label" for="ipv6_gateway">{% trans 'Gateway' %}</label>
+                      <input type="text" class="form-control" id="ipv6_gateway" placeholder="{% trans 'IP' %}" name="gateway" value="{{ipv6_form.gateway.value|default_if_none:''}}" required>
+                      {% for e in ipv6_form.gateway.errors %}
+                      <span class="text-danger">{{e}}</span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                  <div class="form-group col-sm-12 {% if ipv6_form.dns.errors %}has-error{% endif %}" ng-if="ipv6_type != 'disabled'">
+                    <label class="control-label" for="ipv6_dns">{% trans 'DNS' %}</label>
+                    <input type="text" class="form-control" id="ipv6_dns" placeholder="{% trans 'comma separated IPs' %}" name="dns" ng-required="ipv6_type == 'static'" value="{{ipv6_form.dns.value|default_if_none:''}}">
+                    {% for e in ipv6_form.dns.errors %}
+                    <span class="text-danger">{{e}}</span>
+                    {% endfor %}
+                  </div> 
+                  <div class="form-group col-sm-12">
+                    <button type="submit" class="btn btn-default">{% trans 'Apply' %}</button> 
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+
+{% endblock %}
+

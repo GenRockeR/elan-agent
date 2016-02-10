@@ -1,0 +1,87 @@
+{% load i18n %}
+
+  <div class="well well-sm">
+    {{guest_access.description | safe}}
+  </div>
+
+  {% if guest_access_pending %}
+  <div class="alert alert-warning">
+    {% trans 'A Guest Access request is pending authorization.' %}
+  </div>
+  {% endif %}
+  {% if guest_access_forms.errors.non_field_errors %}
+  <div class="alert alert-danger">
+    <ul>
+      {% for msg in guest_access_forms.errors.non_field_errors %}
+      <li>{{ msg }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form action="{% url 'guest-access' %}" method="post" class="form-horizontal" role="form">
+    {% csrf_token %}
+    <input type="hidden" name="guest_access_modification_time" value="{{guest_access.modification_time}}">
+    {% for msg in guest_request_form.errors.guest_access_modification_time %}
+    <small class="help-block">guest_access_modification_time: {{msg}}</small>
+    {% endfor %}
+
+    {% for field in guest_registration_fields %}
+    <div class="form-group{% if field.errors %} has-error{% endif %}">
+      <label for="field-{{forloop.counter}}" class="col-sm-3 control-label">{{field.display_name}}</label>
+      <div class="col-sm-9">
+        {% if field.type == 'textarea' %}
+          <textarea class="form-control" id="field-{{forloop.counter}}" name="field-{{field.id}}" {% if field.required %}required{% endif %}>{{field.value}}</textarea>
+        {% elif field.type == 'date' or field.type == 'time' or field.type == 'date-time' %}
+          <input type='text' class="form-control" id='field-{{forloop.counter}}' name="field-{{field.id}}" value="{{field.value}}" {% if field.required %}required{% endif %}
+                 data-date-format="{% if field.type == 'date' or field.type == 'date-time' %}YYYY-MM-DD{% endif %} {% if field.type == 'time' or field.type == 'date-time' %}HH:mm{% endif %}">
+          <script type="text/javascript">
+            $(function () {
+                $('#field-{{forloop.counter}}').datetimepicker({
+                    useSeconds: false,
+                    sideBySide: true,
+                    minuteStepping: 5,
+                    use24hours: true,
+                    {% if field.type == 'date' %}
+                    pickTime: false,
+                    {% elif field.type == 'time' %}
+                    pickDate: false,
+                    {% endif %}
+                });
+            });
+          </script>
+        {% elif field.type == 'email' %}
+          <input type="email" class="form-control" id="field-{{forloop.counter}}" name="field-{{field.id}}" value="{{field.value}}" {% if field.required %}required{% endif %}>
+        {% else %}
+          <input type="text" class="form-control" id="field-{{forloop.counter}}" name="field-{{field.id}}" value="{{field.value}}" {% if field.required %}required{% endif %}>
+        {% endif %}
+        {% for msg in field.errors %}
+        <small class="help-block">{{msg}}</small>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if guest_access.type == 'sponsored' and guest_access.validation_patterns %}
+    <div class="form-group{% if 'sponsor_email' in guest_request_form.errors %} has-error{% endif %}">
+      <label for="field-sponsor-email" class="col-sm-3 control-label">{% trans 'Sponsor Email' %}</label>
+      <div class="col-sm-9">
+        <input type="email" class="form-control" id="field-sponsor-email" name="sponsor_email" value="{{guest_request_form.sponsor_email.value}}" required>
+        {% for msg in guest_request_form.errors.sponsor_email %}
+        <small class="help-block">{{msg}}</small>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="well well-sm" style="max-height: 200px; overflow-y:scroll;">
+      {{guest_access.policy|safe}}
+    </div>
+    
+    <div class="form-group">
+      <div class="col-sm-offset-3 col-sm-9">
+        <button type="submit" class="btn btn-default">{% trans 'Submit Request' %}</button>
+      </div>
+    </div>
+
+  </form>

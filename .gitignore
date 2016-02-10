@@ -3,3 +3,15 @@
 .settings/
 *.pyc
 __pycache__/
+bin/activate*
+bin/csscapture
+bin/csscombine
+bin/cssparse
+bin/django-admin.py
+bin/easy_install*
+bin/pip*
+bin/python*
+lib/
+debian/postinst
+include/
+manage.py
