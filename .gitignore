@@ -1,6 +1,7 @@
 .project
 .pydevproject
 .settings/
+debian/ea-ids.*.debhelper
 *.pyc
 __pycache__/
 bin/activate*

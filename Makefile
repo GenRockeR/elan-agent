@@ -1,15 +1,16 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, ea-core, suricata, python-tz, python-yaml, zsync, python-idstools
 
-include ./packaging.mk
+include ../core/packaging.mk
 
 .PHONY: test
 test:
 	py.test
 
 .PHONY: install
-install: core-install authentication-install captive-portal-install connection-tracker-install
+install: core-install authentication-install captive-portal-install connection-tracker-install ids-install
+
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
 .PHONY: authentication-python
@@ -123,3 +124,24 @@ core-nginx:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/nginx
 	install -m 644 nginx.site.axon ${DESTDIR}${ORIGIN_PREFIX}/core/nginx/axon
 	install -m 644 control-center-ca.crt ${DESTDIR}${ORIGIN_PREFIX}/core/
+
+.PHONY: ids-install
+ids-install: ids-install-suricata ids-install-logger
+
+.PHONY: ids-install-suricata
+ids-install-suricata:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata
+	install -m 644 suricata.conf ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/conf
+	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
+	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install rule_fetcher ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
+	install ids_monitor ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
+
+.PHONY: ids-install-logger
+ids-install-logger:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+

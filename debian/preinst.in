@@ -37,3 +37,14 @@ then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
                 --divert "/etc/init.d/redis-server.diverted-%{PACKAGE-NAME}" "/etc/init.d/redis-server"
 fi
+
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}" "/etc/suricata/suricata.yaml"
+fi
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}" "/etc/init.d/suricata"
+fi
