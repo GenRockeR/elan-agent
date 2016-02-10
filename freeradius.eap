@@ -1,0 +1,122 @@
+eap nac-eap {
+  #  If the EAP-Type attribute is set by another module,
+  #  then that EAP type takes precedence over the
+  #  default type configured here.
+  #
+  default_eap_type = md5
+
+  timer_expire     = 60
+
+  ignore_unknown_eap_types = no
+  cisco_accounting_username_bug = no
+
+  max_sessions = ${max_requests}
+
+  # Supported EAP-types
+
+  md5 {
+  }
+
+  leap {
+  }
+
+  #  Generic Token Card.
+  gtc {
+    #challenge = "Password: "
+    auth_type = PAP
+  }
+
+  ## Common TLS configuration for TLS-based EAP types
+  tls-config tls-common {
+    #private_key_password = whatever
+    private_key_file = ${certdir}/nac.pem
+
+    # cert + full cert chain (can be same file as private key)
+    certificate_file = ${certdir}/nac.pem
+
+    # Trusted CA for EAP-TLS
+    #ca_file = ${cadir}/ca.pem
+
+    dh_file = ${certdir}/dh
+
+    #ca_path = ${cadir}
+
+    cipher_list = "DEFAULT"
+
+    ecdh_curve = "prime256v1"
+
+    cache {
+          enable = yes
+          lifetime = 24 # hours
+          max_entries = 4096
+
+          name = "Origin Nexus EAP"
+
+          #  The server will need write perms, and the directory
+          #  should be secured from anyone else. You might want
+          #  a script to remove old files from here periodically:
+          #
+          #    find ${logdir}/tlscache -mtime +2 -exec rm -f {} \;
+          
+          persist_dir = "${logdir}/tlscache"
+    }
+
+    verify {
+  #         tmpdir = /tmp/radiusd
+  #       client = "/path/to/openssl verify -CApath ${..ca_path} %{TLS-Client-Cert-Filename}"
+    }
+
+    ocsp {
+          enable = no
+
+          override_cert_url = no
+
+          url = "http://127.0.0.1/ocsp/"
+
+          use_nonce = yes
+
+          # timeout = 0
+
+          # softfail = no
+    }
+  }
+
+  tls {
+    tls = tls-common
+
+  # virtual_server = check-eap-tls
+  }
+
+
+  ttls {
+    tls = tls-common
+    default_eap_type = md5
+    copy_request_to_tunnel = no
+    use_tunneled_reply = no
+    virtual_server = "inner-eap-tunnel"
+  # include_length = yes
+  # require_client_cert = yes
+  }
+
+
+  peap {
+    tls = tls-common
+
+    default_eap_type = mschapv2
+    copy_request_to_tunnel = no
+    use_tunneled_reply = no
+
+  # proxy_tunneled_request_as_eap = yes
+
+    virtual_server = "inner-eap-tunnel"
+
+  # soh = yes
+  # soh_virtual_server = "soh-server"
+
+  # require_client_cert = yes
+  }
+
+  mschapv2 {
+    send_error = yes
+  }
+}

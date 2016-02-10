@@ -1,6 +1,19 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, ea-core, suricata, python-tz, python-yaml, zsync, python-idstools
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
+                   python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
+                   gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, \
+                   libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server,
+                   python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
+                   zsync, python-idstools, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
+                   libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
+                   libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
+                   libdbi-perl, libfile-flock-perl, libfile-slurp-perl, libfile-which-perl, libhash-merge-perl, libhttp-browserdetect-perl, \
+                   libio-interface-perl, libjson-perl, liblog-any-adapter-log4perl-perl, liblog-log4perl-perl, libnamespace-autoclean-perl, \
+                   libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
+                   libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
+                   libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd
 
 include ../core/packaging.mk
 
@@ -9,7 +22,7 @@ test:
 	py.test
 
 .PHONY: install
-install: core-install authentication-install captive-portal-install connection-tracker-install ids-install
+install: core-install authentication-install captive-portal-install connection-tracker-install ids-install nac-install
 
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
@@ -34,7 +47,7 @@ authentication-freeradius:
 	install -m 644 pyrad.dictionary            ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
 	install -d ${DESTDIR}/etc/freeradius/sites-available
 	install -d ${DESTDIR}/etc/freeradius/sites-enabled
-	install -m 644 freeradius.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
+	install -m 644 freeradius.authentication.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
 	ln -s ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled
 	install -d ${DESTDIR}/etc/default
 	install -m 644 freeradius.default          ${DESTDIR}/etc/default/freeradius
@@ -144,4 +157,61 @@ ids-install-logger:
 	install ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+
+PHONY: nac-install
+nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
+
+.PHONY: nac-conf
+nac-conf:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/nac_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_configurator
+
+.PHONY: nac-freeradius
+nac-freeradius:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius
+	install -m 644 freeradius.nac.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
+	install -d ${DESTDIR}/etc/freeradius/mods-available
+	install -m 644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
+	install -m 644 freeradius.python ${DESTDIR}/etc/freeradius/mods-available/nac
+	install -d ${DESTDIR}/etc/freeradius/mods-enabled
+	ln -s ../mods-available/nac-eap ${DESTDIR}/etc/freeradius/mods-enabled
+	ln -s ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
+
+.PHONY: nac-nginx
+nac-nginx:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/network/nginx
+	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
+
+.PHONY: nac-python
+nac-python: origin/nac.py origin/snmp.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/snmp.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/nac.py
+  
+.PHONY: nac-authz
+nac-authz:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
+
+.PHONY: nac-snmp
+nac-snmp: nac-perl-lib nac-mibs
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/snmp_poller ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/snmp_notification_receiver ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp
+	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
+
+.PHONY: nac-perl-lib
+nac-perl-lib:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib
+	cp -r lib/perl5 ${DESTDIR}${ORIGIN_PREFIX}/lib
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf
+	install -m 644 pf/* ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+
+.PHONY: nac-mibs
+nac-mibs:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac
+	cp -r mibs ${DESTDIR}${ORIGIN_PREFIX}/nac/mibs
+
 

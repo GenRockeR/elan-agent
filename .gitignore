@@ -13,6 +13,7 @@ bin/easy_install*
 bin/pip*
 bin/python*
 bin/pydoc
+!lib/perl5
 lib/
 debian/postinst
 debian/preinst

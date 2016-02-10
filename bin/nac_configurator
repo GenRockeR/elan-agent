@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+
+import time, subprocess
+from origin.neuron import Dendrite
+from mako.template import Template
+
+SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
+
+import logging
+logging.basicConfig()
+
+class NacConfigurator(Dendrite):
+    FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'cert_chain')
+    SNMPTRAPD_KEYS  = ('snmp_credentials', 'snmp_engine_ids')
+    
+    def __init__(self):
+        super().__init__('nac-configuration')
+        
+        self.agent_id = None
+        self.conf = {}
+        # subscribe to providers and group lists
+        self.retrieve('agent/self')
+
+
+    def answer_cb(self, path, conf):
+        freeradius_conf_changed = False
+        snmptrapd_conf_changed = False
+        # update local configuration cache
+        if path == 'agent/self':
+            if self.agent_id != conf['id']:
+                self.agent_id = conf['id']
+                self.subscribe('agent/' + str(self.agent_id))
+        # Don't use values retrieved by agent/self as they will not get updated in cache when changed on cc...
+        # Id should not change so it is OK to use, but for the other values, only  'agent/' + str(self.agent_id) path gets updated
+        # In case of CC down, value will flip from outdated value from 'agent/self' and up to date value from 'agent/<id>'
+        #if path == 'agent/self' or (self.agent_id and path == 'agent/' + str(self.agent_id)):
+        if self.agent_id and path == 'agent/' + str(self.agent_id):
+            for key in self.FREERADIUS_KEYS:
+                if self.conf.get(key, "") != conf[key]:
+                    self.conf[key] = conf[key]
+                    freeradius_conf_changed = True
+            for key in self.SNMPTRAPD_KEYS:
+                if self.conf.get(key, {}) != conf[key]:
+                    self.conf[key] = conf[key]
+                    snmptrapd_conf_changed = True
+                    
+                    # save credentials for other program use...
+                    if key == 'snmp_credentials':
+                        self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, conf[key])
+                    
+
+        if freeradius_conf_changed:
+            # Grab template
+            server_template = Template(filename="/origin/nac/freeradius/server")
+            
+            with open ("/etc/freeradius/sites-enabled/nac", "w") as server_file:
+                server_file.write( server_template.render(**self.conf) )
+                
+            with open ("/etc/freeradius/certs/nac.pem", "w") as cert_file:
+                # reverse certchain so that freeradius/openssl finds the cert matching the private key in first position...
+                cert_list = [ cert + '-----END CERTIFICATE-----\n' for cert in self.conf['cert_chain'].split('-----END CERTIFICATE-----') if '-----BEGIN CERTIFICATE-----' in cert ]
+                cert_file.write( ''.join(reversed(cert_list)) )
+                cert_file.write( self.conf['cert_key'] )
+
+            # Reload freeradius
+            subprocess.call('restart freeradius || start freeradius', shell=True)
+
+        if snmptrapd_conf_changed:
+            # Grab template
+            snmp_template = Template(filename="/origin/nac/snmp/snmptrapd.conf")
+            
+            with open ("/etc/snmp/snmptrapd.conf", "w") as server_file:
+                server_file.write( snmp_template.render(**self.conf) )
+
+            # Reload freeradius
+            subprocess.call('restart snmptrapd || start snmptrapd', shell=True)
+
+if __name__ == "__main__":
+    conf = NacConfigurator()
+    count = 1
+    while count < 100:
+        conf.run_for_ever()
+        time.sleep(30)
+        count = count + 1

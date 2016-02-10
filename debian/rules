@@ -15,5 +15,10 @@ override_dh_installinit:
 	dh_installinit --name=suricata
 	dh_installinit --name=ids-logger
 	dh_installinit --name=ids-monitor
+	dh_installinit --name=nac_configurator
+	dh_installinit --name=mac_authz_manager
+	dh_installinit --name=snmp_notification_receiver
+	dh_installinit --name=snmp_poller
+	dh_installinit --name=snmptrapd
 %:
 	dh $@
