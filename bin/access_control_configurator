@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+
+import subprocess, time, os
+from origin.neuron import Dendrite
+from origin.utils import get_ip4_address, get_ip6_address
+from mako.template import Template
+from origin import captive_portal 
+ 
+class AccessControlConfigurator(Dendrite):
+    internalNIC = 'eth1'
+    bridge = 'br0'
+    
+    def __init__(self):
+        super().__init__('access-control')
+        
+        self.agent_path = None
+        self.vlans_path = None
+        
+        self.active = None
+        self.vlans = {} # vlans by Vlan-ID
+        
+        if not self.is_registered():            
+            # Retrieve Agent ID... once registered
+            self.retrieve('agent/self')
+            # DEFAULT CONF
+            self.apply_new_vlan_conf({
+                     0: {'access_control': False} # just so that once registered, this knows it has untagged vlan configured
+            })
+        else:
+            self._init_subscriptions()
+            
+    def _init_subscriptions(self):
+        self.agent_path = 'agent/' + str(self.synapse.get('agent:id'))
+        self.subscribe(self.agent_path)
+        # get vlans to configure them.
+        self.vlans_path = self.agent_path + '/vlans'
+        self.subscribe(self.vlans_path)
+
+    def answer_cb(self, path, conf):
+        # subscribe to our conf updates
+        if path == 'agent/self':
+            self._init_subscriptions()
+
+        elif self.agent_path and path == self.agent_path:
+            # Only do something if access_control has changed....
+            if conf['access_control'] != self.active:
+                self.active = conf['access_control']
+                if conf['access_control']:
+                    # enable Access Control
+                    cmd = "nft flush chain bridge origin global_ac;"
+                else:
+                    # disable Access Control
+                    cmd = "nft add rule bridge origin global_ac accept;"
+
+                subprocess.call(cmd, shell=True)
+
+        elif self.vlans_path and path == self.vlans_path:
+            # conf if list of all VLANS -> when a Vlan is modified, all VLANs are sent
+            new_vlans = {}
+            for vlan in conf:
+                new_vlans[ vlan['vlan_id'] ] = vlan
+            
+            self.apply_new_vlan_conf(new_vlans)
+    
+    def apply_new_vlan_conf(self, new_vlans):
+        # New VLANS
+
+        # Make sure internalNIC is up
+        cmd = 'ifconfig {nic} up;'.format(nic=self.internalNIC)
+
+        # TODO: separate this and make it more efficient...
+        for vlan_id in set(new_vlans.keys()) - set(self.vlans.keys()):
+            nic = self.internalNIC
+            if vlan_id:
+                cmd += 'vconfig add {nic} {vlan_id}; ifconfig {nic}.{vlan_id} up;'.format(nic=nic, vlan_id=vlan_id)
+                nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+            cmd += 'brctl addif {bridge} {nic};'.format(bridge=self.bridge, nic=nic)
+        
+        # VLANs to delete
+        for vlan_id in set(self.vlans.keys()) - set(new_vlans.keys()):
+            nic = self.internalNIC
+            if vlan_id:
+                nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+            cmd += 'brctl delif {bridge} {nic};'.format(nic=nic, bridge=self.bridge) 
+            if vlan_id:
+                cmd += 'ifconfig {nic} down; vconfig rem {nic};'.format(nic=nic)
+            cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+            cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+
+        with open('/tmp/ea-network-nft-{id}' . format(id=os.getpid()), 'w') as nft_file:
+            nft_file.write('flush chain bridge origin allowed_macs\n')
+            nft_file.write('flush chain bridge origin vlan2mark\n')
+            nft_file.write('flush chain ip origin captive_portal_all\n')
+            nft_file.write('flush chain ip6 origin captive_portal_all\n')
+            nft_file.write('flush chain ip origin captive_portal_unauthorized\n')
+            nft_file.write('flush chain ip6 origin captive_portal_unauthorized\n')
+            
+            # Agent Status + captive portal when authorized
+            agent_rule = '''
+add rule ip{v} origin captive_portal_all ip{v} daddr {status_ip}  tcp dport {{80, 443}} redirect
+add rule ip{v} origin captive_portal_all mark 0 ip{v} daddr {captive_ip} tcp dport 80  redirect to 19998
+add rule ip{v} origin captive_portal_all mark 0 ip{v} daddr {captive_ip} tcp dport 443 redirect to 19999
+'''
+            nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP, captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP, v=''))
+            nft_file.write(agent_rule.format(status_ip=captive_portal.EDGE_AGENT_FQDN_IP6, captive_ip=captive_portal.CAPTIVE_PORTAL_FQDN_IP6, v='6'))
+
+            for vlan_id in new_vlans:
+                nic = self.internalNIC
+                if vlan_id:
+                    nic = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+                    
+                cmd += "nft add set bridge origin a_v_{vlan} '{{type ether_addr;}}';".format(vlan=vlan_id) 
+
+                # configure Access Contol
+                if new_vlans[vlan_id]['access_control']:
+                    cmd += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+
+                    nft_file.write('''add rule bridge origin vlan2mark iif {nic} mark set {mark}
+add rule bridge origin allowed_macs iif {nic} ether saddr @a_v_{vlan} accept
+'''.format(nic=nic, vlan=vlan_id, mark = vlan_id+1000))
+                    
+                    # configure captive portal if access control is enabled
+                    if new_vlans[vlan_id]['web_authentication'] or new_vlans[vlan_id]['guest_access']:
+                        nft_file.write('''add rule origin captive_portal_unauthorized tcp dport 80 mark {mark} redirect to {http}
+add rule origin captive_portal_unauthorized tcp dport 443 mark {mark} redirect to {https}
+add rule ip6 origin captive_portal_unauthorized tcp dport 80 mark {mark} redirect to {http}
+add rule ip6 origin captive_portal_unauthorized tcp dport 443 mark {mark} redirect to {https}
+'''.format(mark = vlan_id+1000, http = vlan_id + 20000, https = vlan_id + 25000))
+
+                    # configure DHCP passthrough
+                    if new_vlans[vlan_id]['dhcp_passthrough']:
+                        cmd += 'nft add element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                    else:
+                        cmd += 'nft delete element bridge origin dhcp_pt_ifs {{{nic}}};'.format(nic=nic)
+                        
+                    # configure DNS passthrough
+                    if new_vlans[vlan_id]['dns_passthrough']:
+                        cmd += 'nft add element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+                    else:
+                        cmd += 'nft delete element bridge origin dns_pt_ifs {{{nic}}};'.format(nic=nic)
+
+                else:
+                    cmd += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic)
+            
+            
+    
+            cmd += 'nft -f {};'.format(nft_file.name)
+                        
+        # Set captive portals
+        nginx_captive_portals = Template(filename = '/origin/network/nginx/server')
+        with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
+            nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
+        cmd += 'reload nginx;'
+        
+        subprocess.call(cmd, shell=True)
+        
+        self.vlans = new_vlans
+
+
+if __name__ == "__main__":
+    conf = AccessControlConfigurator()
+    count = 1
+    while count < 100:
+        conf.run_for_ever()
+        time.sleep(30)
+        count = count + 1

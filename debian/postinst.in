@@ -16,3 +16,19 @@ update-rc.d -f redis-server remove
 # deconfigure default site
 rm -f /etc/nginx/sites-enabled/default
 
+# Create certs
+mkdir -p /origin/network/certs/
+for domain in edge-agent.origin-nexus.com captive-portal.origin-nexus.com
+do
+  if [ ! -e /origin/network/certs/$domain.crt ]
+  then 
+    openssl req  -x509 -newkey rsa:2048 -keyout /origin/network/certs/$domain.key -out /origin/network/certs/$domain.crt -nodes -subj /CN=$domain
+  fi
+done
+
+# remove default FW that blocks all incoming...
+update-rc.d -f nftables remove
+
+exit 0
+
+

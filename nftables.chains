@@ -1,0 +1,113 @@
+#!/usr/sbin/nft -f
+
+flush table bridge origin
+
+table bridge origin {
+  chain global_ac {
+    accept
+  }
+
+  chain allowed_macs  { 
+  }
+  
+  chain vlan2mark { 
+  }
+  
+  chain access_control {
+
+    jump allowed_macs
+    
+    ether type 0x0806 accept
+    
+    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-neighbor-solicit accept
+    iif @dhcp_pt_ifs ip protocol udp udp sport bootpc udp dport bootps accept
+    iif @dhcp_pt_ifs ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server accept
+    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-router-solicit accept
+
+    iif @dns_pt_ifs ip protocol udp udp dport domain accept
+    iif @dns_pt_ifs ip6 nexthdr udp udp dport domain accept
+
+    jump vlan2mark
+    ip protocol tcp tcp dport {http, https} accept 
+
+    mark set 666
+  }
+
+  chain prerouting { 
+    type filter hook prerouting priority -160;
+
+    iif eth0 accept 
+
+    jump global_ac
+
+    iif @ac_ifs jump access_control
+  }
+
+  chain forward { 
+    type filter hook forward priority -200;
+
+    mark 666 drop
+    
+    iif eth0 accept
+    oif eth0 accept
+    drop 
+  }
+
+  chain postrouting {
+    type filter hook postrouting priority 200;
+  }
+
+}
+
+
+flush table ip origin
+
+table ip origin {
+  
+  chain captive_portal_all { 
+  }
+
+  chain captive_portal_unauthorized { 
+  }
+  
+  chain prerouting  { 
+    type nat hook prerouting priority -150;
+    
+    ip daddr 8.8.8.8 udp dport {1812, 1813, 161, 162} redirect
+                
+    tcp dport {80, 443} jump captive_portal_all
+    mark 0 accept
+    tcp dport {80, 443} jump captive_portal_unauthorized
+    drop
+  }
+  
+  chain postrouting { 
+    type nat hook postrouting priority -150;
+  } 
+}
+
+flush table ip6 origin
+
+table ip6 origin {
+  
+  chain captive_portal_all { 
+  }
+
+  chain captive_portal_unauthorized { 
+  }
+
+  chain prerouting  { 
+    type nat hook prerouting priority -150;
+
+    ip6 daddr 2001:41d0:2:ba47::1000:1000 udp dport {1812, 1813, 161, 162} redirect
+    
+    tcp dport {80, 443} jump captive_portal_all
+    mark 0 accept
+    tcp dport {80, 443} jump captive_portal_unauthorized
+    drop
+  }
+  
+  chain postrouting { 
+    type nat hook postrouting priority -150;
+  } 
+}

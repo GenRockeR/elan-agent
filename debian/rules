@@ -20,5 +20,6 @@ override_dh_installinit:
 	dh_installinit --name=snmp_notification_receiver
 	dh_installinit --name=snmp_poller
 	dh_installinit --name=snmptrapd
+	dh_installinit --name=access-control
 %:
 	dh $@

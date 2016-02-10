@@ -1,0 +1,13 @@
+#!/usr/sbin/nft -f
+
+table bridge origin {
+  set dhcp_pt_ifs {
+    type iface_index; 
+  }
+  set dns_pt_ifs {
+    type iface_index; 
+  }
+  set ac_ifs {
+    type iface_index; 
+  }
+}

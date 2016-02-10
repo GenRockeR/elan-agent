@@ -13,7 +13,8 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, \
+                   bridge-utils, vlan, nftables, rdnssd, python3-mako
 
 include ../core/packaging.mk
 
@@ -22,7 +23,7 @@ test:
 	py.test
 
 .PHONY: install
-install: core-install authentication-install captive-portal-install connection-tracker-install ids-install nac-install
+install: core-install authentication-install captive-portal-install connection-tracker-install ids-install nac-install network-install
 
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
@@ -213,5 +214,20 @@ nac-perl-lib:
 nac-mibs:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac
 	cp -r mibs ${DESTDIR}${ORIGIN_PREFIX}/nac/mibs
+
+.PHONY: network-install
+network-install:
+	install -d ${DESTDIR}/etc/network
+	install -m 644 interfaces ${DESTDIR}/etc/network/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 bin/access_control_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
+	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
+	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/
+	install -m 755 interfaces.d ${DESTDIR}${ORIGIN_PREFIX}/network/interfaces
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/network/nginx
+	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/network.py
 
 
