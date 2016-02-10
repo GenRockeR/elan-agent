@@ -24,3 +24,16 @@ then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
                 --divert "/etc/default/freeradius.diverted-%{PACKAGE-NAME}" "/etc/default/freeradius"
 fi
+
+# Remove nginx start script as we use upstart
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}" "/etc/init.d/nginx"
+fi
+
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/redis-server.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/redis-server.diverted-%{PACKAGE-NAME}" "/etc/init.d/redis-server"
+fi

@@ -9,3 +9,10 @@ ln -s /lib/init/upstart-job /etc/init.d/freeradius
 
 perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
 
+# get rid of rc.d symlinks for nginx and redis
+update-rc.d -f nginx remove
+update-rc.d -f redis-server remove
+
+# deconfigure default site
+rm -f /etc/nginx/sites-enabled/default
+

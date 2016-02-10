@@ -1,15 +1,15 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server, python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix
 
-include ../core/packaging.mk
+include ./packaging.mk
 
 .PHONY: test
 test:
 	py.test
 
 .PHONY: install
-install: authentication-install captive-portal-install connection-tracker-install
+install: core-install authentication-install captive-portal-install connection-tracker-install
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
 .PHONY: authentication-python
@@ -88,3 +88,38 @@ connection-tracker-wirepy:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
 	cp -rp lib/wirepy/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
 
+.PHONY: core-install
+install: core-python core-nginx
+
+.PHONY: core-python
+core-python: origin/*.py core-pylib bin/axon.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install bin/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+
+.PHONY: core-pylib
+core-pylib: tornadoredis tornado redis pyrad
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
+	# Although virtualenv was used to install tornado and co in this repository, it is deployed on edgeagent under /origin/lib/python
+	( cd lib/python3.4/site-packages; \
+		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
+		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
+	)
+
+.PHONY: core-tornadoredis
+.PHONY: core-tornado
+.PHONY: core-redis
+core-redis:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
+	install redis.conf ${DESTDIR}${ORIGIN_PREFIX}/core/redis/conf
+.PHONY: core-pyrad
+
+.PHONY: core-nginx
+core-nginx:
+	install -d ${DESTDIR}/etc/nginx/sites-enabled
+	ln -s ../sites-available/axon ${DESTDIR}/etc/nginx/sites-enabled/
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/nginx
+	install -m 644 nginx.site.axon ${DESTDIR}${ORIGIN_PREFIX}/core/nginx/axon
+	install -m 644 control-center-ca.crt ${DESTDIR}${ORIGIN_PREFIX}/core/

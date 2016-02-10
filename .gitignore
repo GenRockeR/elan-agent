@@ -11,7 +11,11 @@ bin/django-admin.py
 bin/easy_install*
 bin/pip*
 bin/python*
+bin/pydoc
 lib/
 debian/postinst
+debian/preinst
 include/
 manage.py
+pip-selfcheck.json
+debian/*.debhelper

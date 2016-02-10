@@ -8,9 +8,6 @@ Build-Depends: debhelper (>= 9)
 
 Package: %{PACKAGE-NAME}
 Architecture: all
-<<<<<<< HEAD
 Depends: ${shlibs:Depends}, ${misc:Depends}, %{PACKAGE-DEPENDS}
-=======
-Depends: python-pydhcplib, ${shlibs:Depends}, ${misc:Depends}, %{PACKAGE-DEPENDS}
->>>>>>> 2e77572d98a9afd755ad0469805b06f4eedf1900
+Pre-Depends: nginx, redis-server, freeradius
 Description: %{PACKAGE-DESC}

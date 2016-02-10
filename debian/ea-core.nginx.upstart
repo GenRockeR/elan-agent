@@ -1,0 +1,15 @@
+description "nginx http daemon"
+ 
+start on started redis
+
+env PYTHONPATH=/origin/lib/python
+ 
+respawn
+respawn limit 10 5
+ 
+exec /usr/sbin/nginx -g 'daemon off;'
+
+pre-start script
+  rm -f /etc/nginx/sites-enabled/default
+  python3 -c 'from origin.neuron import Axon; Axon.generate_nginx_conf()'
+end script
