@@ -1,0 +1,10 @@
+description "Device Session Tracker"
+
+start on started axon
+
+respawn
+respawn limit 10 5
+
+env PYTHONPATH=/origin/lib/python
+
+exec /origin/bin/session-trackerd

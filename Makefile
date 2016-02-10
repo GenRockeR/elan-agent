@@ -1,6 +1,6 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := ea-network, ea-ids, ea-connection-tracker, ea-captive-portal, ea-nac
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, ea-core, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, ea-core, python3, uwsgi-plugin-python3, ea-authentication, ea-network, python3-dateutil, python3-six, python-cffi, python-impacket, gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib
 
 include ../core/packaging.mk
 
@@ -9,7 +9,7 @@ test:
 	py.test
 
 .PHONY: install
-install: authentication-install captive-portal-install
+install: authentication-install captive-portal-install connection-tracker-install
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
 .PHONY: authentication-python
@@ -73,4 +73,18 @@ captive-portal-www:
 	install -d ${DESTDIR}/etc/sudoers.d
 	install -m 440 captive-portal.sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
   
+
+.PHONY: connection-tracker-install
+connection-tracker-install: origin/*.py bin/connection_trackerd.py bin/device_trackerd.py bin/session_trackerd.py connection-tracker-wirepy
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install bin/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
+	install bin/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
+	install bin/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
+
+connection-tracker-wirepy:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
+	cp -rp lib/wirepy/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
 
