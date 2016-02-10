@@ -1,0 +1,81 @@
+server authentication {
+    listen {
+      type = auth
+      ipaddr = 127.0.0.1
+      port = 18122
+      limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+      }
+    }
+    
+    listen {
+      ipaddr = 127.0.0.1
+      port = 18123
+      type = acct
+      limit {
+    #   max_pps = 0
+    #   idle_timeout = 0
+    #   lifetime = 0
+    #   max_connections = 0
+      }
+    }
+    
+    client authentication {
+           secret          = a2e4t6u8qmlskdvcbxnw
+           shortname       = captive-portal
+           ipaddr          = 127.0.0.1
+    }
+    
+    authorize {
+        preprocess
+      
+        # TODO: use custom AVPs
+        if(Connect-Info =~ /authenticator=([0-9]+) *, *source=([^, ]+) *, *command=([^, ]+)/){
+            update request {
+                &Origin-Auth-Provider := "%{1}"
+                &Origin-Auth-Type := "%{2}"
+                &Origin-Command := "%{3}"
+            }
+
+            authentications
+
+        }
+        if( &Origin-Command == "authenticate" ){
+            update control {
+                Auth-Type := PAP
+            }
+        } 
+        elsif( &Origin-Command == "authorize" ){
+            if( control:Cleartext-Password ) {
+                update reply {
+                   Reply-Message += "Cleartext-Password=%{control:Cleartext-Password}"
+                }
+            }
+            if( control:NT-Password ) {
+                update reply {
+                   Reply-Message += "NT-Password=%{control:NT-Password}"
+                }
+            }
+            if( control:LM-Password ) {
+                update reply {
+                   Reply-Message += "LM-Password=%{control:LM-Password}"
+                }
+            }
+            if( control:Password-With-Header ) {
+                update reply {
+                   Reply-Message += "Password-With-Header=%{control:Password-With-Header}"
+                }
+            }
+        }
+    }
+    
+    
+    authenticate {
+      Auth-Type PAP {
+        pap
+      }
+    }
+
+}

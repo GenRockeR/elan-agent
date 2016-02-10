@@ -1,0 +1,77 @@
+python auth_provider_failed {
+        module = origin.freeradius.authentication
+
+        mod_authorize = ${.module}
+        func_authorize = AuthenticationProviderFailed
+
+        mod_authenticate = ${.module}
+        func_authenticate = AuthenticationProviderFailed
+
+        mod_preacct = ${.module}
+        func_preacct = AuthenticationProviderFailed
+
+        mod_accounting = ${.module}
+        func_accounting = AuthenticationProviderFailed
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = AuthenticationProviderFailed
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = AuthenticationProviderFailed
+
+        mod_post_auth = ${.module}
+        func_post_auth = AuthenticationProviderFailed
+
+}
+
+python auth_provider_failed_in_group {
+        module = origin.freeradius.authentication
+
+        mod_authorize = ${.module}
+        func_authorize = AuthenticationProviderFailedInGroup
+
+        mod_authenticate = ${.module}
+        func_authenticate = AuthenticationProviderFailedInGroup
+
+        mod_preacct = ${.module}
+        func_preacct = AuthenticationProviderFailedInGroup
+
+        mod_accounting = ${.module}
+        func_accounting = AuthenticationProviderFailedInGroup
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = AuthenticationProviderFailedInGroup
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = AuthenticationProviderFailedInGroup
+
+        mod_post_auth = ${.module}
+        func_post_auth = AuthenticationProviderFailedInGroup
+
+}
+
+python auth_all_providers_failed_in_group {
+        module = origin.freeradius.authentication
+
+        mod_authorize = ${.module}
+        func_authorize = AuthenticationGroupFailed
+
+        mod_authenticate = ${.module}
+        func_authenticate = AuthenticationGroupFailed
+
+        mod_preacct = ${.module}
+        func_preacct = AuthenticationGroupFailed
+
+        mod_accounting = ${.module}
+        func_accounting = AuthenticationGroupFailed
+
+        mod_pre_proxy = ${.module}
+        func_pre_proxy = AuthenticationGroupFailed
+
+        mod_post_proxy = ${.module}
+        func_post_proxy = AuthenticationGroupFailed
+
+        mod_post_auth = ${.module}
+        func_post_auth = AuthenticationGroupFailed
+
+}

@@ -1,3 +1,6 @@
 #!/usr/bin/make -f
+override_dh_installinit:
+	dh_installinit --name=authentication_provider
+	dh_installinit --name=freeradius
 %:
 	dh $@

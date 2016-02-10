@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+from origin.authentication import AuthenticationProvider
+
+if __name__ == "__main__":
+    provider = AuthenticationProvider()
+    provider.run_for_ever()

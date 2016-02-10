@@ -1,0 +1,69 @@
+authentications.authorize {
+
+    update control {
+        MS-CHAP-Use-NTLM-Auth := No
+    }
+
+    update request {
+        Module-Failure-Message !* ANY
+    }
+    switch &Origin-Auth-Provider {
+      
+      ${inner_switch}
+    
+      case { 
+        cc-auth {
+            fail = 1
+        }
+        if(fail) {
+            update request {
+                Origin-Auth-Failed := &Origin-Auth-Provider
+            }
+            auth_provider_failed
+            update request {
+                Module-Failure-Message !* ANY
+            }
+        }
+      }
+    }
+    
+    if(&session-state:Origin-Auth-Provider == &session-state:Origin-AD-Auth-Provider){
+        update control {
+            MS-CHAP-Use-NTLM-Auth := Yes
+        }
+    }
+    
+    if(reply:Cleartext-Password) {
+        update control {
+          &Cleartext-Password := &reply:Cleartext-Password
+        }
+        update reply {
+          &Cleartext-Password !* ANY
+        }
+    }
+    if(reply:NT-Password) {
+        update control {
+          &NT-Password := &reply:NT-Password
+        }
+        update reply {
+          &NT-Password !* ANY
+        }
+    }
+    if(reply:LM-Password) {
+        update control {
+          &LM-Password := &reply:LM-Password
+        }
+        update reply {
+          &LM-Password !* ANY
+        }
+    }
+    if(reply:Password-With-Header) {
+        update control {
+          &Password-With-Header := &reply:Password-With-Header
+        }
+        update reply {
+          &Password-With-Header !* ANY
+        }
+    }
+    
+}
