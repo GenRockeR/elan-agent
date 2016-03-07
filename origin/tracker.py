@@ -71,7 +71,7 @@ class Tracker():
     def getPacketParams(self, packet, direction):
         """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
         """
-        params = {}
+        params = { 'lan': {}, 'wan': {}}
         original_packet = packet
         while packet:
             if packet.__class__.__name__ == 'Ethernet':
@@ -81,8 +81,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_ether = packet.get_ether_dhost
                     get_wan_ether = packet.get_ether_shost                    
-                params['lan_mac'] = packet.as_eth_addr(get_lan_ether())
-                params['wan_mac'] = packet.as_eth_addr(get_wan_ether())
+                params['lan']['mac'] = packet.as_eth_addr(get_lan_ether())
+                params['wan']['mac'] = packet.as_eth_addr(get_wan_ether())
             elif packet.__class__.__name__ == 'IP':
                 if direction == 'OUT':
                     get_lan_ip = packet.get_ip_src
@@ -90,8 +90,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_ip = packet.get_ip_dst
                     get_wan_ip = packet.get_ip_src
-                params['lan_ip'] = get_lan_ip()
-                params['wan_ip'] = get_wan_ip()
+                params['lan']['ip'] = get_lan_ip()
+                params['wan']['ip'] = get_wan_ip()
             elif packet.__class__.__name__ == 'IP6':
                 if direction == 'OUT':
                     get_lan_ip = packet.get_source_address
@@ -99,8 +99,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_ip = packet.get_destination_address
                     get_wan_ip = packet.get_source_address
-                params['lan_ip'] = get_lan_ip().as_string()
-                params['wan_ip'] = get_wan_ip().as_string()
+                params['lan']['ip'] = get_lan_ip().as_string()
+                params['wan']['ip'] = get_wan_ip().as_string()
             elif packet.__class__.__name__ == 'UDP':
                 if direction == 'OUT':
                     get_lan_port = packet.get_uh_sport
@@ -108,8 +108,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_port = packet.get_uh_dport
                     get_wan_port = packet.get_uh_sport
-                params['lan_port'] = get_lan_port()
-                params['wan_port'] = get_wan_port()
+                params['lan']['port'] = get_lan_port()
+                params['wan']['port'] = get_wan_port()
             elif packet.__class__.__name__ == 'TCP':
                 if direction == 'OUT':
                     get_lan_port = packet.get_th_sport
@@ -117,8 +117,8 @@ class Tracker():
                 elif direction == 'IN':
                     get_lan_port = packet.get_th_dport
                     get_wan_port = packet.get_th_sport
-                params['lan_port'] = get_lan_port()
-                params['wan_port'] = get_wan_port()
+                params['lan']['port'] = get_lan_port()
+                params['wan']['port'] = get_wan_port()
             
             # packet type is the last type before data.
             if packet.child().__class__.__name__ == 'Data':
