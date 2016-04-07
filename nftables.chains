@@ -14,7 +14,7 @@ table bridge origin {
 
   chain access_control_in {
 
-    ether saddr . iif @mac_allowed_on_vlan accept
+    ether saddr . iif @mac_on_vlan accept
     
     ether type arp accept
     
@@ -39,8 +39,8 @@ table bridge origin {
   }
 
   chain access_control_forward {
-    ether daddr . oif @mac_allowed_on_vlan accept
-    ether saddr . oif @mac_access_to_vlan accept
+    ether daddr . oif @mac_on_vlan accept
+    ether saddr . oif @mac_to_vlan accept
 
     ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
     ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
@@ -60,21 +60,33 @@ table bridge origin {
 
     oif @ac_ifs jump access_control_forward
   }
+  
+  chain forward_log { 
+    type filter hook forward priority -50;
+    
+    oif @log_ifs mark set 0x40000000 accept
+    iif @log_ifs mark set 0x40000000 accept
+  }
 
   chain postrouting {
     type filter hook postrouting priority 200;
   }
-
 }
 
+flush table inet origin
+
+table inet origin {
+  
+  chain forward  {
+    type filter hook forward priority 0;
+    
+    mark 0x40000000 ct state new log group 5
+  }
+}
 
 flush table ip origin
 
 table ip origin {
-  
-  chain agent {
-    
-  }
   
   chain prerouting  { 
     type nat hook prerouting priority -150;
@@ -82,11 +94,11 @@ table ip origin {
     ip daddr $agent_ip udp dport {1812, 1813, 161, 162} redirect
     ip daddr $agent_ip tcp dport {80, 443} redirect
                 
-    ip daddr $portal_ip mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+    ip daddr $portal_ip ip protocol tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
 
     mark 0 accept 
 
-    redirect to mark . tcp dport map @captive_portals
+    ip protocol tcp redirect to mark . tcp dport map @captive_portals
     
     drop
   }
@@ -104,11 +116,11 @@ table ip6 origin {
     ip6 daddr $agent_ip6 udp dport {1812, 1813, 161, 162} redirect
     ip6 daddr $agent_ip6 tcp dport {80, 443} redirect
                 
-    ip6 daddr $portal_ip6 mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+    ip6 daddr $portal_ip6 ip6 nexthdr tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
 
     mark 0 accept 
 
-    redirect to mark . tcp dport map @captive_portals
+    ip6 nexthdr tcp redirect to mark . tcp dport map @captive_portals
 
     drop
   }

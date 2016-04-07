@@ -10,15 +10,18 @@ table bridge origin {
   set ac_ifs {
     type iface_index ;
   }
-  set mac_allowed_on_vlan {
+  set log_ifs {
+    type iface_index ;
+  }
+  set mac_on_vlan {
     type ether_addr . iface_index ;
   }
-  set mac_access_to_vlan {
+  set mac_to_vlan {
     type ether_addr . iface_index ;
   }
   
   map vlan_mark {
-    type iface_index . mark ;
+    type iface_index : mark ;
   }
 }
 
@@ -32,4 +35,7 @@ table ip6 origin {
   map captive_portals {
     type mark . inet_service : inet_service ;
   }
+}
+
+table inet origin {
 }

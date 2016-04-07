@@ -266,17 +266,17 @@ class MacAuthorizationManager(Dendrite):
             
             for vlan in self.fw_allowed_vlans(mac) - on:
                 self._fw_cache_allow_on_del(mac, vlan)
-                nft('delete element bridge origin mac_allowed_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
+                nft('delete element bridge origin mac_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
             for vlan in on - self.fw_allowed_vlans(mac):
                 self._fw_cache_allow_on_add(mac, vlan)
-                nft('add element bridge origin mac_allowed_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
+                nft('add element bridge origin mac_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
 
             for vlan in self.fw_bridged_vlans(mac) - to:
                 self._fw_cache_bridge_to_del(mac, vlan)
-                nft('delete element bridge origin mac_access_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
+                nft('delete element bridge origin mac_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
             for vlan in on - self.fw_allowed_on(mac):
                 self._fw_cache_bridge_to_add(mac, vlan)
-                nft('add element bridge origin mac_access_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
+                nft('add element bridge origin mac_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
 
     def fw_disallow_mac(self, mac):
         ''' 

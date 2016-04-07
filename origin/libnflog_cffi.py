@@ -192,6 +192,12 @@ class NFLOG(object):
                         elif attr == 'physindev':
                             physindev = self.nflog_get_physindev(nfad, no_check=True)
                             result.append(physindev)
+                        elif attr == 'outdev':
+                            outdev = self.nflog_get_outdev(nfad, no_check=True)
+                            result.append(outdev)
+                        elif attr == 'physoutdev':
+                            physoutdev = self.nflog_get_physoutdev(nfad, no_check=True)
+                            result.append(physoutdev)
                         else:
                             raise NotImplementedError('Unknown nflog attribute: {}'.format(attr))
                 cb_results.append(result)

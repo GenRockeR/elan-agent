@@ -11,13 +11,5 @@ env CONNECTION_NFLOG_QUEUE=5
 exec /origin/bin/connection-trackerd
 
 pre-start script
-	# eth0 is wan interface
-	# eth1 is lan interface
-	if ! iptables-save | grep -q 'FORWARD *-m *physdev *--physdev-in *eth. *-m *state *--state *NEW *-j *NFLOG *--nflog-prefix *IN'
-	then
-		iptables  -I FORWARD -m physdev --physdev-in  eth0 -m state --state NEW -j NFLOG --nflog-prefix IN  --nflog-group $CONNECTION_NFLOG_QUEUE
-		iptables  -I FORWARD -m physdev --physdev-out eth0 -m state --state NEW -j NFLOG --nflog-prefix OUT --nflog-group $CONNECTION_NFLOG_QUEUE
-		ip6tables -I FORWARD -m physdev --physdev-in  eth0 -m state --state NEW -j NFLOG --nflog-prefix IN  --nflog-group $CONNECTION_NFLOG_QUEUE
-		ip6tables -I FORWARD -m physdev --physdev-out eth0 -m state --state NEW -j NFLOG --nflog-prefix OUT --nflog-group $CONNECTION_NFLOG_QUEUE
-	fi
+    modprobe br_netfilter
 end script

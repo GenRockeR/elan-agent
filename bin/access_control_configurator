@@ -131,6 +131,11 @@ class AccessControlConfigurator(Dendrite):
                         cmd_nft += 'nft add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }};'.format(nic=nic_name, nic_out=nic_out)
                     elif self.vlans[nic_name]['dns_passthrough_bridge']:
                         cmd_nft += 'nft delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }};'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname'])
+
+                    if new_vlan['log']:
+                        cmd_nft += 'nft add element bridge origin log_ifs {{ {nic} }};'.format(nic=nic_name)
+                    else:
+                        cmd_nft += 'nft delete element bridge origin log_ifs {{ {nic} }};'.format(nic=nic_name)
     
                 else:
                     cmd_nft += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic_name)
