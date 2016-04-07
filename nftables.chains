@@ -1,5 +1,10 @@
 #!/usr/sbin/nft -f
 
+define agent_ip = 8.8.8.8
+define agent_ip6 = 2001:41d0:2:ba47::1000:1000
+define portal_ip = 8.8.8.9
+define portal_ip6 = 2001:41d0:2:ba47::1000:1010
+
 flush table bridge origin
 
 table bridge origin {
@@ -7,50 +12,53 @@ table bridge origin {
     accept
   }
 
-  chain allowed_macs  { 
-  }
-  
-  chain vlan2mark { 
-  }
-  
-  chain access_control {
+  chain access_control_in {
 
-    jump allowed_macs
+    ether saddr . iif @mac_allowed_on_vlan accept
     
-    ether type 0x0806 accept
+    ether type arp accept
     
-    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-neighbor-solicit accept
-    iif @dhcp_pt_ifs ip protocol udp udp sport bootpc udp dport bootps accept
-    iif @dhcp_pt_ifs ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server accept
-    iif @dhcp_pt_ifs ip6 nexthdr ipv6-icmp icmpv6 type nd-router-solicit accept
+    ether type ip udp sport bootpc udp dport bootps accept
+    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 udp sport dhcpv6-client udp dport dhcpv6-server accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } accept
 
-    iif @dns_pt_ifs ip protocol udp udp dport domain accept
-    iif @dns_pt_ifs ip6 nexthdr udp udp dport domain accept
+    udp dport domain accept
 
-    jump vlan2mark
-    ip protocol tcp tcp dport {http, https} accept 
+    mark set iif map @vlan_mark
+    tcp dport {http, https} accept 
 
-    mark set 666
+    mark set 0x80000000
   }
 
   chain prerouting { 
     type filter hook prerouting priority -160;
 
-    iif eth0 accept 
-
     jump global_ac
 
-    iif @ac_ifs jump access_control
+    iif @ac_ifs jump access_control_in
+  }
+
+  chain access_control_forward {
+    ether daddr . oif @mac_allowed_on_vlan accept
+    ether saddr . oif @mac_access_to_vlan accept
+
+    ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
+    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
+
+    udp dport domain iif . oif @dns_pt_ifs accept
+
+    drop 
   }
 
   chain forward { 
     type filter hook forward priority -200;
 
-    mark 666 drop
-    
-    iif eth0 accept
-    oif eth0 accept
-    drop 
+    jump global_ac
+
+    mark 0x80000000 drop
+
+    oif @ac_ifs jump access_control_forward
   }
 
   chain postrouting {
@@ -64,20 +72,22 @@ flush table ip origin
 
 table ip origin {
   
-  chain captive_portal_all { 
-  }
-
-  chain captive_portal_unauthorized { 
+  chain agent {
+    
   }
   
   chain prerouting  { 
     type nat hook prerouting priority -150;
     
-    ip daddr 8.8.8.8 udp dport {1812, 1813, 161, 162} redirect
+    ip daddr $agent_ip udp dport {1812, 1813, 161, 162} redirect
+    ip daddr $agent_ip tcp dport {80, 443} redirect
                 
-    tcp dport {80, 443} jump captive_portal_all
-    mark 0 accept
-    tcp dport {80, 443} jump captive_portal_unauthorized
+    ip daddr $portal_ip mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+
+    mark 0 accept 
+
+    redirect to mark . tcp dport map @captive_portals
+    
     drop
   }
   
@@ -90,20 +100,16 @@ flush table ip6 origin
 
 table ip6 origin {
   
-  chain captive_portal_all { 
-  }
-
-  chain captive_portal_unauthorized { 
-  }
-
   chain prerouting  { 
-    type nat hook prerouting priority -150;
+    ip6 daddr $agent_ip6 udp dport {1812, 1813, 161, 162} redirect
+    ip6 daddr $agent_ip6 tcp dport {80, 443} redirect
+                
+    ip6 daddr $portal_ip6 mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
 
-    ip6 daddr 2001:41d0:2:ba47::1000:1000 udp dport {1812, 1813, 161, 162} redirect
-    
-    tcp dport {80, 443} jump captive_portal_all
-    mark 0 accept
-    tcp dport {80, 443} jump captive_portal_unauthorized
+    mark 0 accept 
+
+    redirect to mark . tcp dport map @captive_portals
+
     drop
   }
   

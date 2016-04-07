@@ -56,7 +56,6 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
 
     pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac))
     if vlan is not None:
-        vlan = int(vlan) # make sure to store it as int as it may be provided as a string...
         pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac, vlan=vlan))
         pipe.sadd(MAC_VLANS_PATH.format(mac=mac), vlan)
         if ip is not None:
@@ -148,7 +147,6 @@ def end(mac, vlan=None, ip=None, time=None):
         pipe.delete(MAC_VLANS_PATH.format(mac=mac))
         
     else:
-        vlan = int(vlan) # vlan is stored as an int.
         data = dict(mac=mac, vlan=vlan)
         pipe.hget(SESSION_IDS_PATH, data)
         if ip is None:

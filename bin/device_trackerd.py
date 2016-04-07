@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from origin import session, nac, neuron
+from origin import session, nac, neuron, utils
 from origin.event import Event, ExceptionEvent
 import os
 import time
@@ -66,14 +66,14 @@ def ignoreIP(ip):
 
 def checkAuthzOnVlan(mac, vlan):
     authz = nac.checkAuthz(mac)
-    if not authz or authz.vlan != vlan:
+    if not authz or vlan not in authz.allow_on:
         event = Event('device-not-authorized', source='network', level='danger') 
         event.add_data('mac',  mac, data_type='mac')
         event.add_data('vlan', vlan)
         event.notify()
         # TODO: Try to move it to another vlan!
 
-def process_frames(fname, pipe):
+def process_frames(fname, pipe, interfaces):
     try:
         dendrite = neuron.Dendrite('device-tracker')
 
@@ -123,11 +123,11 @@ def process_frames(fname, pipe):
                         frame = next(frameiter)
                     except StopIteration:
                         raise RuntimeError('Dumpcap reported new packets, but the capture-file does not have them.')
-                    process_frame(wt, frame, dendrite, CINFO)
+                    process_frame(wt, frame, dendrite, CINFO, interfaces)
     except:
         ExceptionEvent(source='network').notify()
     
-def process_frame(wt, frame, dendrite, CINFO):
+def process_frame(wt, frame, dendrite, CINFO, interfaces):
     # Dissect a single frame using the wtap's current state
     edt = epan.Dissect()
 
@@ -148,7 +148,7 @@ def process_frame(wt, frame, dendrite, CINFO):
         return
 
     mac = fields['src-mac']
-    vlan = int(fields.get('vlan-id', 0))
+    vlan = '{nic}.{vlan}'.format(nic=fields.get('interface-id'), vlan=fields.get('vlan-id', 0))
     epoch = int(float(fields['time']))
     
     if(   (  fields['protocol'] == 'ARP' 
@@ -182,8 +182,8 @@ def process_frame(wt, frame, dendrite, CINFO):
             dendrite.post('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
 
 
-def capture():
-    with dumpcap.CaptureSession(    interfaces=('eth0', 'eth1' ),
+def capture(interfaces):
+    with dumpcap.CaptureSession(    interfaces=interfaces,
                                     #capture_filter='inbound', 
                                     capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )',
                                     ringbuffer_filesize=10240, savefile='/tmp/device_tracker_dump'
@@ -204,7 +204,7 @@ def capture():
         fname = event_msg
         while True:
             parent_conn, child_conn = Pipe()
-            p = Process(target=process_frames, args=(fname, child_conn,))
+            p = Process(target=process_frames, args=(fname, child_conn, interfaces))
             p.start()
             
             for event_type, event_msg in iter(cap):
@@ -230,7 +230,7 @@ def capture():
 if __name__ == '__main__':
     for i in range(1, 100):
         try:
-            capture()
+            capture(list(utils.physical_ifaces()))
         except:
             ExceptionEvent(source='network').notify()
             time.sleep(1)

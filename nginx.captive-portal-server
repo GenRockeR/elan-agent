@@ -28,10 +28,10 @@ server {
 
 server {
 
-    listen 0.0.0.0:19998;
-    listen 0.0.0.0:19999 ssl;
-    listen [::]:19998;
-    listen [::]:19999 ssl;
+    listen 0.0.0.0:20000;
+    listen 0.0.0.0:20001 ssl;
+    listen [::]:20000;
+    listen [::]:20001 ssl;
     server_name allowed_macs;
 
     ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
@@ -52,15 +52,15 @@ server {
     }
 }
 
-% for vlan_id in vlans:
-  % if vlans[vlan_id]['access_control']:
+% for index in vlans:
+  % if vlans[index]['access_control']:
 
 server {
 
-    listen 0.0.0.0:${vlan_id + 20000};
-    listen 0.0.0.0:${vlan_id + 25000} ssl;
-    listen [::]:${vlan_id + 20000};
-    listen [::]:${vlan_id + 25000} ssl;
+    listen 0.0.0.0:${vlans[index]['http_port']};
+    listen 0.0.0.0:${vlans[index]['https_port']} ssl;
+    listen [::]:${vlans[index]['http_port']};
+    listen [::]:${vlans[index]['https_port']} ssl;
     server_name captive-portal;
 
     ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
@@ -79,10 +79,10 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
-      uwsgi_param "vlan" "${vlans[vlan_id]['id']}"; ## id of cc agent vlan object
-      uwsgi_param "vlan_id" "${vlan_id}";
-      uwsgi_param "web_authentication" "${vlans[vlan_id]['web_authentication'] or ''}";
-      uwsgi_param "guest_access" "${vlans[vlan_id]['guest_access'] or ''}";
+      uwsgi_param "vlan" "${vlans[index]['id']}"; ## id of cc agent vlan object
+      uwsgi_param "vlan_id" "${vlans[index]['vlan_id']}";
+      uwsgi_param "web_authentication" "${vlans[index]['web_authentication'] or ''}";
+      uwsgi_param "guest_access" "${vlans[index]['guest_access'] or ''}";
     }
 }
   % endif

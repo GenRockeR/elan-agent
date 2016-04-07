@@ -212,7 +212,7 @@ def get_assignments(request):
 
         return radiusd.RLM_MODULE_REJECT
     
-    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.vlan)), ), ()
+    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.assign_vlan)), ), ()
 
 
 def post_auth(req):

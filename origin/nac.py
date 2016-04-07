@@ -107,14 +107,6 @@ def notify_new_authorization_session(authz, start=None):
     '''
     data = authz.__dict__.copy()
     
-    # CC expects vlan_id, not vlan
-    data['vlan_id'] = authz.vlan
-    del data['vlan']
-    
-    # CC expects authorized, not bridge
-    data['authorized'] = authz.bridge
-    del data['bridge']
-    
     if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
@@ -129,16 +121,13 @@ def notify_end_authorization_session(authz, reason, end=None, **kwargs):
     dendrite.post('mac/{mac}/authorization/local_id:{local_id}/end'.format(mac=authz.mac, local_id=authz.local_id), kwargs)
 
 
-def macAllowed(mac, vlan):
-    authz = RedisMacAuthorization.getByMac(mac)
-    return authz is not None and str(authz.vlan) == str(vlan) 
-
 class RedisMacAuthorization(object):
-    def __init__(self, mac, vlan, bridge, till_disconnect, till=None, local_id=None, **kwargs):
+    def __init__(self, mac, assign_vlan, allow_on, bridge_to, till_disconnect, till=None, local_id=None, **kwargs):
         self.local_id = local_id # local_id is mainly used for sync with CC. we find current sessions by mac
         self.mac = mac
-        self.vlan = vlan
-        self.bridge = bridge
+        self.assign_vlan = assign_vlan
+        self.allow_on = set(allow_on)
+        self.bridge_to = set(bridge_to)
         self.till_disconnect = till_disconnect
         self.till = till
         
@@ -148,12 +137,12 @@ class RedisMacAuthorization(object):
     def __eq__(self, other):
         ''' Equality if all params match excluding mac and local_id. mac because we may want to compare authz of 2 macs'''
         if not isinstance(other, RedisMacAuthorization) or self.__dict__.keys() != other.__dict__.keys():
-            return False 
-        for key in self.__dict__:
-            if key in ('mac', 'local_id'):
-                continue
+            return False
+        
+        for key in self.__dict__.keys() - {'mac', 'local_id'}:
             if getattr(self, key) != getattr(other, key):
                 return False
+        
         return True
     
     def __ne__(self, other):
@@ -200,6 +189,7 @@ class MacAuthorizationManager(Dendrite):
         super().__init__(self, 'mac-authorizations')
 
         self.fw_mac_allowed_vlans = {}
+        self.fw_mac_bridged_vlans = {}
         
         self.add_channel(AUTHORIZATION_CHANGE_CHANNEL, self.handle_authz_changed)
         self.add_channel(DISCONNECT_NOTIFICATION_PATH, self.handle_disconnection)
@@ -212,19 +202,10 @@ class MacAuthorizationManager(Dendrite):
         
     def init_macs(self):
         # on startup, initialize sets
-        # TODO: this should get vlans from network conf to flush nft sets and it should use fw_allow mac for each. Even if it is not in a transaction and not very efficient, it is OK as this should not restart often  
-        cmd = ''
-        vlans = set()
+        # TODO: this should get vlans from network conf to flush nft sets and it should use fw_allow mac for each. Even if it is not in a transaction and not very efficient, it is OK as this should not restart often (TODO when flush sets works...) 
         for mac in self.synapse.zmembers(AUTHZ_MAC_EXPIRY_PATH):
             authz = RedisMacAuthorization.getByMac(mac)
-            vlans.add(authz.vlan)
-            if authz.bridge:
-                self._fw_cache_add(mac, authz.vlan)
-                cmd += 'nft add element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=authz.vlan, mac=mac)
-        for vlan in vlans:
-            cmd = "nft add set bridge origin a_v_{vlan} '{{type ether_addr;}}';nft flush set bridge origin a_v_{vlan};".format(vlan=vlan) + cmd
-             
-        subprocess.call(cmd, shell=True)
+            self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
 
     def removeAuthz(self, mac, reason, authz=None):
         if authz is None:
@@ -239,33 +220,63 @@ class MacAuthorizationManager(Dendrite):
     def fw_allowed_vlans(self, mac):
         return self.fw_mac_allowed_vlans.get(mac, set())
     
-    def _fw_cache_del(self, mac, vlan):
+    def _fw_cache_allow_on_del(self, mac, vlan):
         vlans = self.fw_mac_allowed_vlans.get(mac, None)
         if vlans:
             vlans.remove(vlan)
             if not vlans:
                 del self.fw_mac_allowed_vlans[mac]
 
-    def _fw_cache_add(self, mac, vlan):
+    def _fw_cache_allow_on_add(self, mac, vlan):
         vlans = self.fw_mac_allowed_vlans.get(mac, None)
         if vlans:
             vlans.add(vlan)
         else:
             self.fw_mac_allowed_vlans[mac] = {vlan}
             
+    def fw_bridged_vlans(self, mac):
+        return self.fw_mac_bridged_vlans.get(mac, set())
+    
+    def _fw_cache_bridge_to_del(self, mac, vlan):
+        vlans = self.fw_mac_bridged_vlans.get(mac, None)
+        if vlans:
+            vlans.remove(vlan)
+            if not vlans:
+                del self.fw_mac_bridged_vlans[mac]
+
+    def _fw_cache_bridge_to_add(self, mac, vlan):
+        vlans = self.fw_mac_bridged_vlans.get(mac, None)
+        if vlans:
+            vlans.add(vlan)
+        else:
+            self.fw_mac_bridged_vlans[mac] = {vlan}
+            
         
-    def fw_allow_mac(self, mac, *vlans):
+    def fw_allow_mac(self, mac, on=None, to=None):
         "Opens access on the vlan ids specified an closes all the others, if any"
-        vlans = set(vlans)
-        cmd = ''
-        for vlan in self.fw_allowed_vlans(mac) - vlans:
-            self._fw_cache_del(mac, vlan)
-            cmd += 'nft delete element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=vlan, mac=mac) 
-        for vlan in vlans - self.fw_allowed_vlans(mac):
-            self._fw_cache_add(mac, vlan)
-            cmd += 'nft add element bridge origin a_v_{vlan} {{{mac}}};'.format(vlan=vlan, mac=mac) 
-        subprocess.call(cmd, shell=True)
+        if on is None:
+            on = set()
+        if to is None:
+            to = set()
         
+        # TODO: use nft from pyroute2 when ready
+        with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
+            def nft(*cmds):
+                print(*cmds, file=nft_process)
+            
+            for vlan in self.fw_allowed_vlans(mac) - on:
+                self._fw_cache_allow_on_del(mac, vlan)
+                nft('delete element bridge origin mac_allowed_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
+            for vlan in on - self.fw_allowed_vlans(mac):
+                self._fw_cache_allow_on_add(mac, vlan)
+                nft('add element bridge origin mac_allowed_on_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
+
+            for vlan in self.fw_bridged_vlans(mac) - to:
+                self._fw_cache_bridge_to_del(mac, vlan)
+                nft('delete element bridge origin mac_access_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac))
+            for vlan in on - self.fw_allowed_on(mac):
+                self._fw_cache_bridge_to_add(mac, vlan)
+                nft('add element bridge origin mac_access_to_vlan {{ {mac} . {vlan} }};'.format(vlan=vlan, mac=mac)) 
 
     def fw_disallow_mac(self, mac):
         ''' 
@@ -276,11 +287,8 @@ class MacAuthorizationManager(Dendrite):
             
     def authzChanged(self, mac):
         authz = RedisMacAuthorization.getByMac(mac)
-        if authz and authz.bridge:
-            self.fw_allow_mac(mac, authz.vlan)
-        else:
-            self.fw_disallow_mac(mac)
-        
+        self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
+    
     def handle_authz_changed(self, mac):
         self.authzChanged(mac)
         # Check if authz have expired and set correct timeout 

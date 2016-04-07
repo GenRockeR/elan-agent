@@ -2,6 +2,7 @@ import tornado.ioloop, tornado.websocket, tornado.gen, tornado.options
 import json, datetime, traceback, time
 import tornadoredis
 import redis
+from . import utils
 
 CACHE_PREFIX = 'cache:'
 
@@ -61,6 +62,7 @@ class Synapse(redis.StrictRedis):
                 'HGETALL':       self.parse_hgetall,
                 'HGET':          self.parse_single_object,
                 'HKEYS':         self.parse_list,
+                'HVALS':         self.parse_list,
                 'SMEMBERS':      self.parse_smembers, 
                 'ZRANGE':        self.parse_zrange,
                 'ZRANGEBYSCORE': self.parse_zrange,
@@ -412,6 +414,9 @@ class Dendrite(object):
         self._send_command(cmd='CALL', path=path, data=data, answer_path=answer_path)
 
     def register(self, data, answer_path=None):
+        # Add interfaces to data
+        data['interfaces'] = utils.physical_ifaces()
+        
         self._send_command(cmd='REGISTER', data=data, answer_path=answer_path)
 
     def answer(self, req_id, answer):

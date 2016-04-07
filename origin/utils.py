@@ -2,6 +2,7 @@ import netifaces, subprocess, re, netaddr
 import ctypes
 import ctypes.util
 from netaddr import IPNetwork
+import os
 
 DEFAULT_IFACE = 'br0'
 
@@ -146,3 +147,15 @@ def is_iface_up(iface):
     except IOError:
         return False
     return state == 'up'
+
+def physical_ifaces():
+    ifaces = set()
+    for ifname in os.listdir('/sys/class/net/'):
+        try:
+            if not os.readlink('/sys/class/net/' + ifname).startswith('../../devices/virtual/net/'):
+                ifaces.add(ifname)
+        except:
+            pass
+    
+    return ifaces
+        

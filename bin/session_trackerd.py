@@ -20,32 +20,30 @@ def pingIP(mac, vlan, ip):
         arpPing(mac, vlan, ip)
 
 
-def ndpPing(dst_mac, vlan, dst_ip):
+def ndpPing(dst_mac, vlan, ip):
     src_mac = get_ether_address('br0')
 
-
-    src_ip = get_ip6_address('br0')['address']
 
     ethernet = Ethernet()
     ethernet.set_ether_shost( tuple(int(v,16) for v in src_mac.split(':')) )
     ethernet.set_ether_dhost( tuple(int(v,16) for v in dst_mac.split(':')) )
 
-    if vlan:
-        if_name = 'eth1'
+    if '.' in vlan:
+        if_name, vlan_id = vlan.split('.')
         tag = EthernetTag()
-        tag.set_vid(int(vlan))
+        tag.set_vid(int(vlan_id))
         ethernet.push_tag(tag)
     else:
-        if_name = 'br0'
+        if_name = vlan
 
     ip6 = IP6()
-    ip6.set_source_address(src_ip)
-    ip6.set_destination_address(dst_ip)
+    ip6.set_source_address( get_ip6_address('br0')['address'] )
+    ip6.set_destination_address(ip)
     ip6.set_traffic_class(0)
     ip6.set_flow_label(0)
     ip6.set_hop_limit(255)
 
-    ndp = NDP.Neighbor_Solicitation(IP6_Address(dst_ip))
+    ndp = NDP.Neighbor_Solicitation(IP6_Address(ip))
     ndp.append_ndp_option(NDP_Option.Source_Link_Layer_Address(ethernet.get_ether_shost()))
 
     ip6.contains(ndp)
@@ -68,13 +66,13 @@ def arpPing(mac, vlan, ip):
     ethernet.set_ether_shost( tuple(int(v,16) for v in get_ether_address('br0').split(':')) )
     ethernet.set_ether_dhost( tuple(int(v,16) for v in mac.split(':')) )
 
-    if vlan:
-        if_name = 'eth1'
+    if '.' in vlan:
+        if_name, vlan_id = vlan.split('.')
         tag = EthernetTag()
-        tag.set_vid(int(vlan))
+        tag.set_vid(int(vlan_id))
         ethernet.push_tag(tag)
     else:
-        if_name = 'br0'
+        if_name = vlan
 
     arp = ARP()
     
