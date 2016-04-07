@@ -7,24 +7,24 @@ CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))
 def getPacketParams(packet):
     """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
     """
-    params = {'from': {}, 'to': {}}
+    params = {'src': {}, 'dst': {}}
     original_packet = packet
     while packet:
         if packet.__class__.__name__ == 'Ethernet':
-            params['from']['mac'] = packet.as_eth_addr(packet.get_ether_shost())
-            params['to']['mac']   = packet.as_eth_addr(packet.get_ether_dhost())
+            params['src']['mac'] = packet.as_eth_addr(packet.get_ether_shost())
+            params['dst']['mac']   = packet.as_eth_addr(packet.get_ether_dhost())
         elif packet.__class__.__name__ == 'IP':
-            params['from']['ip'] = packet.get_ip_src()
-            params['to']['ip']   = packet.get_ip_dst()
+            params['src']['ip'] = packet.get_ip_src()
+            params['dst']['ip']   = packet.get_ip_dst()
         elif packet.__class__.__name__ == 'IP6':
-            params['from']['ip'] = packet.get_source_address().as_string()
-            params['to']['ip']   = packet.get_destination_address().as_string()
+            params['src']['ip'] = packet.get_source_address().as_string()
+            params['dst']['ip']   = packet.get_destination_address().as_string()
         elif packet.__class__.__name__ == 'UDP':
-            params['from']['port'] = packet.get_uh_sport()
-            params['to']['port']   = packet.get_uh_dport()
+            params['src']['port'] = packet.get_uh_sport()
+            params['dst']['port']   = packet.get_uh_dport()
         elif packet.__class__.__name__ == 'TCP':
-            params['from']['port'] = packet.get_th_sport()
-            params['to']['port']   = packet.get_th_dport()
+            params['src']['port'] = packet.get_th_sport()
+            params['dst']['port']   = packet.get_th_dport()
         
         # packet type is the last type before data.
         if packet.child().__class__.__name__ == 'Data':
@@ -44,7 +44,7 @@ def getPacketParams(packet):
 def ignorePacket(pkt):
     macs2ignore = ('ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00')
     
-    for t in ('from', 'to'):
+    for t in ('src', 'dst'):
         # Ignore broadcast packets
         if pkt[t]['mac'] in macs2ignore:
             return True
@@ -85,8 +85,8 @@ if __name__ == '__main__':
                 # TODO: Use NFLOG time
                 pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
-                pkt_params['from']['vlan'] = if_indextoname(physindev)
-                pkt_params['to']['vlan']   = if_indextoname(physoutdev)
+                pkt_params['src']['vlan'] = if_indextoname(physindev)
+                pkt_params['dst']['vlan']   = if_indextoname(physoutdev)
 
                 dendrite.post('connection', pkt_params)
 
