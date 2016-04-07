@@ -34,6 +34,9 @@ def is_online(mac, vlan=None, ip=None):
     
     return bool(dendrite.synapse.zscore(LAST_SEEN_PATH, data))
 
+def mac_has_ip_on_vlan(mac, ip, vlan):
+    return dendrite.synapse.sismember(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan), ip)
+
 def seen(mac, vlan=None, port=None, ip=None, time=None ):
     '''
     marks mac as seen on VLAN 'vlan', on Port 'port' with IP 'ip' at Time 'time' and notifies CC if new session.

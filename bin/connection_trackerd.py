@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 from origin.event import ExceptionEvent, InternalEvent
+from origin import session
 
 CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))
 
@@ -87,6 +88,13 @@ if __name__ == '__main__':
 
                 pkt_params['src']['vlan'] = if_indextoname(physindev)
                 pkt_params['dst']['vlan']   = if_indextoname(physoutdev)
+                
+                for t in ('src', 'dst'):
+                    tip = pkt_params[t]
+                    if 'ip' in tip:
+                        tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
+                    else:
+                        tip['is_mac_ip'] = False
 
                 dendrite.post('connection', pkt_params)
 
