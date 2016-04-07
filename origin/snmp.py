@@ -228,7 +228,7 @@ class DeviceSnmpManager(Dendrite):
                       (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
                         port = self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
                         vlan=trap.get('vlan', None)
-                        session.seen(trap['trapMac'], vlan=vlan, port=port, time=trap_time)
+                        session.seen(trap['trapMac'], port=port, time=trap_time)
                     elif trap['trapType'] == 'dot11Deauthentication'or \
                         (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
                         nac.macDisconnected(trap['trapMac'], time=trap_time)
