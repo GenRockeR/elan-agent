@@ -137,6 +137,11 @@ class AccessControlConfigurator(Dendrite):
                     else:
                         cmd_nft += 'nft delete element bridge origin log_ifs {{ {nic} }};'.format(nic=nic_name)
     
+                    if new_vlan['ids']:
+                        cmd_nft += 'nft add element bridge origin ids_ifs {{ {nic} }};'.format(nic=nic_name)
+                    else:
+                        cmd_nft += 'nft delete element bridge origin ids_ifs {{ {nic} }};'.format(nic=nic_name)
+
                 else:
                     cmd_nft += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic_name)
                 

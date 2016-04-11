@@ -13,6 +13,9 @@ table bridge origin {
   set log_ifs {
     type iface_index ;
   }
+  set ids_ifs {
+    type iface_index ;
+  }
   set mac_on_vlan {
     type ether_addr . iface_index ;
   }

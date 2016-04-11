@@ -8,7 +8,7 @@ umask 022
 
 reload signal USR2
 
-exec /usr/bin/suricata --pcap
+exec /usr/bin/suricata --nflog
 
 
 env PYTHONPATH=/origin/lib/python
