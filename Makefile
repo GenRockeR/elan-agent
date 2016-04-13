@@ -3,7 +3,7 @@ PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
                    gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, \
-                   libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server,
+                   libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server,\
                    python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
                    zsync, python-idstools, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
@@ -16,14 +16,14 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako
 
-include ../core/packaging.mk
-
-.PHONY: test
-test:
-	py.test
+include packaging.mk
 
 .PHONY: install
 install: core-install authentication-install captive-portal-install connection-tracker-install ids-install nac-install network-install
+
+.PHONY: test
+test:
+	#py.test tests/
 
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
@@ -43,7 +43,7 @@ authentication-freeradius:
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -m 644 freeradius.python-module    ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/python-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
+	install -m 755 exec/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
 	install -m 644 pyrad.dictionary            ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
 	install -d ${DESTDIR}/etc/freeradius/sites-available
@@ -59,7 +59,7 @@ authentication-samba:
 	install -m 644 smb.conf ${DESTDIR}/etc/samba/smb.conf
 
 .PHONY: captive-portal-install
-captive-portal-install: conf www python
+captive-portal-install: captive-portal-conf captive-portal-www captive-portal-python
 
 captive-portal-python: origin/captive_portal.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
@@ -68,8 +68,8 @@ captive-portal-python: origin/captive_portal.py
 .PHONY: captive-portal-conf
 captive-portal-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
-	install -m 755 bin/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
+	install -m 755 exec/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
+	install -m 755 exec/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
     
 .PHONY: captive-portal-www
 captive-portal-www:
@@ -90,14 +90,14 @@ captive-portal-www:
   
 
 .PHONY: connection-tracker-install
-connection-tracker-install: origin/*.py bin/connection_trackerd.py bin/device_trackerd.py bin/session_trackerd.py connection-tracker-wirepy
+connection-tracker-install: origin/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-wirepy
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install bin/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
-	install bin/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
-	install bin/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
+	install exec/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
+	install exec/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
+	install exec/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
 
 connection-tracker-wirepy:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
@@ -107,9 +107,9 @@ connection-tracker-wirepy:
 install: core-python core-nginx
 
 .PHONY: core-python
-core-python: origin/*.py core-pylib bin/axon.py
+core-python: origin/*.py core-pylib exec/axon.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install bin/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
+	install exec/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 
@@ -123,13 +123,13 @@ core-pylib: tornadoredis tornado redis pyrad
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
 	)
 
-.PHONY: core-tornadoredis
-.PHONY: core-tornado
-.PHONY: core-redis
+.PHONY: tornadoredis
+.PHONY: tornado
+.PHONY: redis
 core-redis:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
 	install redis.conf ${DESTDIR}${ORIGIN_PREFIX}/core/redis/conf
-.PHONY: core-pyrad
+.PHONY: pyrad
 
 .PHONY: core-nginx
 core-nginx:
@@ -149,13 +149,13 @@ ids-install-suricata:
 	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
 	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install rule_fetcher ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
-	install ids_monitor ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
+	install exec/rule_fetcher ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
+	install exec/ids_monitor ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
 
 .PHONY: ids-install-logger
 ids-install-logger:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
+	install exec/ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 
@@ -165,7 +165,7 @@ nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
 .PHONY: nac-conf
 nac-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/nac_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_configurator
+	install -m 755 exec/nac_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_configurator
 
 .PHONY: nac-freeradius
 nac-freeradius:
@@ -193,13 +193,13 @@ nac-python: origin/nac.py origin/snmp.py
 .PHONY: nac-authz
 nac-authz:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 exec/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
 
 .PHONY: nac-snmp
 nac-snmp: nac-perl-lib nac-mibs
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/snmp_poller ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/snmp_notification_receiver ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 exec/snmp_poller ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 exec/snmp_notification_receiver ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp
 	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
 
@@ -220,7 +220,7 @@ network-install:
 	install -d ${DESTDIR}/etc/network
 	install -m 644 interfaces ${DESTDIR}/etc/network/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/access_control_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
+	install -m 755 exec/access_control_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
 	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/

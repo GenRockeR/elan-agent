@@ -7,9 +7,9 @@ ORIGIN_PREFIX = /origin
 # Make sure that the MCN key exists in gpg configuration
 .PHONY: gpgkey
 gpgkey:
-	@gpg --list-secret-keys "Origin Nexus" || gpg --import < ../core/packaging/gpg.key
+	@gpg --list-secret-keys "Origin Nexus" || gpg --import < packaging/gpg.key
 
-$(HOME)/.dupload.conf: ../core/packaging/dupload.conf
+$(HOME)/.dupload.conf: packaging/dupload.conf
 	cp $< $@
 
 gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s:%{PACKAGE-DESC}:${PACKAGE-DESC}:g; s:%{PACKAGE-DEPENDS}:${PACKAGE-DEPENDS}:g; s:%{ORIGIN_PREFIX}:${ORIGIN_PREFIX}:g' $(1) > $(2)

@@ -128,10 +128,11 @@ class Tracker():
             packet = packet.child()
             
         else:
-            InternalEvent(source='network').
-                                     ('script', 'connection-tracker'),
-                                     ('details', 'Data class not found while decoding packet'),
-                                     ('packet', original_packet),
+            InternalEvent(source='network')\
+                     .add_data('script', 'connection-tracker')\
+                     .add_data('details', 'Data class not found while decoding packet')\
+                     .add_data('packet', original_packet)\
+                     .notify()
         return params 
 
 class Connection_tree(dict):

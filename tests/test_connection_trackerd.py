@@ -1,4 +1,4 @@
-connection_trackerd = __import__("connection-trackerd")
+import connection_trackerd
 
 def test_ignorePacket_broadcast_OK():
     assert( connection_trackerd.ignorePacket({'wan_mac': 'ff:ff:ff:ff:ff:01', 'lan_mac': '01:02:03:04:05:06'}) == False )
