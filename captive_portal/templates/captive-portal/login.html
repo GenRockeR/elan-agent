@@ -1,0 +1,72 @@
+{% extends 'captive-portal/base_bootstrap.html' %}
+{% load i18n %}
+{% load static from staticfiles %}
+
+{% block head %}
+  {{ block.super }}
+  
+  <link rel="stylesheet" href="{% static 'captive-portal/css/bootstrap-datetimepicker-3.1.1.min.css' %}">
+  
+  <script type="text/javascript" src="{% static 'captive-portal/js/jquery-1.11.1.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/moment-2.8.1.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/transition-3.2.0.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/collapse-3.2.0.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/bootstrap-3.2.0.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'captive-portal/js/bootstrap-datetimepicker-3.1.1.min.js' %}"></script>
+{% endblock %}
+
+{% block body_main %}
+  <div class="container">
+    <div class="row">
+
+      {% if web_authentication %}
+      <div class="col-sm-5">
+        <div class="panel panel-default">
+          <div class="panel-heading">{% trans "Login" %}</div>
+          <div class="panel-body"> 
+            {% if error_message %}<div class="alert alert-danger">{{ error_message }}</div>{% endif %}
+            
+            <form action="{% url 'login' %}" method="post" class="form-horizontal">
+              {% csrf_token %}
+              <div class="form-group">
+                <label for="field-login" class="col-sm-3 control-label">{% trans 'Username' %}</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="field-login" required="required" name="username" value="{{ username }}">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-pwd" class="col-sm-3 control-label">{% trans 'Password' %}</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="field-pwd" required="required" name="password">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="col-sm-offset-3 col-sm-9">
+                  <button type="submit" class="btn btn-default">{% trans 'Login' %}</button>
+                </div>
+              </div>             
+              
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if guest_access %}
+      <div class="col-sm-7">
+        <div class="panel panel-default">
+          <div class="panel-heading">{% trans "Guest Access" %}</div>
+          <div class="panel-body"> 
+            {% include 'captive-portal/guest-request-form.html' %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      
+    </div>
+  </div>
+
+{% endblock %}
+

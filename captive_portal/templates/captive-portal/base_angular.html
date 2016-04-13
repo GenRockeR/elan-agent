@@ -1,0 +1,9 @@
+{% extends 'captive-portal/base_bootstrap.html' %}
+{% load static from staticfiles %}
+
+{% block head %}
+  {{block.super}}
+  {# AngularJS #}
+  <script src="{% static "captive-portal/js/angular-1.2.21.js" %}"></script>
+
+{% endblock %}

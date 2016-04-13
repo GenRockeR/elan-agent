@@ -1,0 +1,307 @@
+server nac {
+  listen {
+    type = auth
+    ipaddr = *
+    port = 0
+  }
+  listen {
+    type = auth
+    ipv6addr = ::
+    port = 0
+  }
+  
+  listen {
+    ipaddr = *
+    port = 0
+    type = acct
+  }
+  listen {
+    ipv6addr = ::
+    port = 0
+    type = acct
+  }
+  
+% if default_secret:
+  client allv4 {
+    ipaddr = 0.0.0.0
+    netmask = 0
+    secret = ${default_secret}
+  }
+  client allv6 {
+    ipv6addr = ::
+    netmask = 0
+    secret = ${default_secret}
+  }
+% endif
+  
+  authorize {
+      preprocess
+      nac-eap {
+        ok = return
+      }
+  
+      if ( ( ! EAP-Message || EAP-TYPE == MD5 ) \
+        && Calling-Station-Id \
+        && User-Name =~ /^([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})[.:-]?([0-9a-f]{1,2})$/i ) {
+          # Check Username Looks like Calling-station-ID
+          if ( "%{Calling-Station-Id}" =~ /^(%{1})[.:-]?(%{2})[.:-]?(%{3})[.:-]?(%{4})[.:-]?(%{5})[.:-]?(%{6})/i ) {
+              # Looks like Mac Auth
+              update control {
+                  ClearText-Password := "%{User-Name}"
+              }
+              update session-state {
+                  Origin-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
+              }
+              # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {
+          }
+          if ( ! EAP-Message ) {
+            chap
+            pap
+          }
+      }
+      elsif( EAP-TYPE == MD5 ) {
+          update request {
+              &Origin-Auth-Provider := "${dot1x_authentication}"
+          }
+          # TODO: Send alert when dot1x_authentication is None
+          update request {
+              Origin-Auth-Type := "radius-dot1x"
+          }
+          authentications
+      }
+  }
+  
+  authenticate {
+    Auth-Type PAP {
+      pap
+    }
+    Auth-Type CHAP {
+      chap
+    }
+    Auth-Type MS-CHAP {
+      mschap
+    }
+  
+    nac-eap
+  }
+  
+  
+  preacct {
+    preprocess
+  
+    #
+    #  Merge Acct-[Input|Output]-Gigawords and Acct-[Input-Output]-Octets
+    #  into a single 64bit counter Acct-[Input|Output]-Octets64.
+    #
+    acct_counters64
+  
+  
+    update request {
+        FreeRADIUS-Acct-Session-Start-Time = "%{expr: %l - %{%{Acct-Session-Time}:-0} - %{%{Acct-Delay-Time}:-0}}"
+    }
+  
+    acct_unique
+  
+  # ntdomain
+  }
+  
+  accounting {
+  #  -sql
+  # sql_log
+    
+  update request {
+    &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
+    # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
+  }
+
+  nac
+
+  attr_filter.accounting_response
+  
+  # Acct-Type Status-Server {
+  #
+  # }
+  }
+  
+  
+  session {
+  }
+  
+  
+  post-auth {
+  
+    if( session-state:Origin-MAC) {
+      update request {
+          &Origin-Auth-Type := "radius-mac"
+          &Origin-MAC := &session-state:Origin-MAC
+      }
+    }
+    else {
+      update request {
+          &Origin-Auth-Provider := "%{%{session-state:Origin-Auth-Provider}:-${dot1x_authentication}}"
+          &Origin-Login         := &session-state:Origin-Login
+          &Origin-Auth-Type     := "radius-dot1x"
+          &Origin-MAC           := &Calling-Station-ID
+      }
+    }
+
+    update request {
+      &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
+      # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
+    }
+    
+    nac
+    
+    if( &reply:Origin-VLAN-ID && &reply:Origin-VLAN-ID != "0" ) {
+      update reply {
+        Tunnel-Type := VLAN
+        Tunnel-Medium-Type := IEEE-802
+        Tunnel-Private-Group-Id := &reply:Origin-VLAN-ID
+        Extreme-Netlogin-Vlan   := &reply:Origin-VLAN-ID
+      }
+    }
+    
+    update reply {
+      Acct-Interim-Interval := 300
+    }
+    
+    #  MacSEC requires the use of EAP-Key-Name.  However, we don't
+    #  want to send it for all EAP sessions.  Therefore, the EAP
+    #  modules put required data into the EAP-Session-Id attribute.
+    #  This attribute is never put into a request or reply packet.
+    #
+    #  Uncomment the next few lines to copy the required data into
+    #  the EAP-Key-Name attribute
+    # if (reply:EAP-Session-Id) {
+    #   update reply {
+    #     EAP-Key-Name := "%{reply:EAP-Session-Id}"
+    #   }
+    # }
+  
+    remove_reply_message_if_eap
+  
+    Post-Auth-Type REJECT {
+      attr_filter.access_reject
+  
+      nac-eap
+      
+      update request {
+        &Packet-Src-IP-Address   := "%{Packet-Src-IP-Address}"
+        # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
+      }
+      update request {
+         Origin-Auth-Type := "Reject" # Tell nac that we are in post-auth reject
+      }
+      nac
+  
+      remove_reply_message_if_eap
+    }
+  }
+  
+  pre-proxy {
+  }
+  
+  post-proxy {
+    nac-eap
+  # Post-Proxy-Type Fail {
+  #     detail
+  # }
+  }
+}
+
+
+server inner-eap-tunnel {
+  authorize {
+  
+    chap
+  
+    mschap
+  
+    nac-eap {
+      ok = return
+    }
+  
+    if( outer.session-state:ClearText-Password || outer.session-state:NT-Password || outer.session-state:LM-Password || outer.session-state:Password-With-Header){
+        update control {
+            ClearText-Password := &outer.session-state:Cleartext-Password
+            NT-Password := &outer.session-state:NT-Password
+            LM-Password := &outer.session-state:LM-Password
+            Password-With-Header := &outer.session-state:Password-With-Header
+        }
+    }
+    else {
+        update request {
+            Origin-Auth-Provider := "${dot1x_authentication}"
+        }
+        # TODO: Send alert when dot1x_authentication is None
+
+        update request {
+            Origin-Auth-Type := "radius-dot1x"
+        }
+        authentications
+        update outer.session-state {
+            Origin-Auth-Provider := &session-state:Origin-Auth-Provider
+
+            ClearText-Password := &control:Cleartext-Password
+            NT-Password := &control:NT-Password
+            LM-Password := &control:LM-Password
+            Password-With-Header := &control:Password-With-Header
+        }
+    }
+
+    expiration
+    logintime
+    
+    pap
+  }
+  
+  post-auth {
+    update outer.session-state {
+        &Origin-Login := User-Name
+    }
+
+  }
+  
+  
+  authenticate {
+    Auth-Type PAP {
+      pap
+    }
+  
+    Auth-Type CHAP {
+      chap
+    }
+  
+  
+    Auth-Type MS-CHAP {
+      mschap
+    }
+  
+    nac-eap
+  }
+  
+  session {
+  }
+  
+  
+  post-auth {
+    Post-Auth-Type REJECT {
+      # log failed authentications in SQL, too.
+      -sql
+      attr_filter.access_reject
+    }
+  
+  }
+  
+  pre-proxy {
+  }
+  
+  post-proxy {
+  # attr_filter.post-proxy
+    nac-eap
+  
+  # Post-Proxy-Type Fail {
+  #     detail
+  # }
+  }
+} # inner-tunnel server block

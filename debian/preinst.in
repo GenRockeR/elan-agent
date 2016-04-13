@@ -1,0 +1,50 @@
+# Remove freeradius start script as we use upstart
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/freeradius.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/freeradius.diverted-%{PACKAGE-NAME}" "/etc/init.d/freeradius"
+fi
+
+if [ ! -e /etc/init.d/freeradius ]
+then
+	touch /etc/init.d/freeradius
+	chmod 755 /etc/init.d/freeradius
+fi
+
+# 
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/samba/smb.conf.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/samba/smb.conf.diverted-%{PACKAGE-NAME}" "/etc/samba/smb.conf"
+fi
+
+# 
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/default/freeradius.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/default/freeradius.diverted-%{PACKAGE-NAME}" "/etc/default/freeradius"
+fi
+
+# Remove nginx start script as we use upstart
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/nginx.diverted-%{PACKAGE-NAME}" "/etc/init.d/nginx"
+fi
+
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/redis-server.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/redis-server.diverted-%{PACKAGE-NAME}" "/etc/init.d/redis-server"
+fi
+
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}" "/etc/suricata/suricata.yaml"
+fi
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}" "/etc/init.d/suricata"
+fi

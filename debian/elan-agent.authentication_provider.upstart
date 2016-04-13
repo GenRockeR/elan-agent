@@ -1,0 +1,12 @@
+description "Authentications"
+
+start on started axon
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/authentication_provider
+
+

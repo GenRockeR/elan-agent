@@ -1,0 +1,78 @@
+ldap ADldap {
+  server = "${ldap_server_name}"
+  % if ldap_port:
+  port = ${ldap_port}
+  % endif
+  base_dn = "${ldap_base_dn}"
+
+  sasl {
+    mech = 'GSSAPI'
+  }
+  user {
+    base_dn = <%text>"${..base_dn}"</%text>
+    filter = "(sAMAccountName=%{%{Stripped-User-Name}:-%{User-Name}})"
+  }
+
+  group {
+    base_dn = <%text>"${..base_dn}"</%text>
+    filter = "(objectClass=posixGroup)"
+    scope = 'sub'
+    membership_attribute = "memberOf"
+  }
+  
+  read_clients = no
+
+  accounting {
+  }
+
+  post-auth {
+  }
+
+  options {
+    chase_referrals = yes
+    rebind = yes
+    res_timeout = 10
+    srv_timelimit = 3
+    net_timeout = 1
+    idle = 60
+    probes = 3 
+    interval = 3 
+    ldap_debug = 0x0028
+  }
+  pool {
+    start = 0
+    min = <%text>${thread[pool].min_spare_servers}<%text>
+    max = <%text>${thread[pool].max_servers}</%text>
+    spare = <%text>${thread[pool].max_spare_servers}</%text>
+    uses = 0
+    retry_delay = 5
+    lifetime = 86400
+    idle_timeout = 600
+  }
+}
+
+exec ADpap {
+        wait = yes
+        program = "/usr/bin/ntlm_auth --request-nt-key --domain=%{mschap:NT-Domain} --username=%{mschap:User-Name} --password=%{User-Password}"
+}
+
+mschap ADmschap {
+     winbind_username = "%{mschap:User-Name}"
+     winbind_domain = "%{mschap:NT-Domain}"
+    
+     pool {
+        start = 0
+        min = ${thread[pool].min_spare_servers}
+        max = ${thread[pool].max_servers}
+        spare = ${thread[pool].max_spare_servers}
+        uses = 0
+        retry_delay = 5
+        lifetime = 86400
+        cleanup_interval = 300
+        idle_timeout = 600
+    }
+    
+    passchange {
+    }
+    
+}

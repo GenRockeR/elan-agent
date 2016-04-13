@@ -1,0 +1,10 @@
+description "Allow MACs on VLANs"
+
+start on started axon
+
+env PYTHONPATH=/origin/lib/python
+
+respawn
+respawn limit 10 5
+
+exec /origin/bin/guest_access_manager

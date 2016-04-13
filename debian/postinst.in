@@ -1,0 +1,34 @@
+# get rid of rc.d symlinks for freeradius
+update-rc.d -f freeradius remove
+rm -f /etc/init.d/freeradius
+ln -s /lib/init/upstart-job /etc/init.d/freeradius
+  
+
+# create default params
+/etc/freeradius/certs/bootstrap
+
+perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
+
+# get rid of rc.d symlinks for nginx and redis
+update-rc.d -f nginx remove
+update-rc.d -f redis-server remove
+
+# deconfigure default site
+rm -f /etc/nginx/sites-enabled/default
+
+# Create certs
+mkdir -p /origin/network/certs/
+for domain in edge-agent.origin-nexus.com captive-portal.origin-nexus.com
+do
+  if [ ! -e /origin/network/certs/$domain.crt ]
+  then 
+    openssl req  -x509 -newkey rsa:2048 -keyout /origin/network/certs/$domain.key -out /origin/network/certs/$domain.crt -nodes -subj /CN=$domain
+  fi
+done
+
+# remove default FW that blocks all incoming...
+update-rc.d -f nftables remove
+
+exit 0
+
+

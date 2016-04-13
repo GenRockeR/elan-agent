@@ -1,0 +1,117 @@
+ldap ldap-auth-${id} {
+  server = "${host}"
+  % if port:
+  port = ${port}
+  % endif
+
+  % if bindDN:
+  identity = "${bindDN}"
+  % endif
+  % if bindPwd:
+  password = "${bindPwd}"
+  % endif
+
+  base_dn = "${baseDN}"
+
+  update {
+    control:Password-With-Header  += 'userPassword'
+    control:NT-Password   += 'ntPassword'
+    control:NT-Password   += 'sambaNTPassword'
+  }
+
+  user {
+    base_dn = <%text>"${..base_dn}"</%text>
+
+    % if userFilter:
+    filter = "(&(${userAttr}=%{%{Stripped-User-Name}:-%{User-Name}})(${userFilter}))"
+    % else:
+    filter = "(${userAttr}=%{%{Stripped-User-Name}:-%{User-Name}})"
+    % endif
+
+    scope = 'sub'
+  }
+
+  group {
+    base_dn = <%text>"${..base_dn}"</%text>
+    filter = "(objectClass=posixGroup)"
+    scope = 'sub'
+    name_attribute = cn
+    membership_filter = "(|(member=%{control:Ldap-UserDn})(memberUid=%{%{Stripped-User-Name}:-%{User-Name}}))"
+    membership_attribute = "memberOf"
+    
+    # Cache group name
+    cacheable_name = "yes"
+    cacheable_dn = "no"
+    cache_attribute = "Origin-Group"  # wait for 3.0.4
+  }
+  
+  profile {
+#   filter = "(objectclass=radiusprofile)"
+#   default = "cn=radprofile,dc=example,dc=org"
+#   attribute = "radiusProfileDn"
+  }
+  
+  client {
+    base_dn = <%text>"${..base_dn}"</%text>
+    filter = '(objectClass=frClient)'
+    scope = 'sub'
+    attribute {
+      identifier = 'radiusClientIdentifier'
+      secret = 'radiusClientSecret'
+#     shortname = 'radiusClientShortname'
+#     nas_type = 'radiusClientType'
+#     virtual_server = 'radiusClientVirtualServer'
+#     require_message_authenticator = 'radiusClientRequireMa'
+    }
+  }
+
+  read_clients = no
+
+  accounting {
+  }
+
+  post-auth {
+  }
+
+  options {
+    chase_referrals = yes
+    rebind = yes
+
+    timeout = 5
+    timelimit = 3
+    net_timeout = 1
+    idle = 60
+    probes = 3
+    interval = 3
+    ldap_debug = 0x0028
+  }
+  tls {
+  % if encryption == 'start_tls':
+    start_tls = yes
+  % else:
+    start_tls = no
+  % endif
+  
+  % if server_ca and (encryption == 'start_tls' or encryption == 'ssl'):
+    ca_file = /etc/freeradius/certs/server_CA/auth-${id}.pem
+    require_cert  = "demand"
+  % else:
+    require_cert  = "allow"
+  % endif
+
+#   ca_path = <%text>${certdir}</%text>
+#   certificate_file = /path/to/radius.crt
+#   private_key_file = /path/to/radius.key
+#   random_file = <%text>${certdir}/random</%text>
+  }
+
+  pool {
+    start = 0
+    min = 4
+    max = <%text>${thread[pool].max_servers}</%text>
+    spare = 3
+    uses = 0
+    lifetime = 0
+    idle_timeout = 0
+  }
+}

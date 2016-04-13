@@ -1,0 +1,89 @@
+upstream portal {
+    server unix:///var/run/captive-portal/uwsgi.sock;
+}
+
+server {
+
+    listen 0.0.0.0:80;
+    listen 0.0.0.0:443 ssl;
+    listen [::]:80;
+    listen [::]:443 ssl;
+    server_name dashboard;
+
+    ssl_certificate     /origin/network/certs/edge-agent.origin-nexus.com.crt;
+    ssl_certificate_key /origin/network/certs/edge-agent.origin-nexus.com.key;
+
+    # no need for logs
+    access_log off;
+    
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    location / {
+      uwsgi_pass portal;
+      include uwsgi_params;
+      uwsgi_param "dashboard" "1";
+    }
+}
+
+server {
+
+    listen 0.0.0.0:20000;
+    listen 0.0.0.0:20001 ssl;
+    listen [::]:20000;
+    listen [::]:20001 ssl;
+    server_name allowed_macs;
+
+    ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
+    ssl_certificate_key /origin/network/certs/captive-portal.origin-nexus.com.key;
+
+    # no need for logs
+    access_log off;
+
+    # Disable keep-alives: when logged out, browser could reuse connection to captive-portal and not end up on correct server.
+    keepalive_timeout 0;
+        
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    location / {
+      uwsgi_pass portal;
+      include uwsgi_params;
+    }
+}
+
+% for index in vlans:
+  % if vlans[index]['access_control']:
+
+server {
+
+    listen 0.0.0.0:${vlans[index]['http_port']};
+    listen 0.0.0.0:${vlans[index]['https_port']} ssl;
+    listen [::]:${vlans[index]['http_port']};
+    listen [::]:${vlans[index]['https_port']} ssl;
+    server_name captive-portal;
+
+    ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
+    ssl_certificate_key /origin/network/certs/captive-portal.origin-nexus.com.key;
+
+    # Disable keep-alives: once authenticated the browser may reuse the connection when going to the initial site.
+    keepalive_timeout 0;
+
+    # no need for logs
+    access_log off;
+    
+    location /static/captive-portal {
+      alias /origin/captive-portal/captive_portal/static/captive-portal;
+    }
+    
+    location / {
+      uwsgi_pass portal;
+      include uwsgi_params;
+      uwsgi_param "vlan" "${vlans[index]['id']}"; ## id of cc agent vlan object
+      uwsgi_param "vlan_id" "${vlans[index]['vlan_id']}";
+      uwsgi_param "web_authentication" "${vlans[index]['web_authentication'] or ''}";
+      uwsgi_param "guest_access" "${vlans[index]['guest_access'] or ''}";
+    }
+}
+  % endif
+% endfor

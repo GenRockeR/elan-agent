@@ -1,0 +1,138 @@
+#!/usr/sbin/nft -f
+
+define agent_ip = 8.8.8.8
+define agent_ip6 = 2001:41d0:2:ba47::1000:1000
+define portal_ip = 8.8.8.9
+define portal_ip6 = 2001:41d0:2:ba47::1000:1010
+
+flush table bridge origin
+
+table bridge origin {
+  chain global_ac {
+    accept
+  }
+
+  chain access_control_in {
+
+    ether saddr . iif @mac_on_vlan accept
+    
+    ether type arp accept
+    
+    ether type ip udp sport bootpc udp dport bootps accept
+    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 udp sport dhcpv6-client udp dport dhcpv6-server accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } accept
+
+    udp dport domain accept
+
+    mark set iif map @vlan_mark
+    tcp dport {http, https} accept 
+
+    mark set 0x80000000
+  }
+
+  chain prerouting { 
+    type filter hook prerouting priority -160;
+
+    jump global_ac
+
+    iif @ac_ifs jump access_control_in
+  }
+
+  chain access_control_forward {
+    ether daddr . oif @mac_on_vlan accept
+    ether saddr . oif @mac_to_vlan accept
+
+    ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
+    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
+
+    udp dport domain iif . oif @dns_pt_ifs accept
+
+    drop 
+  }
+
+  chain forward { 
+    type filter hook forward priority -200;
+
+    jump global_ac
+
+    mark 0x80000000 drop
+
+    oif @ac_ifs jump access_control_forward
+  }
+
+  chain ids { 
+    type filter hook forward priority -100;
+    
+    iif @ids_ifs log group 10 accept
+    oif @ids_ifs log group 10 accept
+  }
+  
+  chain connections { 
+    type filter hook forward priority -50;
+    
+    oif @log_ifs mark set 0x40000000 accept
+    iif @log_ifs mark set 0x40000000 accept
+  }
+
+  chain postrouting {
+    type filter hook postrouting priority 200;
+  }
+}
+
+flush table inet origin
+
+table inet origin {
+  
+  chain connections  {
+    type filter hook forward priority 0;
+    
+    mark 0x40000000 ct state new log group 5
+  }
+}
+
+flush table ip origin
+
+table ip origin {
+  
+  chain prerouting  { 
+    type nat hook prerouting priority -150;
+    
+    ip daddr $agent_ip udp dport {1812, 1813, 161, 162} redirect
+    ip daddr $agent_ip tcp dport {80, 443} redirect
+                
+    ip daddr $portal_ip ip protocol tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+
+    mark 0 accept 
+
+    ip protocol tcp redirect to mark . tcp dport map @captive_portals
+    
+    drop
+  }
+  
+  chain postrouting { 
+    type nat hook postrouting priority -150;
+  } 
+}
+
+flush table ip6 origin
+
+table ip6 origin {
+  
+  chain prerouting  { 
+    ip6 daddr $agent_ip6 udp dport {1812, 1813, 161, 162} redirect
+    ip6 daddr $agent_ip6 tcp dport {80, 443} redirect
+                
+    ip6 daddr $portal_ip6 ip6 nexthdr tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+
+    mark 0 accept 
+
+    ip6 nexthdr tcp redirect to mark . tcp dport map @captive_portals
+
+    drop
+  }
+  
+  chain postrouting { 
+    type nat hook postrouting priority -150;
+  } 
+}

@@ -1,3 +1,25 @@
 #!/usr/bin/make -f
+
+override_dh_installinit:
+	dh_installinit --name=authentication_provider
+	dh_installinit --name=freeradius
+	dh_installinit --name=captive-portal
+	dh_installinit --name=captive-portal_configuration_cacher
+	dh_installinit --name=guest-access-manager
+	dh_installinit --name=connection-trackerd
+	dh_installinit --name=device-trackerd
+	dh_installinit --name=session-trackerd
+	dh_installinit --name=axon
+	dh_installinit --name=nginx
+	dh_installinit --name=redis
+	dh_installinit --name=suricata
+	dh_installinit --name=ids-logger
+	dh_installinit --name=ids-monitor
+	dh_installinit --name=nac_configurator
+	dh_installinit --name=mac_authz_manager
+	dh_installinit --name=snmp_notification_receiver
+	dh_installinit --name=snmp_poller
+	dh_installinit --name=snmptrapd
+	dh_installinit --name=access-control
 %:
 	dh $@

@@ -1,0 +1,15 @@
+description "Connection Tracker"
+
+start on started axon
+
+respawn
+respawn limit 10 5
+
+env PYTHONPATH=/origin/lib/python
+env CONNECTION_NFLOG_QUEUE=5
+
+exec /origin/bin/connection-trackerd
+
+pre-start script
+    modprobe br_netfilter
+end script

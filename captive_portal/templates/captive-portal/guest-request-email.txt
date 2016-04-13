@@ -1,0 +1,14 @@
+Origin Nexus Guest Access Request
+-----------------------------------
+
+{# it is text so it should be safe to disable escaping for input entered by guest: this avoids escaping single quotes #}
+{% autoescape off %}
+Guest Request:
+  {% for field in guest_request.fields %}
+  - {{field.display_name|ljust:"20"}}: {{field.value}} 
+  {% endfor %}
+{% endautoescape %}
+
+-----------------------------------
+
+Grant Access: https://control-center.origin-nexus.com/sponsor-guest/{{ guest_request.id }}
