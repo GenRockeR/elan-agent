@@ -1,0 +1,20 @@
+[Unit]
+Description=Captive Portal
+ 
+After=axon.service
+Wants=axon.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+ExecStartPre=/bin/mkdir -p /var/run/captive-portal
+ExecStartPre=/bin/chown www-data:www-data /var/run/captive-portal
+ExecStartPre=/bin/mkdir -p /tmp/captive-portal/sessions
+ExecStartPre=/bin/chown -R www-data:www-data /tmp/captive-portal
+
+ExecStart=/usr/bin/uwsgi --ini /etc/uwsgi/captive-portal_uwsgi.ini
+
+[Install]
+WantedBy=multi-user.target
+

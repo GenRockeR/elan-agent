@@ -1,0 +1,18 @@
+[Unit]
+
+Description=Captive Portal Conf retriever
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStart=/origin/bin/captive-portal_configuration_cacher
+
+[Install]
+WantedBy=multi-user.target
+

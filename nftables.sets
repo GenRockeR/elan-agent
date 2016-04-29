@@ -39,6 +39,3 @@ table ip6 origin {
     type mark . inet_service : inet_service ;
   }
 }
-
-table inet origin {
-}

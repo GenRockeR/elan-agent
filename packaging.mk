@@ -12,7 +12,7 @@ gpgkey:
 $(HOME)/.dupload.conf: packaging/dupload.conf
 	cp $< $@
 
-gen-from-tmpl = @perl -pe 's:%{PACKAGE-NAME}:${PACKAGE-NAME}:g; s:%{PACKAGE-DESC}:${PACKAGE-DESC}:g; s:%{PACKAGE-DEPENDS}:${PACKAGE-DEPENDS}:g; s:%{ORIGIN_PREFIX}:${ORIGIN_PREFIX}:g' $(1) > $(2)
+gen-from-tmpl = @perl -pe 's:%\{PACKAGE-NAME\}:${PACKAGE-NAME}:g; s:%\{PACKAGE-DESC\}:${PACKAGE-DESC}:g; s:%\{PACKAGE-DEPENDS\}:${PACKAGE-DEPENDS}:g; s:%\{ORIGIN_PREFIX\}:${ORIGIN_PREFIX}:g' $(1) > $(2)
 
 .PHONY: deb-stable
 deb-stable: ORIGIN_TARGET = stable

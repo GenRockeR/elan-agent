@@ -1,0 +1,18 @@
+[Unit]
+
+Description=IDS logger to Central Manager
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStartPre=/bin/mkdir -p /var/log/suricata
+ExecStart=/origin/bin/ids-loggerd
+
+[Install]
+WantedBy=multi-user.target

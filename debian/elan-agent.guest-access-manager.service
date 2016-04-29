@@ -1,0 +1,17 @@
+[Unit]
+
+Description=Guest Acces Manager
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStart=/origin/bin/guest_access_manager
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+[Unit]
+
+Description=SNMP Trap Parser
+
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStartPre=-/usr/bin/mkfifo /var/run/trap_fifo
+ExecStart=/origin/bin/snmp_notification_receiver
+
+[Install]
+WantedBy=multi-user.target
+

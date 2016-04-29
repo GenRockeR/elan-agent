@@ -1,3 +1,4 @@
+#!/bin/sh
 # get rid of rc.d symlinks for freeradius
 update-rc.d -f freeradius remove
 rm -f /etc/init.d/freeradius
@@ -6,6 +7,19 @@ ln -s /lib/init/upstart-job /etc/init.d/freeradius
 
 # create default params
 /etc/freeradius/certs/bootstrap
+
+
+# Configure Nginx
+rm -f /etc/nginx/sites-enabled/default
+PYTHONPATH=/origin/lib/python python3 -c 'from origin.neuron import Axon; Axon.generate_nginx_conf()'
+
+
+
+
+mkdir -p /var/log/suricata
+mkdir -p /etc/suricata/rules
+#PYTHONPATH=/origin/lib/python python3 -c 'from origin.ids import generate_suricata_conf; generate_suricata_conf(force=True)'
+PYTHONPATH=/origin/lib/python /origin/bin/rule-fetcher --no-rule-reload || true
 
 perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
 
@@ -28,6 +42,12 @@ done
 
 # remove default FW that blocks all incoming...
 update-rc.d -f nftables remove
+
+# disable all interfaces
+ifdown -a --ignore-errors --exclude=lo
+cat /origin/network/interface.lo > /etc/network/interfaces
+
+#DEBHELPER#
 
 exit 0
 

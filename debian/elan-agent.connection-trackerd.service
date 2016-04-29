@@ -1,0 +1,21 @@
+[Unit]
+
+
+Description=Connection Tracker
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStartPre=/sbin/modprobe br_netfilter
+ExecStart=/origin/bin/connection-trackerd
+
+
+[Install]
+WantedBy=multi-user.target
+

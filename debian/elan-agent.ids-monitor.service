@@ -1,0 +1,16 @@
+[Unit]
+Description=IDS monitor
+
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStart=/origin/bin/ids-monitor
+
+[Install]
+WantedBy=multi-user.target

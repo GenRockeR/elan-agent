@@ -1,7 +1,8 @@
 .project
 .pydevproject
 .settings/
-debian/ea-ids.*.debhelper
+debian/*.debhelper
+debian/debhelper-*
 *.pyc
 __pycache__/
 bin/
