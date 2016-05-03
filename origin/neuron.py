@@ -506,7 +506,7 @@ class Axon:
 
         # Reload Nginx
         if reload:
-            subprocess.call('reload nginx', shell=True)
+            utils.reload_service('nginx')
 
         
     @classmethod

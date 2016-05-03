@@ -2,6 +2,7 @@
 
 import time, subprocess
 from origin.neuron import Dendrite
+from origin.utils import restart_service
 from mako.template import Template
 
 SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
@@ -63,7 +64,7 @@ class NacConfigurator(Dendrite):
                 cert_file.write( self.conf['cert_key'] )
 
             # Reload freeradius
-            subprocess.call('restart freeradius || start freeradius', shell=True)
+            restart_service('freeradius')
 
         if snmptrapd_conf_changed:
             # Grab template
@@ -73,7 +74,7 @@ class NacConfigurator(Dendrite):
                 server_file.write( snmp_template.render(**self.conf) )
 
             # Reload freeradius
-            subprocess.call('restart snmptrapd || start snmptrapd', shell=True)
+            restart_service('freeradius')
 
 if __name__ == "__main__":
     conf = NacConfigurator()

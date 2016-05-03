@@ -3,6 +3,7 @@ from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import subprocess, re, socket
 from origin.neuron import Dendrite, Synapse
+from origin.utils import restart_service
 from mako.template import Template
 
 
@@ -280,7 +281,7 @@ class AuthenticationProvider(Dendrite):
                 self.unprovide(service_path)
                 
             # Reload freeradius
-            subprocess.call('restart freeradius || start freeradius', shell=True)
+            restart_service('freeradius')
             
             # new provides
             for service_path in new_provided_services:
@@ -356,7 +357,7 @@ class AD:
         cls._run(['net', 'conf', 'setparm', 'global', 'dedicated keytab file', '/etc/krb5.keytab'])
         cls._run(['net', 'conf', 'setparm', 'global', 'kerberos method', 'dedicated keytab'])
         cls._run(['net', 'ads', 'join', '-U', '{user}%{password}'.format(user=user, password=password), realm])
-        cls._run(['service', 'winbind', 'restart'])
+        restart_service('winbind')
         cls._run(['net', '-P', 'ads', 'keytab', 'create'])
         cls._run(['chown', 'freerad', '/etc/krb5.keytab'])
         cls._run(['usermod', '-a', '-G', 'winbindd_priv', 'freerad'])

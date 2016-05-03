@@ -2,7 +2,7 @@
 
 import subprocess, time
 from origin.neuron import Dendrite, Synapse
-from origin.utils import physical_ifaces
+from origin.utils import physical_ifaces, reload_service
 from origin import network
 from mako.template import Template
 from pyroute2 import IPDB
@@ -183,7 +183,7 @@ class AccessControlConfigurator(Dendrite):
             with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
                 nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
 
-            subprocess.call('systemctl reload nginx;', shell=True)
+            reload_service('nginx')
             
             self.vlans = new_vlans
         finally:

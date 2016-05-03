@@ -3,6 +3,7 @@ import ctypes
 import ctypes.util
 from netaddr import IPNetwork
 import os
+import subprocess
 
 DEFAULT_IFACE = 'br0'
 
@@ -159,3 +160,22 @@ def physical_ifaces():
     
     return ifaces
         
+
+def reload_service(service, no_block=False):
+    args = ['systemctl']
+    if no_block:
+        args.append('--no-block')
+    args.append('reload')
+    args.append(service + '.service')
+    
+    subprocess.run(args)
+
+def restart_service(service, no_block=False):
+    args = ['systemctl']
+    if no_block:
+        args.append('--no-block')
+    args.append('restart')
+    args.append(service + '.service')
+    
+    subprocess.run(args)
+
