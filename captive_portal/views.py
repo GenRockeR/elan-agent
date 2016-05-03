@@ -7,7 +7,7 @@ from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from origin.neuron import Synapse, Axon, Dendrite
 from origin.authentication import pwd_authenticate
-from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up
+from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
 from origin import nac, session, utils
 from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
@@ -283,12 +283,12 @@ def save_admin_session(fn):
 def dashboard(request, context=None):
     if context is None:
         context={}
+    
     context.update(
                is_connected = Axon.is_connected(),
                is_admin = bool(request.session.get('admin', False)),
-               wan_up = is_iface_up('eth0'),
-               lan_up = is_iface_up('eth1'),
                is_registered = Axon.is_registered(),
+               interfaces = { iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
                ipsv4 = [utils.get_ip4_address('br0')],
                ipv4_gw = utils.get_ip4_default_gateway(),

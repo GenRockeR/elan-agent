@@ -42,17 +42,10 @@ def notify_alert(alert):
             if 'eth1' not in src_port and 'eth1' in dst_port: # if both on lan, consider as from lan
                 direction = 'from_wan'
             
-            if direction == 'from_lan':
-                lan_mac = src_mac
-                wan_mac = dst_mac
-            else:
-                lan_mac = dst_mac
-                wan_mac = src_mac
-            
-            if lan_mac != '00:00:00:00:00:00':    
-                event.add_data( 'lan_mac', lan_mac, 'mac' )
-            if wan_mac != '00:00:00:00:00:00':    
-                event.add_data( 'wan_mac', wan_mac, 'mac' )
+            if src_mac != '00:00:00:00:00:00':    
+                event.add_data( 'src_mac', src_mac, 'mac' )
+            if dst_mac != '00:00:00:00:00:00':    
+                event.add_data( 'dst_mac', dst_mac, 'mac' )
             try:
                 event.add_data( 'vlan_id', packet.get_tag(0).get_vid() )
             except IndexError:

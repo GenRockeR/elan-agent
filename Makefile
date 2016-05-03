@@ -5,7 +5,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, \
                    libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server,\
                    python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
-                   zsync, python-idstools, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
+                   zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
                    libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
                    libdbi-perl, libfile-flock-perl, libfile-slurp-perl, libfile-which-perl, libhash-merge-perl, libhttp-browserdetect-perl, \
@@ -14,7 +14,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, \
-                   bridge-utils, vlan, nftables, rdnssd, python3-mako
+                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django
 
 include packaging.mk
 
@@ -55,8 +55,8 @@ authentication-freeradius:
 
 .PHONY: authentication-samba
 authentication-samba:
-	install -d ${DESTDIR}/etc/samba/
-	install -m 644 smb.conf ${DESTDIR}/etc/samba/smb.conf
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication
+	install -m 644 smb.conf ${DESTDIR}${ORIGIN_PREFIX}/authentication/smb.conf
 
 .PHONY: captive-portal-install
 captive-portal-install: captive-portal-conf captive-portal-www captive-portal-python
@@ -217,14 +217,13 @@ nac-mibs:
 
 .PHONY: network-install
 network-install:
-	install -d ${DESTDIR}/etc/network
-	install -m 644 interfaces ${DESTDIR}/etc/network/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 exec/access_control_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
 	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 interfaces.d ${DESTDIR}${ORIGIN_PREFIX}/network/interfaces
+	install -m 644 interfaces ${DESTDIR}${ORIGIN_PREFIX}/network/interface.lo
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network/nginx
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import subprocess, time, os
+import subprocess, time
 from origin.neuron import Dendrite, Synapse
-from origin.utils import get_ip4_address, get_ip6_address
+from origin.utils import physical_ifaces
+from origin import network
 from mako.template import Template
-from origin import captive_portal
 from pyroute2 import IPDB
- 
+
 class AccessControlConfigurator(Dendrite):
-    internalNIC = 'eth1'
     bridge = 'br0'
     
     def __init__(self):
@@ -24,9 +23,16 @@ class AccessControlConfigurator(Dendrite):
             # Retrieve Agent ID... once registered
             self.retrieve('agent/self')
             # DEFAULT CONF
-            self.apply_new_vlan_conf({
-                     0: {'access_control': False} # just so that once registered, this knows it has untagged vlan configured
-            })
+            interfaces = physical_ifaces()
+            # temp cofiguration: 2 interfaces in bridge
+            interface = interfaces.pop()
+            tmp_conf = {
+                     interface: {'access_control': False, 'interface': interface, 'vlan_id': 0} 
+            }
+            if interfaces: 
+                interface = interfaces.pop()
+                tmp_conf[interface] = {'access_control': False, 'interface': interface, 'vlan_id': 0}
+            self.apply_new_vlan_conf(tmp_conf)
         else:
             self._init_subscriptions()
             
@@ -51,7 +57,7 @@ class AccessControlConfigurator(Dendrite):
                     cmd = "nft flush chain bridge origin global_ac;"
                 else:
                     # disable Access Control
-                    cmd = "nft add rule bridge origin global_ac accept;"
+                    cmd = "nft insert rule bridge origin global_ac accept;"
 
                 subprocess.call(cmd, shell=True)
 
@@ -93,15 +99,13 @@ class AccessControlConfigurator(Dendrite):
             # Configure VLANs
             cmd_nft = ''
             for nic_name, new_vlan in new_vlans.items():
-                vlan_id = new_vlan['vlan_id']
-                
                 # configure Access Contol
                 if new_vlan['access_control']:
                     cmd_nft += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic_name)
                     local_index = get_vlan_local_index(nic_name)
                     new_vlan['local_index'] = local_index
                     mark = local_index
-                    cmd_nft += 'nft add element bridge origin vlan_mark {{ {nic} : {mark} }};'.format(nic=nic_name, vlan=vlan_id, mark = mark)
+                    cmd_nft += 'nft add element bridge origin vlan_mark {{ {nic} : {mark} }};'.format(nic=nic_name, mark = mark)
     
                     # configure captive portal if access control is enabled
                     new_vlan['http_port'] = 20000 + local_index * 2
@@ -179,11 +183,12 @@ class AccessControlConfigurator(Dendrite):
             with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
                 nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
 
-            subprocess.call('reload nginx;', shell=True)
+            subprocess.call('systemctl reload nginx;', shell=True)
             
             self.vlans = new_vlans
         finally:
             ip.release()
+            network.NetworkConfiguration.reload()            
 
 
 def get_vlan_local_index(nic):

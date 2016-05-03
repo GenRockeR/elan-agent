@@ -1,0 +1,21 @@
+[Unit]
+Description=Service started once agent is registered
+
+After=axon.service
+Wants=axon.service
+
+[Service]
+Type=oneshot
+
+Environment="PYTHONPATH=/origin/lib/python"
+
+ExecStart=/usr/bin/python3 -c 'from origin.neuron import wait_registered; wait_registered()'
+RemainAfterExit=yes
+
+Restart=always
+RestartSec=10
+
+
+[Install]
+WantedBy=multi-user.target
+

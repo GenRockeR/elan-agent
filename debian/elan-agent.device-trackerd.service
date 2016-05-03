@@ -1,0 +1,16 @@
+[Unit]
+
+Description=Device Tracker
+After=registered.service
+Wants=registered.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/origin/lib/python
+
+ExecStart=/origin/bin/device-trackerd
+
+[Install]
+WantedBy=multi-user.target

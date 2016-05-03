@@ -1,10 +1,12 @@
+#!/bin/sh
+
 case "$1" in
 remove|abort-install|disappear)
 	if dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}"
 	then
         	dpkg-divert --package "%{PACKAGE-NAME}" --remove --rename \
                         --divert "/etc/suricata/suricata.yaml.diverted-%{PACKAGE-NAME}" "/etc/suricata/suricata.yaml"
-        fi
+    fi
 	if dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}"
 	then
                 dpkg-divert --package "%{PACKAGE-NAME}" --remove --rename \
@@ -12,3 +14,7 @@ remove|abort-install|disappear)
 
 	fi;;
 esac
+
+#DEBHELPER#
+
+exit 0

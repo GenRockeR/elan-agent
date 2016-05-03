@@ -27,9 +27,9 @@ class NetworkConfiguration:
         self.synapse.set(self.IPv6_CONF_PATH, self.ipv6)
         
     def apply_configuration(self):
-        subprocess.call('sudo ifdown br0', shell=True) # bring down br0 with old config to deconfigure it properly (DHCP release...)
+        subprocess.run(['systemctl', 'stop', 'nac-network.service']) # bring down br0 with old config to deconfigure it properly (DHCP release...)
         self.generate_configuration_files()
-        subprocess.call('sudo ifup br0', shell=True)
+        subprocess.run(['systemctl', '--no-block', 'start', 'nac-network.service'])
     
     def generate_configuration_files(self):
         template = Template(filename=self.configuration_template)
@@ -47,4 +47,8 @@ class NetworkConfiguration:
         self.ipv6 = kwargs
         self.save_configuration()
         self.apply_configuration()
+    
+    @classmethod
+    def reload(cls):
+        subprocess.run(['systemctl', '--no-block', 'restart', 'nac-network.service'])
         

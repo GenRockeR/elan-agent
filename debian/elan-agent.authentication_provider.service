@@ -1,0 +1,17 @@
+[Unit]
+Description=Authentications
+
+After=axon.service
+Wants=axon.service
+
+[Service]
+Environment="PYTHONPATH=/origin/lib/python"
+
+ExecStart=/origin/bin/authentication_provider
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

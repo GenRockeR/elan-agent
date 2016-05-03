@@ -1,3 +1,4 @@
+#!/bin/sh
 # Remove freeradius start script as we use upstart
 if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/init.d/freeradius.diverted-%{PACKAGE-NAME}"
 then
@@ -48,3 +49,7 @@ then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
                 --divert "/etc/init.d/suricata.diverted-%{PACKAGE-NAME}" "/etc/init.d/suricata"
 fi
+
+#DEBHELPER#
+
+exit 0
