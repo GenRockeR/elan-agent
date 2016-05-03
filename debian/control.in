@@ -9,5 +9,5 @@ Build-Depends: debhelper (>= 9)
 Package: %{PACKAGE-NAME}
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, %{PACKAGE-DEPENDS}
-Pre-Depends: nginx, redis-server, freeradius
+#Pre-Depends: nginx, redis-server, freeradius
 Description: %{PACKAGE-DESC}
