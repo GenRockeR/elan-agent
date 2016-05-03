@@ -14,7 +14,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, \
-                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2
+                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django
 
 include packaging.mk
 
@@ -55,8 +55,8 @@ authentication-freeradius:
 
 .PHONY: authentication-samba
 authentication-samba:
-	install -d ${DESTDIR}/etc/samba/
-	install -m 644 smb.conf ${DESTDIR}/etc/samba/smb.conf
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication
+	install -m 644 smb.conf ${DESTDIR}${ORIGIN_PREFIX}/authentication/smb.conf
 
 .PHONY: captive-portal-install
 captive-portal-install: captive-portal-conf captive-portal-www captive-portal-python

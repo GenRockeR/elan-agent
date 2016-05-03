@@ -27,6 +27,8 @@ perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | hea
 update-rc.d -f nginx remove
 update-rc.d -f redis-server remove
 
+cat /origin/authentication/smb.conf > /etc/samba/smb.conf
+
 # deconfigure default site
 rm -f /etc/nginx/sites-enabled/default
 

@@ -415,7 +415,7 @@ class Dendrite(object):
 
     def register(self, data, answer_path=None):
         # Add interfaces to data
-        data['interfaces'] = utils.physical_ifaces()
+        data['interfaces'] = list(utils.physical_ifaces())
         
         self._send_command(cmd='REGISTER', data=data, answer_path=answer_path)
 

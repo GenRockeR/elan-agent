@@ -35,20 +35,17 @@
               </span>
             </li>
 
+            {% for iface, status in interfaces.items %}
             <li class="list-group-item" title="{% spaceless %}
-                        {% if not wan_up %}
-                          {% trans 'Disconnected' %}
-                        {% elif ipsv4 or ipsv6 %}
+                        {% if status.up %}
                           {% trans 'Connected' %}
                         {% else %}
-                          {% trans 'Connected but No IP' %}
+                          {% trans 'Disconnected' %}
                         {% endif%}
                     {% endspaceless %}">
-              {% trans "WAN Connection (Internet)" %}
+              {% blocktrans %}- Interface {{iface}}{% endblocktrans %} 
               <span class="fa {% spaceless %}
-                        {% if not wan_up %}
-                          fa-warning text-danger
-                        {% elif ipsv4 or ipsv6 %}
+                        {% if status.up %}
                           fa-circle text-success
                         {% else %}
                           fa-warning text-warning
@@ -56,24 +53,8 @@
                    {% endspaceless %} pull-right">
                </span>
             </li>
+            {% endfor %}
             
-            <li class="list-group-item" title="{% spaceless %}
-                        {% if not lan_up %}
-                          {% trans 'Disconnected' %}
-                        {% else %}
-                          {% trans 'Connected' %}
-                        {% endif%}
-                    {% endspaceless %}">
-              {% trans "LAN Connection (Local Network)" %}
-              <span class="fa {% spaceless %}
-                        {% if not lan_up %}
-                          fa-warning text-danger
-                        {% else %}
-                          fa-circle text-success
-                        {% endif %}
-                    {% endspaceless %} pull-right">
-              </span>
-            </li>
           </ul>
 
         </div>
