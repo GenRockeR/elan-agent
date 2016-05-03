@@ -524,7 +524,11 @@ class Axon:
 
     @classmethod
     def is_registered(cls):
-        return bool(cls.synapse.get(cls.AGENT_ID_PATH))
+        try:
+            return bool(cls.synapse.get(cls.AGENT_ID_PATH))
+        except:
+            # Be robust when synapse not connected... (during install for example)
+            return False
 
     @classmethod
     def agent_location(cls):
@@ -532,7 +536,11 @@ class Axon:
 
     @classmethod
     def agent_uuid(cls):
-        return cls.synapse.get(cls.AGENT_UUID_PATH)
+        try:
+            return cls.synapse.get(cls.AGENT_UUID_PATH)
+        except:
+            # Be robust when synapse not connected... (during install for example)
+            return
     
     @tornado.gen.coroutine
     def listen_commands(self):
