@@ -12,6 +12,7 @@ RemainAfterExit=yes
 Environment="PYTHONPATH=/origin/lib/python"
 
 ExecStartPre=-/sbin/brctl addbr br0
+ExecStartPre=-/sbin/ifconfig br0 promisc
 ExecStartPre=-/usr/bin/python3 -c 'import origin.network; origin.network.NetworkConfiguration().generate_configuration_files()'
 
 
