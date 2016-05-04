@@ -262,7 +262,7 @@ class MacAuthorizationManager(Dendrite):
         # TODO: use nft from pyroute2 when ready
         with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
             def nft(*cmds):
-                print(*cmds, file=nft_process)
+                print(*cmds, file=nft_process.stdin)
             
             for vlan in self.fw_allowed_vlans(mac) - on:
                 self._fw_cache_allow_on_del(mac, vlan)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import subprocess, time
+import subprocess, time, traceback
 from origin.neuron import Dendrite, Synapse
 from origin.utils import physical_ifaces, reload_service
 from origin import network
@@ -89,85 +89,90 @@ class AccessControlConfigurator(Dendrite):
                     nic.up()
                     
                     if vlan_id:
-                        nic = ip.create(kind='vlan',link=nic, vlan_id=vlan_id, ifname=nic_name, reuse=True)
+                        nic = ip.create(kind='vlan',link=nic, vlan_id=vlan_id, ifname=nic_name, reuse=True).commit()
                     
                     bridge.add_port(nic)
                 except:
                     #TODO log error to CC
-                    pass
+                    print('error occured:', traceback.format_exc() )
+
             
             # Configure VLANs
-            cmd_nft = ''
-            for nic_name, new_vlan in new_vlans.items():
-                # configure Access Contol
-                if new_vlan['access_control']:
-                    cmd_nft += 'nft add element bridge origin ac_ifs {{{nic}}};'.format(nic=nic_name)
-                    local_index = get_vlan_local_index(nic_name)
-                    new_vlan['local_index'] = local_index
-                    mark = local_index
-                    cmd_nft += 'nft add element bridge origin vlan_mark {{ {nic} : {mark} }};'.format(nic=nic_name, mark = mark)
-    
-                    # configure captive portal if access control is enabled
-                    new_vlan['http_port'] = 20000 + local_index * 2
-                    new_vlan['https_port'] = 20000 + local_index * 2 + 1
-                    for protocol in ['ip', 'ip6']:
-                        if new_vlan['web_authentication'] or new_vlan['guest_access']:
-                            cmd_nft += "nft add element {protocol} origin captive_portals '{{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}'".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port'])
-                        else:
-                            cmd_nft += "nft delete element {protocol} origin captive_portals '{{ {mark} . 80, {mark} . 443 }}'".format(protocol = protocol, mark = mark)
-    
-                    # configure DHCP passthrough
-                    if new_vlan['dhcp_passthrough_bridge']:
-                        nic_out = new_vlan['dhcp_passthrough_interface']
-                        if new_vlan['dhcp_passthrough_vlan_id']:
-                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
-                        new_vlan['dhcp_passthrough_ifname'] = nic_out
-                        cmd_nft += 'nft add element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }};'.format(nic_in=nic_name, nic_out=nic_out)
-                    elif self.vlans[nic_name]['dhcp_passthrough_bridge']:
-                        cmd_nft += 'nft delete element bridge origin dhcp_pt_ifs {{ {nic} . {nic_out} }};'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname'])
+            # TODO: use nft from pyroute2 when ready
+            with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
+                def nft(*cmds):
+                    print(*cmds, file=nft_process.stdin)
                         
-                    # configure DNS passthrough
-                    if new_vlan['dns_passthrough_bridge']:
-                        nic_out = new_vlan['dns_passthrough_interface']
-                        if new_vlan['dns_passthrough_vlan_id']:
-                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
-                        new_vlan['dns_passthrough_ifname'] = nic_out
-                        cmd_nft += 'nft add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }};'.format(nic=nic_name, nic_out=nic_out)
-                    elif self.vlans[nic_name]['dns_passthrough_bridge']:
-                        cmd_nft += 'nft delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }};'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname'])
-
-                    if new_vlan['log']:
-                        cmd_nft += 'nft add element bridge origin log_ifs {{ {nic} }};'.format(nic=nic_name)
-                    else:
-                        cmd_nft += 'nft delete element bridge origin log_ifs {{ {nic} }};'.format(nic=nic_name)
+                for nic_name, new_vlan in new_vlans.items():
+                    # configure Access Contol
+                    if new_vlan['access_control']:
+                        nft('add element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
+                        local_index = get_vlan_local_index(nic_name)
+                        new_vlan['local_index'] = local_index
+                        mark = local_index
+                        nft('add element bridge origin vlan_mark {{ {nic} : {mark} }}'.format(nic=nic_name, mark = mark))
+        
+                        # configure captive portal if access control is enabled
+                        new_vlan['http_port'] = 20000 + local_index * 2
+                        new_vlan['https_port'] = 20000 + local_index * 2 + 1
+                        for protocol in ['ip', 'ip6']:
+                            if new_vlan['web_authentication'] or new_vlan['guest_access']:
+                                nft("add element {protocol} origin captive_portals '{{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}'".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
+                            else:
+                                nft("delete element {protocol} origin captive_portals '{{ {mark} . 80, {mark} . 443 }}'".format(protocol = protocol, mark = mark))
+        
+                        # configure DHCP passthrough
+                        if new_vlan['dhcp_passthrough_bridge']:
+                            nic_out = new_vlan['dhcp_passthrough_interface']
+                            if new_vlan['dhcp_passthrough_vlan_id']:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
+                            new_vlan['dhcp_passthrough_ifname'] = nic_out
+                            nft('add element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
+                        elif nic_name in self.vlans and 'dhcp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dhcp_passthrough_ifname']:
+                            nft('delete element bridge origin dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
+                            
+                        # configure DNS passthrough
+                        if new_vlan['dns_passthrough_bridge']:
+                            nic_out = new_vlan['dns_passthrough_interface']
+                            if new_vlan['dns_passthrough_vlan_id']:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
+                            new_vlan['dns_passthrough_ifname'] = nic_out
+                            nft('add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                        elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
+                            nft('delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
     
-                    if new_vlan['ids']:
-                        cmd_nft += 'nft add element bridge origin ids_ifs {{ {nic} }};'.format(nic=nic_name)
+                        if new_vlan['log']:
+                            nft('add element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+                        else:
+                            nft('delete element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+        
+                        if new_vlan['ids']:
+                            nft('add element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+                        else:
+                            nft('delete element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+    
                     else:
-                        cmd_nft += 'nft delete element bridge origin ids_ifs {{ {nic} }};'.format(nic=nic_name)
-
-                else:
-                    cmd_nft += 'nft delete element bridge origin ac_ifs {{{nic}}};'.format(nic=nic_name)
-                
-            subprocess.call(cmd_nft, shell=True)
+                        nft('delete element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
                 
             # VLANs to delete
             for nic_name in set(self.vlans.keys()) - set(new_vlans.keys()):
                 old_vlan = self.vlans[nic_name]
                 vlan_id  = old_vlan['vlan_id']
                 
-                cmd_nft = ''
-                if old_vlan['dhcp_passthrough_bridge']:
-                    cmd_nft += 'nft delete element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }};'.format(nic_in=nic_name, nic_out=old_vlan['dhcp_passthrough_ifname'])
+                # TODO: use nft from pyroute2 when ready
+                with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
+                    def nft(*cmds):
+                        print(*cmds, file=nft_process.stdin)
+                            
+                    if old_vlan['dhcp_passthrough_bridge']:
+                        nft('nft delete element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }};'.format(nic_in=nic_name, nic_out=old_vlan['dhcp_passthrough_ifname']))
+                    
+                    if old_vlan['dns_passthrough_bridge']:
+                        nft('nft delete element bridge origin dns_pt_ifs {{ {nic_in} . {nic_out} }};'.format(nic_in=nic_name, nic_out=old_vlan['dns_passthrough_ifname']))
+    
+                    for protocol in ['ip', 'ip6']:
+                        nft("nft delete element {protocol} origin captive_portals '{{ {mark} . 80, {mark} . 443 }}'".format(protocol = protocol, mark = old_vlan['local_index']))
                 
-                if old_vlan['dns_passthrough_bridge']:
-                    cmd_nft += 'nft delete element bridge origin dns_pt_ifs {{ {nic_in} . {nic_out} }};'.format(nic_in=nic_name, nic_out=old_vlan['dns_passthrough_ifname'])
-
-                for protocol in ['ip', 'ip6']:
-                    cmd_nft += "nft delete element {protocol} origin captive_portals '{{ {mark} . 80, {mark} . 443 }}'".format(protocol = protocol, mark = old_vlan['local_index'])
-                
-                subprocess.call(cmd_nft, shell=True)
-
                 try:
                     nic = ip.interfaces[nic_name]
                     if vlan_id:
@@ -176,7 +181,8 @@ class AccessControlConfigurator(Dendrite):
                         bridge.del_port(nic)
                 except:
                     #TODO log error to CC
-                    pass
+                    print('error occured:', traceback.format_exc() )
+
                 
             # Set captive portals
             nginx_captive_portals = Template(filename = '/origin/network/nginx/server')
