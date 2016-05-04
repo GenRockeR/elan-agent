@@ -2,8 +2,8 @@ PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
-                   gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python-libpcap, python3-cffi, libglib2.0-dev, python3-dev, \
-                   libwireshark-dev, libwiretap-dev, wireshark-common, python-pydhcplib, nginx, python-pycurl, python-redis, redis-server,\
+                   gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python3-cffi, libglib2.0-dev, python3-dev, \
+                   libwireshark-dev, libwiretap-dev, wireshark-common, nginx, python-pycurl, python-redis, redis-server,\
                    python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
                    zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
@@ -13,8 +13,9 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, \
-                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, python3-redis, python3-pyrad, python3-tornado, \
+                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
+                   libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl
 
 include packaging.mk
 
@@ -77,12 +78,6 @@ captive-portal-www:
 	cp -p manage.py ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/
 	find captive_portal -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
 	find captive_portal -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
-	# Although virtualenv was used to install django and co in this repository, it is deployed on edgeagent under /origin/lib/python
-	( cd lib/python2.7/site-packages; \
-	  find -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
-	  find -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
-	  find -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
-	)
 	install -d ${DESTDIR}/etc/uwsgi
 	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
 	install -d ${DESTDIR}/etc/sudoers.d
@@ -114,22 +109,21 @@ core-python: origin/*.py core-pylib exec/axon.py
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 
 .PHONY: core-pylib
-core-pylib: tornadoredis tornado redis pyrad
+core-pylib: tornadoredis idstools
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
-	# Although virtualenv was used to install tornado and co in this repository, it is deployed on edgeagent under /origin/lib/python
-	( cd lib/python3.4/site-packages; \
+	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /origin/lib/python
+	( cd lib/python3.5/site-packages; \
 		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
 	)
 
 .PHONY: tornadoredis
-.PHONY: tornado
-.PHONY: redis
+.PHONY: idstools
+
 core-redis:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
 	install redis.conf ${DESTDIR}${ORIGIN_PREFIX}/core/redis/conf
-.PHONY: pyrad
 
 .PHONY: core-nginx
 core-nginx:

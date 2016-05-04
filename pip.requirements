@@ -1,0 +1,3 @@
+idstools==0.5.2
+pkg-resources==0.0.0
+tornado-redis==2.4.18
