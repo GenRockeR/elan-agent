@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import subprocess, time, traceback
-from origin.neuron import Dendrite, Synapse
+from origin.neuron import Dendrite, Synapse, axon
 from origin.utils import physical_ifaces, reload_service
 from origin import network
 from mako.template import Template
@@ -19,7 +19,7 @@ class AccessControlConfigurator(Dendrite):
         self.active = None
         self.vlans = {} # vlans by Vlan-ID
         
-        if not self.is_registered():
+        if not axon.Axon.is_registered():
             # Retrieve Agent ID... once registered
             self.retrieve('agent/self')
             # DEFAULT CONF

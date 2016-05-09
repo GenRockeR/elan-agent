@@ -14,7 +14,7 @@ Environment=PYTHONPATH=/origin/lib/python
 ExecStartPre=/bin/mkdir -p /var/log/suricata
 ExecStartPre=/bin/mkdir -p /etc/suricata/rules
 ExecStartPre=/usr/bin/python3 -c 'from origin.ids import generate_suricata_conf; generate_suricata_conf(force=True)'
-ExecStartPre=/origin/bin/rule-fetcher --no-rule-reload
+ExecStartPre=-/origin/bin/rule-fetcher --no-rule-reload
 
 ExecStart=/usr/bin/suricata --nflog
 

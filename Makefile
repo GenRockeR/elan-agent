@@ -1,6 +1,6 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
+PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
                    gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python3-cffi, libglib2.0-dev, python3-dev, \
                    libwireshark-dev, libwiretap-dev, wireshark-common, nginx, python-pycurl, python-redis, redis-server,\
@@ -13,9 +13,10 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, python3-mako, make, winbind, krb
                    libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, python3-redis, python3-pyrad, python3-tornado, \
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
-                   libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl
+                   libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
+                   python3-py
 
 include packaging.mk
 
@@ -37,11 +38,13 @@ authentication-python: origin/authentication.py origin/freeradius/*.py
    
 .PHONY: authentication-freeradius
 authentication-freeradius:
+	install -d ${DESTDIR}/etc/freeradius
+	install -m 644 freeradius.dictionary       ${DESTDIR}/etc/freeradius/dictionary
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius
-	install -m 644 freeradius.dictionary       ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/dictionary
 	install -m 644 freeradius.policy           ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/policy
 	install -m 644 freeradius.rest-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/rest-module
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
+	install -m 644 freeradius.ad-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ad-module
 	install -m 644 freeradius.python-module    ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/python-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 exec/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
@@ -102,11 +105,13 @@ connection-tracker-wirepy:
 install: core-python core-nginx
 
 .PHONY: core-python
-core-python: origin/*.py core-pylib exec/axon.py
+core-python: origin/*.py origin/nac/*.py origin/neuron/*.py core-pylib exec/axon.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install exec/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/neuron
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/neuron origin/neuron/*.py
 
 .PHONY: core-pylib
 core-pylib: tornadoredis idstools
@@ -178,9 +183,10 @@ nac-nginx:
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
 
 .PHONY: nac-python
-nac-python: origin/nac.py origin/snmp.py
+nac-python: origin/nac/*.py origin/snmp.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/nac.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/nac
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/nac origin/nac/*.py
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/snmp.py
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/nac.py
   

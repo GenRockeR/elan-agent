@@ -52,7 +52,7 @@ server nac {
               update session-state {
                   Origin-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
               }
-              # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {
+              # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {}
           }
           if ( ! EAP-Message ) {
             chap
@@ -130,7 +130,7 @@ server nac {
   
   post-auth {
   
-    if( session-state:Origin-MAC) {
+    if( &session-state:Origin-MAC ) {
       update request {
           &Origin-Auth-Type := "radius-mac"
           &Origin-MAC := &session-state:Origin-MAC
@@ -172,7 +172,7 @@ server nac {
     #
     #  Uncomment the next few lines to copy the required data into
     #  the EAP-Key-Name attribute
-    # if (reply:EAP-Session-Id) {
+    # if ( &reply:EAP-Session-Id ) {
     #   update reply {
     #     EAP-Key-Name := "%{reply:EAP-Session-Id}"
     #   }
@@ -221,7 +221,7 @@ server inner-eap-tunnel {
       ok = return
     }
   
-    if( outer.session-state:ClearText-Password || outer.session-state:NT-Password || outer.session-state:LM-Password || outer.session-state:Password-With-Header){
+    if( &outer.session-state:ClearText-Password || &outer.session-state:NT-Password || &outer.session-state:LM-Password || &outer.session-state:Password-With-Header){
         update control {
             ClearText-Password := &outer.session-state:Cleartext-Password
             NT-Password := &outer.session-state:NT-Password
@@ -265,7 +265,12 @@ server inner-eap-tunnel {
   
   authenticate {
     Auth-Type PAP {
-      pap
+      	if(&control:MS-CHAP-Use-NTLM-Auth == Yes) {
+      		ADpap
+      	}
+      	else {
+        	pap
+    	}
     }
   
     Auth-Type CHAP {
@@ -274,9 +279,12 @@ server inner-eap-tunnel {
   
   
     Auth-Type MS-CHAP {
-      mschap
+      ADmschap
     }
-  
+    Auth-Type EAP {
+        nac-eap
+    }
+
     nac-eap
   }
   

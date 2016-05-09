@@ -50,6 +50,7 @@ class AuthenticationProvider(Dendrite):
         
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
         self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
+        self.ad_template = Template(filename="/origin/authentication/freeradius/ad-module")
         self.cc_auth_template = Template('''
             update session-state {
                 &Origin-Auth-Provider := ${id}
@@ -215,7 +216,6 @@ class AuthenticationProvider(Dendrite):
                         # if auth status for this agent is not joined, update it...
                         if auth['agent_statuses'][str(self.agent_id)]['status'] != 'joined':
                             self.post('authentication/provider/{id}/join-success'.format(id=auth['id']))
-                        break
                         
                         has_active_directory = True
                         inner_switch_server_conf +=  '''
@@ -259,7 +259,8 @@ class AuthenticationProvider(Dendrite):
                     inner_switch_server_conf +=  '}'
             
             # Always add AD module conf as it is used even if no AD declared
-            module_conf += "\n" + self.ad_template.render(**AD.info())
+            ad_info = AD.info() or {}
+            module_conf += "\n" + self.ad_template.render(has_active_directory=has_active_directory, **ad_info)
 
             # Quit AD domain if required
             if not has_active_directory and AD.joined():

@@ -1,5 +1,5 @@
 python nac {
-        module = origin.freeradius.nac
+        module = origin.freeradius
 
         mod_authorize = ${.module}
 #        func_authorize = authorize

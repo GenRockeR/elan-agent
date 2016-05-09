@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 import radiusd
-from . import request_as_hash_of_values
+from .utils import request_as_hash_of_values
 from origin import neuron, snmp, session, nac
 from origin.event import Event, InternalEvent, ExceptionEvent
 import re

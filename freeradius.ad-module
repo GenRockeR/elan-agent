@@ -1,3 +1,4 @@
+% if has_active_directory:
 ldap ADldap {
   server = "${ldap_server_name}"
   % if ldap_port:
@@ -41,7 +42,7 @@ ldap ADldap {
   }
   pool {
     start = 0
-    min = <%text>${thread[pool].min_spare_servers}<%text>
+    min = <%text>${thread[pool].min_spare_servers}</%text>
     max = <%text>${thread[pool].max_servers}</%text>
     spare = <%text>${thread[pool].max_spare_servers}</%text>
     uses = 0
@@ -50,6 +51,7 @@ ldap ADldap {
     idle_timeout = 600
   }
 }
+% endif
 
 exec ADpap {
         wait = yes
@@ -62,9 +64,9 @@ mschap ADmschap {
     
      pool {
         start = 0
-        min = ${thread[pool].min_spare_servers}
-        max = ${thread[pool].max_servers}
-        spare = ${thread[pool].max_spare_servers}
+        min = <%text>${thread[pool].min_spare_servers}</%text>
+        max = <%text>${thread[pool].max_servers}</%text>
+        spare = <%text>${thread[pool].max_spare_servers}</%text>
         uses = 0
         retry_delay = 5
         lifetime = 86400

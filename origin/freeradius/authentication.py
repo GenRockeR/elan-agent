@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-from . import request_as_hash_of_values
+from .utils import request_as_hash_of_values
 from origin.event import Event, ExceptionEvent
 
 
