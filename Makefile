@@ -3,7 +3,7 @@ PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
                    gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python3-cffi, libglib2.0-dev, python3-dev, \
-                   libwireshark-dev, libwiretap-dev, wireshark-common, nginx, python-pycurl, python-redis, redis-server,\
+                   nginx, python-pycurl, python-redis, redis-server,\
                    python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
                    zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
@@ -16,7 +16,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, m
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
                    libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
-                   python3-py, python3-lxml
+                   python3-py, python3-lxml, tshark
 
 include packaging.mk
 
