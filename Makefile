@@ -16,7 +16,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, m
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
                    libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
-                   python3-py
+                   python3-py, python3-lxml
 
 include packaging.mk
 
@@ -88,7 +88,7 @@ captive-portal-www:
   
 
 .PHONY: connection-tracker-install
-connection-tracker-install: origin/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-wirepy
+connection-tracker-install: origin/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-pyshark
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py
@@ -97,9 +97,11 @@ connection-tracker-install: origin/*.py exec/connection_trackerd.py exec/device_
 	install exec/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
 	install exec/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
 
-connection-tracker-wirepy:
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
-	cp -rp lib/wirepy/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/wirepy
+connection-tracker-pyshark:
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
+	cp -rp lib/python3.5/site-packages/pyshark/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
+	cp -rp lib/python3.5/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
 install: core-python core-nginx

@@ -2,11 +2,10 @@
 
 from origin import session, nac, neuron, utils
 from origin.event import Event, ExceptionEvent
-import os
+import re
 import time
-from wirepy.lib import column, dfilter, dumpcap, epan, wtap, prefs
+import pyshark
 import threading
-from multiprocessing import Process, Pipe
 
 
 REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
@@ -73,165 +72,99 @@ def checkAuthzOnVlan(mac, vlan):
         event.notify()
         # TODO: Try to move it to another vlan!
 
-def process_frames(fname, pipe, interfaces):
-    try:
-        dendrite = neuron.Dendrite('device-tracker')
-
-        # Some required setup
-        epan.epan_init()
-        prefs.read_prefs()
-        epan.cleanup_dissection()
-        epan.init_dissection()
-
-        # Some general information we are interested in for every packet
-        CINFO = column.ColumnInfo([
-                #column.Format(column.Type.INFO,           title='info'),
-                column.Format(column.Type.PROTOCOL,       title='protocol'),
-                column.Format(column.Type.CUSTOM,         title='interface-id',     custom_field='frame.interface_id'),
-                column.Format(column.Type.CUSTOM,         title='time',             custom_field='frame.time_epoch'),
-                column.Format(column.Type.UNRES_DL_SRC,   title='src-mac'),
-                #column.Format(column.Type.UNRES_DL_DST,   title='dst-mac'),
-                column.Format(column.Type.UNRES_NET_SRC,  title='src-ip'),
-                #column.Format(column.Type.UNRES_NET_DST,  title='dst-ip'),
-                #column.Format(column.Type.UNRES_SRC_PORT, title='src-port'),
-                #column.Format(column.Type.UNRES_DST_PORT, title='dst-port'),
-                column.Format(column.Type.CUSTOM,         title='vlan-id',          custom_field='vlan.id'),
-                column.Format(column.Type.CUSTOM,         title='src-ip',           custom_field='arp.src.proto_ipv4'),
-                #column.Format(column.Type.CUSTOM,         title='dst-ip',           custom_field='arp.dst.proto_ipv4'),
-                column.Format(column.Type.CUSTOM,         title='icmpv6-type',      custom_field='icmpv6.type'),
-                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='dhcpv6.domain'),
-                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='bootp.option.hostname'),
-                column.Format(column.Type.CUSTOM,         title='dhcp-request-list',custom_field='bootp.option.request_list_item'),
-                column.Format(column.Type.CUSTOM,         title='dhcp-vendor-id',   custom_field='bootp.option.vendor_class_id'),
-                column.Format(column.Type.CUSTOM,         title='browser-command',  custom_field='browser.command'),
-                column.Format(column.Type.CUSTOM,         title='hostname',         custom_field='browser.server'),
-        ])
-        
-        with wtap.WTAP.open_offline(fname) as wt:
-            os.remove(fname) # unlink file now it is opened
-            
-            frameiter = iter(wt)
     
-            while True:
-                nb_frames = pipe.recv()
-                if nb_frames == 0: # certainly EOF
-                    return
-    
-                for _i in range(nb_frames):
-                    wt.clear_eof()
-                    try:
-                        frame = next(frameiter)
-                    except StopIteration:
-                        raise RuntimeError('Dumpcap reported new packets, but the capture-file does not have them.')
-                    process_frame(wt, frame, dendrite, CINFO, interfaces)
-    except:
-        ExceptionEvent(source='network').notify()
-    
-def process_frame(wt, frame, dendrite, CINFO, interfaces):
-    # Dissect a single frame using the wtap's current state
-    edt = epan.Dissect()
-
-    edt.prime_cinfo(CINFO)
-    edt.run(wt, frame, CINFO)
-    #if not FILTER_HTTP.apply_edt(edt):
-        # No http traffic in the packet, throw it away
-    #    return
-    edt.fill_in_columns()
-    #_display_tree_fi(edt.tree)
-    fields = {
-                CINFO.titles[i]: epan.iface.string(CINFO._col_datap[i]) 
-                    for i in range(len(CINFO))
-                        if epan.iface.string(CINFO._col_datap[i])
-             }
-
-    if ignoreMAC(fields['src-mac']):
-        return
-
-    mac = fields['src-mac']
-    vlan = '{nic}.{vlan}'.format(nic=fields.get('interface-id'), vlan=fields.get('vlan-id', 0))
-    epoch = int(float(fields['time']))
-    
-    if(   (  fields['protocol'] == 'ARP' 
-             or 
-             fields['protocol'] == 'ICMPv6' and fields['icmpv6-type'] in ('Neighbor Advertisement', 'Neighbor Solicitation')
-          ) 
-          and not ignoreIP(fields['src-ip'])    ):
-        mac_added, vlan_added, ip_added = session.seen(mac, vlan=vlan , ip=fields['src-ip'], time=epoch)
-    else:
-        mac_added, vlan_added, ip_added = session.seen(mac, vlan=vlan , time=epoch)
-
-    if vlan_added:
-        # Check Mac authorized on VLAN
-        thread = threading.Thread(target=checkAuthzOnVlan, args=(mac, vlan))
-        thread.start()
-
-    source = fields['protocol']
-    if source == 'BROWSER':
-        source = 'NetBIOS'
-    
-    if 'hostname' in fields:
-        hostname = fields['hostname']
-        
-        if source != 'NetBIOS' or fields['browser-command'] in ('Host Announcement', 'Local Master Announcement'):
-            if isNewHostname(mac, hostname, source):
-                dendrite.post('mac/{mac}/hostname'.format(mac=mac), {'name': hostname, 'source': source})
-
-    if('dhcp-request-list' in fields):
-        fingerprint = { 'fingerprint': fields['dhcp-request-list'], 'vendor_id': fields.get('vendor_id', '') }
-        if isNewFingerprint(mac, fingerprint, source=source):
-            dendrite.post('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
-
 
 def capture(interfaces):
-    with dumpcap.CaptureSession(    interfaces=interfaces,
-                                    #capture_filter='inbound', 
-                                    capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )',
-                                    ringbuffer_filesize=10240, savefile='/tmp/device_tracker_dump'
-                               ) as cap:
+    dendrite = neuron.Dendrite('device-tracker')
+    
+    for packet in pyshark.LiveCapture(
+                    interface=interfaces,
+                    bpf_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
+                )\
+                .sniff_continuously():
         try:
-            event_type, event_msg = cap.wait_for_event()
-            count = 0
-            while event_type != cap.SP_FILE:
-                count += 1
-                if count > 10:
-                    raise RuntimeError('Waited for filename from dumpcap 10 times, but did not get it')
-                print('Unexpected event from dumpcap', event_msg)
-                event_type, event_msg = cap.wait_for_event()
-        except dumpcap.NoEvents:
-            # Child did not start capturing...
-            raise RuntimeError('Dumpcap did not start receiving packets for some time. Giving up.')
-
-        fname = event_msg
-        while True:
-            parent_conn, child_conn = Pipe()
-            p = Process(target=process_frames, args=(fname, child_conn, interfaces))
-            p.start()
+            # device sessions
+            mac = packet.eth.src
+            if ignoreMAC(mac):
+                return
+        
+            nic = interfaces[int(packet.frame_info.interface_id)]
+            vlan_id = 0
+            packet_vlan = getattr(packet, 'vlan', None)
+            if packet_vlan:
+                vlan = packet_vlan.id 
+            vlan = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
+            epoch = int(float(packet.frame_info.time_epoch))
             
-            for event_type, event_msg in iter(cap):
-                if event_type == cap.SP_PACKET_COUNT:
-                    # Dissect as many packets as have been written
-                    if not p.is_alive():
-                        raise RuntimeError('Child processing packets died for some reason...')
-                    parent_conn.send(event_msg)
-                elif event_type == cap.SP_FILE:
-                    # A new savefile has been created, stop reading from
-                    # the current file.
-                    fname = event_msg
-                    parent_conn.send(0) # tell it should finish
-                    p.join(5)
-                    p.terminate()
-                    break
+            if packet.highest_layer == 'ARP' \
+                or \
+               packet.highest_layer == 'ICMPV6' and packet.icmpv6.type in (136, 135): # ('Neighbor Advertisement', 'Neighbor Solicitation') 
+                
+                if packet.highest_layer == 'ARP':
+                    ip = packet.arp.src_proto_ipv4
+                else:
+                    ip = packet.ipv6.src
+                  
+                if ignoreIP( ip ):
+                    _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , time=epoch)
+                else:
+                    _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , ip=ip, time=epoch)
             else:
-                # The iterator on cap reaches this point if there are
-                # no more events from dumpcap - capturing has stopped,
-                # quit the loop
-                break
+                _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , time=epoch)
+        
+            if vlan_added:
+                # Check Mac authorized on VLAN
+                thread = threading.Thread(target=checkAuthzOnVlan, args=(mac, vlan))
+                thread.start()
+        
+            source = packet.highest_layer
+            # more meaningful name
+            if source == 'BROWSER':
+                source = 'NetBIOS'
+            elif source == 'BOOTP':
+                source = 'DHCPV4'
+                
+                
+            # DHCP fingerprint
+            if source == 'DHCPV4':
+                try:
+                    fingerprint = { 
+                                'fingerprint': ','.join(str(option.int_value) for option in packet.bootp.option_request_list_item.fields),
+                                'vendor_id': str( getattr(packet.bootp, 'option_vendor_class_id', '') )
+                    }
+                except AttributeError:
+                    pass
+                else:
+                    if isNewFingerprint(mac, fingerprint, source=source):
+                        dendrite.post('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
+            
+            # Hostname: grab it from netbios or dhcpv4 or dhcpv6
+            hostname = None 
+            try:
+                hostname = str(packet.nbdgm.source_name) # ends with <??>
+                p = re.compile('<..>$')
+                hostname = p.sub('', hostname)
+            except AttributeError:
+                try:
+                    hostname = str(packet.bootp.option_hostname)
+                except AttributeError:
+                    try:
+                        hostname = str(packet.dhcpv6.client_fqdn)
+                    except AttributeError:
+                        pass
+            
+            if hostname and isNewHostname(mac, hostname, source):
+                dendrite.post('mac/{mac}/hostname'.format(mac=mac), {'name': hostname, 'source': source})
+
+        except Exception:
+            ExceptionEvent(source='network').notify()
+     
 
 if __name__ == '__main__':
     for i in range(1, 100):
         try:
             capture(list(utils.physical_ifaces()))
-        except:
+        except Exception:
             ExceptionEvent(source='network').notify()
             time.sleep(1)
 
