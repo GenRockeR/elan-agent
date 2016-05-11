@@ -1,5 +1,5 @@
 python auth_provider_failed {
-        module = origin.freeradius.authentication
+        module = origin.freeradius
 
         mod_authorize = ${.module}
         func_authorize = AuthenticationProviderFailed
@@ -25,7 +25,7 @@ python auth_provider_failed {
 }
 
 python auth_provider_failed_in_group {
-        module = origin.freeradius.authentication
+        module = origin.freeradius
 
         mod_authorize = ${.module}
         func_authorize = AuthenticationProviderFailedInGroup
@@ -51,7 +51,7 @@ python auth_provider_failed_in_group {
 }
 
 python auth_all_providers_failed_in_group {
-        module = origin.freeradius.authentication
+        module = origin.freeradius
 
         mod_authorize = ${.module}
         func_authorize = AuthenticationGroupFailed

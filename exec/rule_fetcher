@@ -2,6 +2,7 @@
 
 import signal, subprocess, os, sys
 import yaml, re
+from origin.utils import reload_service
 
 file_h = open('/etc/suricata/suricata.yaml', 'r')
 
@@ -19,6 +20,6 @@ for rule in conf['rule-files']:
     
 if rules_updated and len(sys.argv) > 1 and sys.argv[1] != '--no-rule-reload' :
     # send USR2 SIG to suricata to reload the rules
-    subprocess.call("reload suricata")
+    reload_service('suricata')
 
 

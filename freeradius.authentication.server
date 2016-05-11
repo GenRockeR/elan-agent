@@ -74,7 +74,12 @@ server authentication {
     
     authenticate {
       Auth-Type PAP {
-        pap
+      	if(control:MS-CHAP-Use-NTLM-Auth == Yes) {
+      		ADpap
+      	}
+      	else {
+        	pap
+    	}
       }
     }
 

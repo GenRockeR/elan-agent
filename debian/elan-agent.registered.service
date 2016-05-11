@@ -9,7 +9,7 @@ Type=oneshot
 
 Environment="PYTHONPATH=/origin/lib/python"
 
-ExecStart=/usr/bin/python3 -c 'from origin.neuron import wait_registered; wait_registered()'
+ExecStart=/usr/bin/python3 -c 'from origin.neuron.axon import wait_registered; wait_registered()'
 RemainAfterExit=yes
 
 Restart=always

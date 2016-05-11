@@ -1,4 +1,5 @@
 from origin.neuron import Synapse
+from origin.utils import restart_service
 import subprocess
 from mako.template import Template
 
@@ -50,5 +51,5 @@ class NetworkConfiguration:
     
     @classmethod
     def reload(cls):
-        subprocess.run(['systemctl', '--no-block', 'restart', 'nac-network.service'])
+        restart_service('nac-network', no_block=True)
         

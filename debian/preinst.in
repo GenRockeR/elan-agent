@@ -5,6 +5,11 @@ then
         dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
                 --divert "/etc/init.d/freeradius.diverted-%{PACKAGE-NAME}" "/etc/init.d/freeradius"
 fi
+if ! dpkg-divert --list "%{PACKAGE-NAME}" | grep -F "/etc/freeradius/dictionary.diverted-%{PACKAGE-NAME}"
+then
+        dpkg-divert --package "%{PACKAGE-NAME}" --add --rename \
+                --divert "/etc/freeradius/dictionary.diverted-%{PACKAGE-NAME}" "/etc/freeradius/dictionary"
+fi
 
 if [ ! -e /etc/init.d/freeradius ]
 then

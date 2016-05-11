@@ -11,14 +11,16 @@ ln -s /lib/init/upstart-job /etc/init.d/freeradius
 
 # Configure Nginx
 rm -f /etc/nginx/sites-enabled/default
-PYTHONPATH=/origin/lib/python python3 -c 'from origin.neuron import Axon; Axon.generate_nginx_conf()'
+PYTHONPATH=/origin/lib/python python3 -c 'from origin.neuron.axon import Axon; Axon.generate_nginx_conf()'
 
 
+# deconfigure freeradius default sites
+rm -f /etc/freeradius/sites-enabled/default
+rm -f /etc/freeradius/sites-enabled/inner-tunnel
 
 
 mkdir -p /var/log/suricata
 mkdir -p /etc/suricata/rules
-#PYTHONPATH=/origin/lib/python python3 -c 'from origin.ids import generate_suricata_conf; generate_suricata_conf(force=True)'
 PYTHONPATH=/origin/lib/python /origin/bin/rule-fetcher --no-rule-reload || true
 
 perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py

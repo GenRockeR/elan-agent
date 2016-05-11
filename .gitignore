@@ -8,6 +8,7 @@ __pycache__/
 bin/
 !lib/perl5
 lib/
+lib64
 debian/postinst
 debian/postrm
 debian/preinst

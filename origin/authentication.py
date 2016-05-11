@@ -3,6 +3,7 @@ from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import subprocess, re, socket
 from origin.neuron import Dendrite, Synapse
+from origin.utils import restart_service
 from mako.template import Template
 
 
@@ -49,6 +50,7 @@ class AuthenticationProvider(Dendrite):
         
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
         self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
+        self.ad_template = Template(filename="/origin/authentication/freeradius/ad-module")
         self.cc_auth_template = Template('''
             update session-state {
                 &Origin-Auth-Provider := ${id}
@@ -214,7 +216,6 @@ class AuthenticationProvider(Dendrite):
                         # if auth status for this agent is not joined, update it...
                         if auth['agent_statuses'][str(self.agent_id)]['status'] != 'joined':
                             self.post('authentication/provider/{id}/join-success'.format(id=auth['id']))
-                        break
                         
                         has_active_directory = True
                         inner_switch_server_conf +=  '''
@@ -258,7 +259,8 @@ class AuthenticationProvider(Dendrite):
                     inner_switch_server_conf +=  '}'
             
             # Always add AD module conf as it is used even if no AD declared
-            module_conf += "\n" + self.ad_template.render(**AD.info())
+            ad_info = AD.info() or {}
+            module_conf += "\n" + self.ad_template.render(has_active_directory=has_active_directory, **ad_info)
 
             # Quit AD domain if required
             if not has_active_directory and AD.joined():
@@ -280,7 +282,7 @@ class AuthenticationProvider(Dendrite):
                 self.unprovide(service_path)
                 
             # Reload freeradius
-            subprocess.call('restart freeradius || start freeradius', shell=True)
+            restart_service('freeradius')
             
             # new provides
             for service_path in new_provided_services:
@@ -356,7 +358,7 @@ class AD:
         cls._run(['net', 'conf', 'setparm', 'global', 'dedicated keytab file', '/etc/krb5.keytab'])
         cls._run(['net', 'conf', 'setparm', 'global', 'kerberos method', 'dedicated keytab'])
         cls._run(['net', 'ads', 'join', '-U', '{user}%{password}'.format(user=user, password=password), realm])
-        cls._run(['service', 'winbind', 'restart'])
+        restart_service('winbind')
         cls._run(['net', '-P', 'ads', 'keytab', 'create'])
         cls._run(['chown', 'freerad', '/etc/krb5.keytab'])
         cls._run(['usermod', '-a', '-G', 'winbindd_priv', 'freerad'])
