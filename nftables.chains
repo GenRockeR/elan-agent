@@ -106,8 +106,6 @@ table ip origin {
     mark 0 accept 
 
     ip protocol tcp redirect to mark . tcp dport map @captive_portals
-    
-    drop
   }
   
   chain postrouting { 
@@ -128,8 +126,6 @@ table ip6 origin {
     mark 0 accept 
 
     ip6 nexthdr tcp redirect to mark . tcp dport map @captive_portals
-
-    drop
   }
   
   chain postrouting { 
