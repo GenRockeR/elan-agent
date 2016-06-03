@@ -256,7 +256,10 @@ def remove_expired_authentication_session(mac, date=None):
 
 def notify_new_MAC_session(mac, mac_local_id, port=None, start=None):
     ''' start is Epoch '''
-    dendrite.post('mac/{mac}/session'.format(mac=mac), {'start': format_date(start), 'port': port, 'local_id': mac_local_id})
+    data = {'start': format_date(start), 'local_id': mac_local_id}
+    if port:
+        data['port'] = port
+    dendrite.post('mac/{mac}/session'.format(mac=mac), data)
 
 def notify_end_MAC_session(mac, mac_local_id, end=None):
     ''' start is Epoch '''
@@ -268,11 +271,14 @@ def notify_MAC_port(mac, mac_local_id, port, time=None):
 
 def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, start=None):
     ''' start is Epoch '''
+    data = {'start': format_date(start), 'local_id': vlan_local_id}
+    if port:
+        data['port'] = port
     dendrite.post(
             'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}'.format(
                     mac=mac, vlan=vlan, mac_local_id=mac_local_id
             ),
-            {'start': format_date(start), 'port': port, 'local_id': vlan_local_id}
+            data
     )
 
 def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
@@ -288,11 +294,14 @@ def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
     
 def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, start=None):
     ''' start is Epoch '''
+    data = {'start': format_date(start), 'local_id': ip_local_id}
+    if port:
+        data['port'] = port
     dendrite.post(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}'.format(
                          mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
               ), 
-              {'start': format_date(start), 'port': port, 'local_id': ip_local_id}
+              data
     )
 
 
