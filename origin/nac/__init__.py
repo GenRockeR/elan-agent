@@ -5,7 +5,7 @@ import threading
 
 DISCONNECT_NOTIFICATION_PATH = 'device:vlan_mac_disconnected' # TODO Factorize: also in session_trackerd
 
-AUTHORIZATION_CHANGE_CHANNEL = 'nac:authz:change' " notify that authz changed for mac"
+AUTHORIZATION_CHANGE_CHANNEL = 'nac:authz:change' # notify that authz changed for mac
 
 AUTHZ_MAC_EXPIRY_PATH = 'nac:authz:expiry' # sorted set with expiry as score, mac will be used as key of session (we only keep current sessions)
 AUTHZ_SESSIONS_BY_MAC_PATH = 'nac:authz:sessions' # hash
@@ -139,7 +139,7 @@ class RedisMacAuthorization(object):
         if not isinstance(other, RedisMacAuthorization) or self.__dict__.keys() != other.__dict__.keys():
             return False
         
-        for key in self.__dict__.keys() - {'mac', 'local_id'}:
+        for key in set(self.__dict__.keys()) - {'mac', 'local_id'}:
             if getattr(self, key) != getattr(other, key):
                 return False
         
@@ -157,9 +157,16 @@ class RedisMacAuthorization(object):
         else:
             till = self.till
 
+
         pipe = synapse.pipe
-        pipe.zadd(AUTHZ_MAC_EXPIRY_PATH, till, self.mac )
-        pipe.hset(AUTHZ_SESSIONS_BY_MAC_PATH, self.mac, self.__dict__)
+        pipe.zadd(AUTHZ_MAC_EXPIRY_PATH, till, self.mac)
+        
+        data = self.__dict__.copy()
+        # sets are not serialializable, serialize them as lists
+        data['allow_on'] = list(data['allow_on'])
+        data['bridge_to'] = list(data['bridge_to'])
+        
+        pipe.hset(AUTHZ_SESSIONS_BY_MAC_PATH, self.mac, data)
         pipe.execute()
     
     @classmethod
