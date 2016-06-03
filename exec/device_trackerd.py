@@ -92,7 +92,7 @@ def capture(interfaces):
             vlan_id = 0
             packet_vlan = getattr(packet, 'vlan', None)
             if packet_vlan:
-                vlan = packet_vlan.id 
+                vlan_id = packet_vlan.id 
             vlan = '{nic}.{vlan_id}'.format(nic=nic, vlan_id=vlan_id)
             epoch = int(float(packet.frame_info.time_epoch))
             
