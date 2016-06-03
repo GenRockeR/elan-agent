@@ -15,17 +15,14 @@ table bridge origin {
   chain access_control_in {
 
     ether saddr . iif @mac_on_vlan accept
-    
-    ether type arp accept
-    
+        
     ether type ip udp sport bootpc udp dport bootps accept
     ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 udp sport dhcpv6-client udp dport dhcpv6-server accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } accept
 
     udp dport domain accept
 
-    mark set iif map @vlan_mark
-    tcp dport {http, https} accept 
+    tcp dport {http, https} mark set iif map @vlan_mark accept 
 
     mark set 0x80000000
   }
@@ -42,11 +39,31 @@ table bridge origin {
     ether daddr . oif @mac_on_vlan accept
     ether saddr . oif @mac_to_vlan accept
 
-    ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
-    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
-    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
+	#TODO: arp/ndp passthrough (implied in dhcp and dns pt), meanwhile, accept all
+    ether type arp accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } accept
+	#arp operation request iif . oif @ndp_pt_ifs accept
+    #arp operation reply   oif . iif @ndp_pt_ifs accept
+    #ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit } iif . oif @ndp_pt_ifs accept
+    #ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-advert  } oif . iif @ndp_pt_ifs accept
 
+	arp operation request iif . oif @dns_pt_ifs accept
+    arp operation reply   oif . iif @dns_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit } iif . oif @dns_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-advert  } oif . iif @dns_pt_ifs accept
     udp dport domain iif . oif @dns_pt_ifs accept
+    udp sport domain oif . iif @dns_pt_ifs accept
+
+	arp operation request iif . oif @dhcp_pt_ifs accept
+    arp operation reply   oif . iif @dhcp_pt_ifs accept
+    ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
+    ip protocol udp udp sport bootps udp dport bootpc oif . iif @dhcp_pt_ifs accept
+
+    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2   ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
+    ip6 saddr {fe80::/10} ip6 daddr {fe80::/10} ip6 nexthdr udp udp sport dhcpv6-server udp dport dhcpv6-client oif . iif @dhcp_pt_ifs accept
+
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-advert,  nd-neighbor-advert  } oif . iif @dhcp_pt_ifs accept
 
     drop 
   }
@@ -87,7 +104,8 @@ table inet origin {
   chain connections  {
     type filter hook forward priority 0;
     
-    mark 0x40000000 ct state new log group 5
+    ct mark 0x40000000 accept
+    mark 0x40000000 ct state new log group 5 ct mark set mark
   }
 }
 
@@ -101,7 +119,7 @@ table ip origin {
     ip daddr $agent_ip udp dport {1812, 1813, 161, 162} redirect
     ip daddr $agent_ip tcp dport {80, 443} redirect
                 
-    ip daddr $portal_ip ip protocol tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+    ip daddr $portal_ip ip protocol tcp mark 0 redirect to tcp dport map {80: 20000, 443: 20001}
 
     mark 0 accept 
 
