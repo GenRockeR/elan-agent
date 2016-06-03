@@ -215,7 +215,7 @@ class AuthenticationProvider(Dendrite):
                     if AD.joined(auth['domain']):
                         # if auth status for this agent is not joined, update it...
                         if auth['agent_statuses'][str(self.agent_id)]['status'] != 'joined':
-                            self.post('authentication/provider/{id}/join-success'.format(id=auth['id']))
+                            self.post('authentication/provider/{id}/join-success'.format(id=auth['id']), {})
                         
                         has_active_directory = True
                         inner_switch_server_conf +=  '''
