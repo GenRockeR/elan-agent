@@ -90,6 +90,7 @@ class AccessControlConfigurator(Dendrite):
                     
                     if vlan_id:
                         nic = ip.create(kind='vlan',link=nic, vlan_id=vlan_id, ifname=nic_name, reuse=True).commit()
+                        nic.up()
                     
                     bridge.add_port(nic)
                 except:
