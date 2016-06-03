@@ -171,7 +171,7 @@ def reload_service(service, no_block=False):
     subprocess.run(args)
 
 def restart_service(service, no_block=False):
-    args = ['systemctl']
+    args = ['sudo', 'systemctl']
     if no_block:
         args.append('--no-block')
     args.append('restart')

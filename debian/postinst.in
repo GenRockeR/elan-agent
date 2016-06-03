@@ -50,7 +50,7 @@ update-rc.d -f nftables remove
 # disable all interfaces
 ifdown -a --ignore-errors --exclude=lo
 cat /origin/network/interface.lo > /etc/network/interfaces
-
+chown www-data /etc/network/interfaces.d/ea-network
 #DEBHELPER#
 
 exit 0

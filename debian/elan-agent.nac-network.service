@@ -13,6 +13,7 @@ Environment="PYTHONPATH=/origin/lib/python"
 
 ExecStartPre=-/sbin/brctl addbr br0
 ExecStartPre=-/usr/bin/python3 -c 'import origin.network; origin.network.NetworkConfiguration().generate_configuration_files()'
+ExecStartPre=-/bin/chown www-data /etc/network/interfaces.d/ea-network
 
 ExecStart=/sbin/ifup br0
 

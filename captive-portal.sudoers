@@ -1,1 +1,1 @@
-www-data ALL = NOPASSWD: /sbin/ebtables, /sbin/iptables
+www-data ALL = NOPASSWD: /bin/systemctl
