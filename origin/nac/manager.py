@@ -31,7 +31,8 @@ class MacAuthorizationManager(Dendrite):
         # TODO: this should get vlans from network conf to flush nft sets and it should use fw_allow mac for each. Even if it is not in a transaction and not very efficient, it is OK as this should not restart often (TODO when flush sets works...) 
         for mac in self.synapse.zmembers(AUTHZ_MAC_EXPIRY_PATH):
             authz = RedisMacAuthorization.getByMac(mac)
-            self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
+            if authz:
+                self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
 
     def removeAuthz(self, mac, reason, authz=None):
         if authz is None:
@@ -90,17 +91,17 @@ class MacAuthorizationManager(Dendrite):
             def nft(cmd):
                 print(cmd, file=nft_process.stdin)
             
-            for vlan in self.fw_allowed_vlans(mac) - on:
+            for vlan in self.fw_allowed_vlans(mac) - set(on):
                 self._fw_cache_allow_on_del(mac, vlan)
                 nft('delete element bridge origin mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
-            for vlan in on - self.fw_allowed_vlans(mac):
+            for vlan in set(on) - self.fw_allowed_vlans(mac):
                 self._fw_cache_allow_on_add(mac, vlan)
                 nft('add element bridge origin mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
 
-            for vlan in self.fw_bridged_vlans(mac) - to:
+            for vlan in self.fw_bridged_vlans(mac) - set(to):
                 self._fw_cache_bridge_to_del(mac, vlan)
                 nft('delete element bridge origin mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
-            for vlan in on - self.fw_allowed_on(mac):
+            for vlan in set(to) - self.fw_bridged_vlans(mac):
                 self._fw_cache_bridge_to_add(mac, vlan)
                 nft('add element bridge origin mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
 
@@ -113,7 +114,10 @@ class MacAuthorizationManager(Dendrite):
             
     def authzChanged(self, mac):
         authz = RedisMacAuthorization.getByMac(mac)
-        self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
+        if authz:
+            self.fw_allow_mac(mac, on=authz.allow_on, to=authz.bridge_to)
+        else:
+            self.fw_disallow_mac(mac)
     
     def handle_authz_changed(self, mac):
         self.authzChanged(mac)
