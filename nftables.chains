@@ -15,12 +15,6 @@ table bridge origin {
   chain access_control_in {
 
     ether saddr . iif @mac_on_vlan accept
-        
-    ether type ip udp sport bootpc udp dport bootps accept
-    ip6 saddr {fe80::/10} ip6 daddr ff02::1:2 udp sport dhcpv6-client udp dport dhcpv6-server accept
-    ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } accept
-
-    udp dport domain accept
 
     tcp dport {http, https} mark set iif map @vlan_mark accept 
 
@@ -73,9 +67,9 @@ table bridge origin {
 
     jump global_ac
 
-    mark 0x80000000 drop
-
     oif @ac_ifs jump access_control_forward
+
+    mark 0x80000000 drop
   }
 
   chain ids { 
