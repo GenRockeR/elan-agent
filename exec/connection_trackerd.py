@@ -84,10 +84,14 @@ if __name__ == '__main__':
 
             if not ignorePacket(pkt_params):
                 # TODO: Use NFLOG time
-                pkt_params['start_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                pkt_params['start'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
                 pkt_params['src']['vlan'] = if_indextoname(physindev)
+                if '.' not in pkt_params['src']['vlan']:
+                    pkt_params['src']['vlan'] += '.0'
                 pkt_params['dst']['vlan']   = if_indextoname(physoutdev)
+                if '.' not in pkt_params['dst']['vlan']:
+                    pkt_params['dst']['vlan'] += '.0'
                 
                 for t in ('src', 'dst'):
                     tip = pkt_params[t]
