@@ -1,6 +1,9 @@
 #!/usr/sbin/nft -f
 
 table bridge origin {
+  set ndp_pt_ifs {
+    type iface_index . iface_index ;
+  }
   set dhcp_pt_ifs {
     type iface_index . iface_index ;
   }
@@ -32,10 +35,16 @@ table ip origin {
   map captive_portals {
     type mark . inet_service : inet_service ;
   }
+  map redirect_marks {
+  	type ipv4_addr . inet_service . ipv4_addr . inet_service : inet_service ;
+  }
 }
 
 table ip6 origin {
   map captive_portals {
     type mark . inet_service : inet_service ;
+  }
+  map redirect_marks {
+  	type ipv6_addr . inet_service . ipv6_addr . inet_service : inet_service ;
   }
 }

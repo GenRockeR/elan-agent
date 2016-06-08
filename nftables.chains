@@ -16,9 +16,7 @@ table bridge origin {
 
     ether saddr . iif @mac_on_vlan accept
 
-    tcp dport {http, https} mark set iif map @vlan_mark accept 
-
-    mark set 0x80000000
+    mark set iif map @vlan_mark
   }
 
   chain prerouting { 
@@ -30,16 +28,17 @@ table bridge origin {
   }
 
   chain access_control_forward {
-    ether daddr . oif @mac_on_vlan accept
-    ether saddr . oif @mac_to_vlan accept
+    mark 0 ether daddr . oif @mac_on_vlan accept
+    mark 0 ether saddr . oif @mac_to_vlan accept
 
 	#TODO: arp/ndp passthrough (implied in dhcp and dns pt), meanwhile, accept all
     ether type arp accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } accept
-	#arp operation request iif . oif @ndp_pt_ifs accept
-    #arp operation reply   oif . iif @ndp_pt_ifs accept
-    #ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit } iif . oif @ndp_pt_ifs accept
-    #ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-advert  } oif . iif @ndp_pt_ifs accept
+
+	arp operation request iif . oif @ndp_pt_ifs accept
+    arp operation reply   oif . iif @ndp_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit } iif . oif @ndp_pt_ifs accept
+    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-advert  } oif . iif @ndp_pt_ifs accept
 
 	arp operation request iif . oif @dns_pt_ifs accept
     arp operation reply   oif . iif @dns_pt_ifs accept
@@ -59,6 +58,8 @@ table bridge origin {
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-advert,  nd-neighbor-advert  } oif . iif @dhcp_pt_ifs accept
 
+    tcp dport {http, https} mark set iif map @vlan_mark log group 20 drop
+
     drop 
   }
 
@@ -69,7 +70,6 @@ table bridge origin {
 
     oif @ac_ifs jump access_control_forward
 
-    mark 0x80000000 drop
   }
 
   chain ids { 
@@ -113,11 +113,10 @@ table ip origin {
     ip daddr $agent_ip udp dport {1812, 1813, 161, 162} redirect
     ip daddr $agent_ip tcp dport {80, 443} redirect
                 
-    ip daddr $portal_ip ip protocol tcp mark 0 redirect to tcp dport map {80: 20000, 443: 20001}
-
-    mark 0 accept 
-
-    ip protocol tcp redirect to mark . tcp dport map @captive_portals
+    ip daddr $portal_ip ip protocol tcp redirect to tcp dport map {80: 20000, 443: 20001}
+    
+    mark set ip saddr . tcp sport . ip daddr . tcp dport map @redirect_marks
+    redirect to mark . tcp dport map @captive_portals
   }
   
   chain postrouting { 
@@ -130,14 +129,15 @@ flush table ip6 origin
 table ip6 origin {
   
   chain prerouting  { 
+    type nat hook prerouting priority -150;
+
     ip6 daddr $agent_ip6 udp dport {1812, 1813, 161, 162} redirect
     ip6 daddr $agent_ip6 tcp dport {80, 443} redirect
                 
-    ip6 daddr $portal_ip6 ip6 nexthdr tcp mark 0 redirect to tcp dport map { 80: 20000, 443: 20001}
+    ip6 daddr $portal_ip6 ip6 nexthdr tcp redirect to tcp dport map { 80: 20000, 443: 20001}
 
-    mark 0 accept 
-
-    ip6 nexthdr tcp redirect to mark . tcp dport map @captive_portals
+    mark set ip saddr . tcp sport . ip daddr . tcp dport map @redirect_marks
+    redirect to mark . tcp dport map @captive_portals
   }
   
   chain postrouting { 
