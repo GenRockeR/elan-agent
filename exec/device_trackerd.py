@@ -112,7 +112,7 @@ def capture(interfaces):
             else:
                 _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , time=epoch)
         
-            if vlan_added:
+            if vlan_added and nac.vlan_has_access_control(vlan):
                 # Check Mac authorized on VLAN
                 thread = threading.Thread(target=checkAuthzOnVlan, args=(mac, vlan))
                 thread.start()

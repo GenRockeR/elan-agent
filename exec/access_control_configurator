@@ -4,8 +4,10 @@ import subprocess, time, traceback
 from origin.neuron import Dendrite, Synapse, axon
 from origin.utils import physical_ifaces, reload_service
 from origin import network
+from origin.event import ExceptionEvent
 from mako.template import Template
 from pyroute2 import IPDB
+from origin import nac
 
 class AccessControlConfigurator(Dendrite):
     bridge = 'br0'
@@ -62,7 +64,7 @@ class AccessControlConfigurator(Dendrite):
                 subprocess.call(cmd, shell=True)
 
         elif self.vlans_path and path == self.vlans_path:
-            # conf if list of all VLANS -> when a Vlan is modified, all VLANs are sent
+            # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
             new_vlans = {}
             for vlan in conf:
                 if vlan['vlan_id']:
@@ -94,8 +96,8 @@ class AccessControlConfigurator(Dendrite):
                     
                     bridge.add_port(nic)
                 except:
-                    #TODO log error to CC
-                    print('error occured:', traceback.format_exc() )
+                    ExceptionEvent(source='network').notify()
+
 
             
             # Configure VLANs
@@ -193,6 +195,8 @@ class AccessControlConfigurator(Dendrite):
             reload_service('nginx')
             
             self.vlans = new_vlans
+            nac.set_access_controlled_vlans_cache(new_vlans.keys())
+            
         finally:
             ip.release()
             network.NetworkConfiguration.reload()            

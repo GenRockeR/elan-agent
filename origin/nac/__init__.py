@@ -11,6 +11,7 @@ AUTHZ_MAC_EXPIRY_PATH = 'nac:authz:expiry' # sorted set with expiry as score, ma
 AUTHZ_SESSIONS_BY_MAC_PATH = 'nac:authz:sessions' # hash
 AUTHZ_SESSIONS_SEQUENCE_PATH = 'nac:authz:sequence'
 
+ACCESS_CONTROLLED_IFS_PATH = 'nac:access-control:ifs'
 
 CHECK_AUTHZ_PATH = 'mac/check-authz'
 
@@ -72,6 +73,17 @@ def getAuthz(mac):
     if authz:
         return authz
     return checkAuthz(mac)
+
+def vlan_has_access_control(vlan):
+    if vlan.endswith('.0'):
+        vlan = vlan[0:-2] # ifs are used not vlan standard name
+    return synapse.sismember(ACCESS_CONTROLLED_IFS_PATH, vlan)
+
+def set_access_controlled_vlans_cache(vlans):
+    p = synapse.pipeline()
+    p.delete(ACCESS_CONTROLLED_IFS_PATH)
+    p.sadd(ACCESS_CONTROLLED_IFS_PATH, *vlans)
+    p.execute()
     
 def authzChanged(mac):
     '''
