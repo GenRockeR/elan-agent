@@ -58,7 +58,7 @@ table bridge origin {
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-advert,  nd-neighbor-advert  } oif . iif @dhcp_pt_ifs accept
 
-    tcp dport {http, https} mark set iif map @vlan_mark log group 20 drop
+    mark 0 tcp dport {http, https} mark set iif map @vlan_mark log group 20 drop
 
     drop 
   }
