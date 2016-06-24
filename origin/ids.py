@@ -19,9 +19,8 @@ def generate_suricata_conf(force=False):
         # default values:
         networks = set(['192.168.0.0/16', '10.0.0.0/8']) # no defaults for IPv6 :(
         
-    if s.smembers(NETWORKS_CACHE_PATH) == networks:
-        changed = False
-    else:
+    changed = False
+    if s.smembers(NETWORKS_CACHE_PATH) != networks:
         changed = True
     
     if changed or force:

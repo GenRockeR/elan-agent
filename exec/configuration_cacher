@@ -1,32 +1,28 @@
 #!/usr/bin/env python3
 
-import time
-from origin.neuron import Dendrite
+from origin.neuron import AsyncDendrite, Synapse
 from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH, Administrator
 
-def conf_updated(dendrite, path, data):
-    if path == 'captive-portal':
-        for profile in data:
-            dendrite.synapse.hset(CONF_PATH, profile['id'], profile)
-    elif path == 'guest-access':
-        for profile in data:
-            dendrite.synapse.hset(GUEST_ACCESS_CONF_PATH, profile['id'], profile)
-    elif path == 'administrator':
-        Administrator.delete_all()
-        for profile in data:
-            Administrator.add(**profile)
-            
-conf = Dendrite('captive-portal', answer_cb = conf_updated)
-#conf.subscribe('captive-portal')
-conf.subscribe('guest-access')
-conf.subscribe('administrator')
+class ConfigurationCacher():
+    def __init__(self):
+        self.synapse = Synapse()
 
-count = 1
-while count < 100:
-    try:
-        conf.run_for_ever()
-    except:
-        import traceback
-        traceback.print_exc()
-    time.sleep(30)
-    count = count + 1
+    def cp_conf_updated(self, data, path):
+        for profile in data:
+            self.synapse.hset(CONF_PATH, profile['id'], profile)
+            
+    def ga_conf_updated(self, data, path):
+            for profile in data:
+                self.synapse.hset(GUEST_ACCESS_CONF_PATH, profile['id'], profile)
+                
+    def admins_conf_updated(self, data, path):
+            Administrator.delete_all()
+            for profile in data:
+                Administrator.add(**profile)
+            
+cacher = AsyncDendrite()
+cacher.subscribe('captive-portal', cb=cacher.cp_conf_updated)
+cacher.subscribe('guest-access',   cb=cacher.ga_conf_updated)
+cacher.subscribe('administrator',  cb=cacher.admins_conf_updated)
+
+cacher.start()

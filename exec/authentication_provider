@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 
 from origin.authentication import AuthenticationProvider
+from origin.neuron import AsyncDendrite
 
 if __name__ == "__main__":
-    provider = AuthenticationProvider()
-    provider.run_for_ever()
+
+    dendrite = AsyncDendrite
+    provider = AuthenticationProvider(dendrite=dendrite)
+
+    
+    dendrite.subscribe_conf('agent_id', cb=provider.got_agent_id) 
+    dendrite.subscribe_conf('authentication', cb=provider.new_authentication_conf)
+
+    dendrite.run()

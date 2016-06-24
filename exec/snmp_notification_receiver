@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
  
-import traceback, time
-from threading import Thread
+import asyncio
 from origin.snmp import DeviceSnmpManager
 
 snmp_manager = DeviceSnmpManager()
@@ -9,28 +8,22 @@ snmp_manager = DeviceSnmpManager()
 # Register SNMP Application at the SNMP engine
 
 # Run I/O dispatcher which would receive queries and send confirmations
-for i in range(1,100):
-    try:
-        in_trap = False
-        trap_str = ''
 
-        with open('/var/run/trap_fifo') as fifo:
-            for line in fifo:
-                line = line.rstrip('\n')
-                if in_trap:
-                    trap_str += line
-                elif 'BEGIN VARIABLEBINDINGS' in line:
-                    trap_str = line
-                    in_trap = True
-                if 'END VARIABLEBINDINGS' in line:
-                    in_trap = False
-                    thread = Thread(target=lambda: snmp_manager.parse_trap_str(trap_str))
-                    thread.start()
-    
+async def receive_traps():
+    proc = await asyncio.create_subprocess_exec( '/usr/sbin/snmptrapd', '-On', '-Lo', '-f', 'udp:162', 'udp6:162', stdout=asyncio.subprocess.PIPE )
+    in_trap = False
+    trap_str = ''
+    while True:
+        line = await proc.stdout.readline()
+        line = line.rstrip('\n')
+        if in_trap:
+            trap_str += line
+        elif 'BEGIN VARIABLEBINDINGS' in line:
+            trap_str = line
+            in_trap = True
+        if 'END VARIABLEBINDINGS' in line:
+            in_trap = False
+            asyncio.ensure_future( snmp_manager.parse_trap_str(trap_str) )
             
-    except KeyboardInterrupt:
-        break
-    except:
-        traceback.print_exc()
-else:
-    time.sleep(2)
+
+asyncio.get_event_loop().run_until_complete( receive_traps()  )

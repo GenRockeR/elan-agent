@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import signal, subprocess, os, sys
+import subprocess, os, sys
 import yaml, re
 from origin.utils import reload_service
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time, subprocess
-from origin.neuron import Dendrite
+from origin.neuron import AsyncDendrite
 from origin.utils import restart_service
 from mako.template import Template
 
@@ -10,44 +10,32 @@ SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
 import logging
 logging.basicConfig()
 
-class NacConfigurator(Dendrite):
+class NacConfigurator():
     FREERADIUS_KEYS = ('dot1x_authentication', 'default_secret', 'ca_cert', 'cert_key', 'cert_chain')
     SNMPTRAPD_KEYS  = ('snmp_credentials', 'snmp_engine_ids')
     
     def __init__(self):
-        super().__init__('nac-configuration')
-        
         self.agent_id = None
         self.conf = {}
         # subscribe to providers and group lists
-        self.retrieve('agent/self')
 
-
-    def answer_cb(self, path, conf):
+    def agent_conf_updated(self, conf):
         freeradius_conf_changed = False
         snmptrapd_conf_changed = False
-        # update local configuration cache
-        if path == 'agent/self':
-            if self.agent_id != conf['id']:
-                self.agent_id = conf['id']
-                self.subscribe('agent/' + str(self.agent_id))
-        # Don't use values retrieved by agent/self as they will not get updated in cache when changed on cc...
-        # Id should not change so it is OK to use, but for the other values, only  'agent/' + str(self.agent_id) path gets updated
-        # In case of CC down, value will flip from outdated value from 'agent/self' and up to date value from 'agent/<id>'
-        #if path == 'agent/self' or (self.agent_id and path == 'agent/' + str(self.agent_id)):
-        if self.agent_id and path == 'agent/' + str(self.agent_id):
-            for key in self.FREERADIUS_KEYS:
-                if self.conf.get(key, "") != conf[key]:
-                    self.conf[key] = conf[key]
-                    freeradius_conf_changed = True
-            for key in self.SNMPTRAPD_KEYS:
-                if self.conf.get(key, {}) != conf[key]:
-                    self.conf[key] = conf[key]
-                    snmptrapd_conf_changed = True
-                    
-                    # save credentials for other program use...
-                    if key == 'snmp_credentials':
-                        self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, conf[key])
+
+        for key in self.FREERADIUS_KEYS:
+            if self.conf.get(key, "") != conf[key]:
+                self.conf[key] = conf[key]
+                freeradius_conf_changed = True
+
+        for key in self.SNMPTRAPD_KEYS:
+            if self.conf.get(key, {}) != conf[key]:
+                self.conf[key] = conf[key]
+                snmptrapd_conf_changed = True
+                
+                # save credentials for other program use...
+                if key == 'snmp_credentials':
+                    self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, conf[key])
                     
 
         if freeradius_conf_changed:
@@ -77,9 +65,8 @@ class NacConfigurator(Dendrite):
             restart_service('freeradius')
 
 if __name__ == "__main__":
+    dendrite = AsyncDendrite()
     conf = NacConfigurator()
-    count = 1
-    while count < 100:
-        conf.run_for_ever()
-        time.sleep(30)
-        count = count + 1
+    dendrite.subscribe_conf('agent', conf.agent_conf_updated)
+
+    dendrite.run()

@@ -3,92 +3,45 @@
 from origin import session, nac, neuron, utils
 from origin.event import Event, ExceptionEvent
 import re
-import time
 import pyshark
-import threading
 
 
-REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
 
-def isNewFingerprint(mac, fingerprint, source):
-    synapse = neuron.Synapse()
 
-    key = 'mac:{mac}:fingerprint:{source}'.format(mac=mac, source=source)
-    
-    if synapse.get(key) == fingerprint:
-        synapse.expire(key, REDIS_LIFETIME)
-        return False
-    else:
-        synapse.set(key, fingerprint, ex=REDIS_LIFETIME)
-        return True
+class DeviceTracker():
+    REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
 
-def isNewHostname(mac, hostname, source):
-    synapse = neuron.Synapse()
-
-    key = 'mac:{mac}:hostname:{source}'.format(source=source, mac=mac)
-
-    if synapse.get(key) == hostname:
-        synapse.expire(key, REDIS_LIFETIME)
-        return False
-    else:
-        synapse.set(key, hostname, ex=REDIS_LIFETIME)
-        return True
-
-def ignoreMAC(mac):
-    # Ignore broadcast packets
-    if mac in ['ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00']:
-        return True
-
-    # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml
-    # name is IANA_{integer}, integer being the number of prefixed bytes.
-    IANA_6_prefix = ['00:00:5e', '01:00:5e', '02:00:5e', '03:00:5e']
-    if mac[0:8] in IANA_6_prefix:
-        return True
-    IANA_4_prefix = ['33:33']
-    if mac[0:5] in IANA_4_prefix:
-        return True
-
-    return False
-
-def ignoreIP(ip):
-    # Ignore broadcast
-    if ip[:6] == '0.0.0.' or ip in ('255.255.255.255', '::'):
-        return True
-    #Ignore multicast
-    if ip[:4] in [str(v)+'.' for v in range(224,239)]: # 224. to 239.
-        return True
-    
-    if ip == '::':
-        return True
-    
-    return False
-
-def checkAuthzOnVlan(mac, vlan):
-    authz = nac.checkAuthz(mac)
-    if not authz or vlan not in authz.allow_on:
-        event = Event('device-not-authorized', source='network', level='danger') 
-        event.add_data('mac',  mac, data_type='mac')
-        event.add_data('vlan', vlan)
-        event.notify()
-        # TODO: Try to move it to another vlan!
+    def __init__(self, dendrite):
+        
+        self.dendrite = dendrite
+        
+        self.synapse = neuron.Synapse()
+        
+        self.interfaces = list(utils.physical_ifaces())
+        
+        self.dendrite.add_task(self.capture) # delay start until eventloop starts, else it seems run_in_executor starts the task straight away...
 
     
+    def capture(self):
+        for packet in pyshark.LiveCapture(
+                        interface=self.interfaces,
+                        bpf_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
+                    )\
+                    .sniff_continuously():
+            if self.stop:
+                return
+            self.dendrite.add_task(self.process_packet(packet))
+            
+        raise RuntimeError('Capture Stopped ! if it ever started...')
 
-def capture(interfaces):
-    dendrite = neuron.Dendrite('device-tracker')
-    
-    for packet in pyshark.LiveCapture(
-                    interface=interfaces,
-                    bpf_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
-                )\
-                .sniff_continuously():
+    async def process_packet(self, packet):
         try:
             # device sessions
             mac = packet.eth.src
-            if ignoreMAC(mac):
+            if self.ignoreMAC(mac):
                 return
         
-            nic = interfaces[int(packet.frame_info.interface_id)]
+            nic = self.interfaces[int(packet.frame_info.interface_id)]
             vlan_id = 0
             packet_vlan = getattr(packet, 'vlan', None)
             if packet_vlan:
@@ -105,7 +58,7 @@ def capture(interfaces):
                 else:
                     ip = packet.ipv6.src
                   
-                if ignoreIP( ip ):
+                if self.ignoreIP( ip ):
                     _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , time=epoch)
                 else:
                     _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan , ip=ip, time=epoch)
@@ -114,8 +67,7 @@ def capture(interfaces):
         
             if vlan_added and nac.vlan_has_access_control(vlan):
                 # Check Mac authorized on VLAN
-                thread = threading.Thread(target=checkAuthzOnVlan, args=(mac, vlan))
-                thread.start()
+                self.dendrite.add_task(self.checkAuthzOnVlan, mac, vlan)
         
             source = packet.highest_layer
             # more meaningful name
@@ -135,8 +87,8 @@ def capture(interfaces):
                 except AttributeError:
                     pass
                 else:
-                    if isNewFingerprint(mac, fingerprint, source=source):
-                        dendrite.post('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
+                    if self.isNewFingerprint(mac, fingerprint, source=source):
+                        self.publish('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
             
             # Hostname: grab it from netbios or dhcpv4 or dhcpv6
             hostname = None 
@@ -153,18 +105,74 @@ def capture(interfaces):
                     except AttributeError:
                         pass
             
-            if hostname and isNewHostname(mac, hostname, source):
-                dendrite.post('mac/{mac}/hostname'.format(mac=mac), {'name': hostname, 'source': source})
+            if hostname and self.isNewHostname(mac, hostname, source):
+                self.publish('mac/{mac}/hostname'.format(mac=mac), {'name': hostname, 'source': source})
 
         except Exception:
             ExceptionEvent(source='network').notify()
      
+    def isNewFingerprint(self, mac, fingerprint, source):
+    
+        key = 'mac:{mac}:fingerprint:{source}'.format(mac=mac, source=source)
+        
+        if self.synapse.get(key) == fingerprint:
+            self.synapse.expire(key, self.REDIS_LIFETIME)
+            return False
+        else:
+            self.synapse.set(key, fingerprint, ex=self.REDIS_LIFETIME)
+            return True
+    
+    def isNewHostname(self, mac, hostname, source):
+    
+        key = 'mac:{mac}:hostname:{source}'.format(source=source, mac=mac)
+    
+        if self.synapse.get(key) == hostname:
+            self.synapse.expire(key, self.REDIS_LIFETIME)
+            return False
+        else:
+            self.synapse.set(key, hostname, ex=self.REDIS_LIFETIME)
+            return True
+    
+    def ignoreMAC(self, mac):
+        # Ignore broadcast packets
+        if mac in ['ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00']:
+            return True
+    
+        # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml
+        # name is IANA_{integer}, integer being the number of prefixed bytes.
+        IANA_6_prefix = ['00:00:5e', '01:00:5e', '02:00:5e', '03:00:5e']
+        if mac[0:8] in IANA_6_prefix:
+            return True
+        IANA_4_prefix = ['33:33']
+        if mac[0:5] in IANA_4_prefix:
+            return True
+    
+        return False
+    
+    def ignoreIP(self, ip):
+        # Ignore broadcast
+        if ip[:6] == '0.0.0.' or ip in ('255.255.255.255', '::'):
+            return True
+        #Ignore multicast
+        if ip[:4] in [str(v)+'.' for v in range(224,239)]: # 224. to 239.
+            return True
+        
+        if ip == '::':
+            return True
+        
+        return False
+    
+    def checkAuthzOnVlan(self, mac, vlan):
+        authz = nac.checkAuthz(mac)
+        if not authz or vlan not in authz.allow_on:
+            event = Event('device-not-authorized', source='network', level='danger') 
+            event.add_data('mac',  mac, data_type='mac')
+            event.add_data('vlan', vlan)
+            event.notify()
+            # TODO: Try to move it to another vlan!
+    
 
 if __name__ == '__main__':
-    for i in range(1, 100):
-        try:
-            capture(list(utils.physical_ifaces()))
-        except Exception:
-            ExceptionEvent(source='network').notify()
-            time.sleep(1)
+    p = DeviceTracker()
+    p.start()
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import time
 from origin.captive_portal import GuestAccessManager
+from origin.neuron import AsyncDendrite
 
 if __name__ == "__main__":
-    manager = GuestAccessManager()
-    count = 1
-    while count < 100:
-        manager.run_for_ever()
-        time.sleep(5)
-        count = count + 1
+    dendrite = AsyncDendrite()
+    manager = GuestAccessManager(dendrite)
+    dendrite(manager.new_authorizations)
+
+    
+    manager.start()

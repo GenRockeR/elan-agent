@@ -1,46 +1,14 @@
 #!/usr/bin/env python
 import os
 from origin.event import ExceptionEvent, InternalEvent
-from origin import session
+from origin import session, neuron
+import pyshark
+import time
+import struct
+from origin.utils  import if_indextoname
+
 
 CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))
-
-def getPacketParams(packet):
-    """ Based on Impacket packet and direction, will return a dict containing LAN/WAN ether, ip, and ports if applicable, and protocol (UDP, TCP, ICMP, ICMP6, IP, IP6...).
-    """
-    params = {'src': {}, 'dst': {}}
-    original_packet = packet
-    while packet:
-        if packet.__class__.__name__ == 'Ethernet':
-            params['src']['mac'] = packet.as_eth_addr(packet.get_ether_shost())
-            params['dst']['mac']   = packet.as_eth_addr(packet.get_ether_dhost())
-        elif packet.__class__.__name__ == 'IP':
-            params['src']['ip'] = packet.get_ip_src()
-            params['dst']['ip']   = packet.get_ip_dst()
-        elif packet.__class__.__name__ == 'IP6':
-            params['src']['ip'] = packet.get_source_address().as_string()
-            params['dst']['ip']   = packet.get_destination_address().as_string()
-        elif packet.__class__.__name__ == 'UDP':
-            params['src']['port'] = packet.get_uh_sport()
-            params['dst']['port']   = packet.get_uh_dport()
-        elif packet.__class__.__name__ == 'TCP':
-            params['src']['port'] = packet.get_th_sport()
-            params['dst']['port']   = packet.get_th_dport()
-        
-        # packet type is the last type before data.
-        if packet.child().__class__.__name__ == 'Data':
-            params['type'] = packet.__class__.__name__
-            break
-        
-        packet = packet.child()
-        
-    else:
-        InternalEvent( source='network')\
-             .add_data('script', 'connection-tracker')\
-             .add_data('details', 'Data class not found while decoding packet')\
-             .add_data('packet', original_packet)\
-             .notify()
-    return params 
 
 def ignorePacket(pkt):
     macs2ignore = ('ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00')
@@ -61,54 +29,86 @@ def ignorePacket(pkt):
 
     return False
 
-if __name__ == '__main__':
-    import time
-    import origin.libnflog_cffi
-    import signal
-    from origin.neuron import Dendrite
-    from impacket.ImpactDecoder import EthDecoder
-    from origin.utils  import if_indextoname
 
-    dendrite = Dendrite('connection-tracker')
+class ConnectionTracker():
+    def __init__(self, dendrite):
+        self.dendrite = dendrite
+        
+        self.dendrite.add_task(self.capture) # delay start until eventloop starts, else it seems run_in_executor starts the task straight away...
 
-    nflog = origin.libnflog_cffi.NFLOG().generator(CONNECTION_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'physindev', 'physoutdev'], nlbufsiz=2**24, handle_overflows = False)
-    fd = next(nflog)
     
-    decoder = EthDecoder()
-    
-     
-    for pkt, hwhdr, physindev, physoutdev  in nflog:
+    def capture(self):
+        for packet in pyshark.LiveCapture(
+                                            interface=['nflog:'+str(CONNECTION_NFLOG_QUEUE)],
+                                         ).sniff_continuously():
+            self.dendrite.add_task(self.process_packet(packet))
+            
+        raise RuntimeError('Capture Stopped ! if it ever started...')
+
+    async def process_packet(self, packet):
         try:
-            pkt_obj = decoder.decode(hwhdr + pkt)
-            pkt_params = getPacketParams(pkt_obj)
-
-            if not ignorePacket(pkt_params):
-                # TODO: Use NFLOG time
-                pkt_params['start'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-
-                pkt_params['src']['vlan'] = if_indextoname(physindev)
-                if '.' not in pkt_params['src']['vlan']:
-                    pkt_params['src']['vlan'] += '.0'
-                pkt_params['dst']['vlan']   = if_indextoname(physoutdev)
-                if '.' not in pkt_params['dst']['vlan']:
-                    pkt_params['dst']['vlan'] += '.0'
+            ip = packet.layers[1]
+            pkt_params = {
+                    'src': { 'ip': ip.src }, 
+                    'dst': { 'ip': ip.dst },
+            }
+            # TODO: Better way to find macs from nflog layer... 
+            for tlv in packet.nflog.tlv.alternate_fields:
+                if tlv.showname_value.startswith('NFULA_HWHEADER'):
+                    pkt_params['src']['mac']= tlv.show[30:47]
+                    pkt_params['dst']['mac']= tlv.show[12:29]
+                    break
                 
-                for t in ('src', 'dst'):
-                    tip = pkt_params[t]
-                    if 'ip' in tip:
-                        tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
-                    else:
-                        tip['is_mac_ip'] = False
+            if not ignorePacket(pkt_params):
+                pkt_params['start'] = time.strftime( '%Y-%m-%dT%H:%M:%SZ', time.gmtime(float(packet.frame_info.time_epoch)) )
+ 
+                if packet.transport_layer:
+                    pkt_params['transport'] = packet.transport_layer.lower()
 
-                dendrite.post('connection', pkt_params)
+                for layer in reversed(packet.layers):
+                    if layer.layer_name != 'data':
+                        pkt_params['protocol'] = layer.layer_name
+                        break
+                
+                if len(packet.layers) > 2 and getattr(packet.layers[2], 'srcport', None) is not None:
+                    pkt_params['src']['port']= packet.layers[2].srcport
+                    pkt_params['dst']['port']= packet.layers[2].dstport
+                
+
+                    
+                for tlv in packet.nflog.tlv.alternate_fields:
+                    if tlv.showname_value.startswith('NFULA_IFINDEX_PHYSINDEV'):
+                        physindev = struct.unpack(">L", tlv.binary_value[-4:])[0]
+                        pkt_params['src']['vlan'] = if_indextoname(physindev)
+                        if pkt_params['src']['vlan'] and '.' not in pkt_params['src']['vlan']:
+                            pkt_params['src']['vlan'] += '.0'
+                            
+                    if tlv.showname_value.startswith('NFULA_IFINDEX_PHYSOUTDEV'):
+                        physoutdev =  struct.unpack(">L", tlv.binary_value[-4:])[0]
+                        pkt_params['dst']['vlan']   = if_indextoname(physoutdev)
+                        if pkt_params['dst']['vlan'] and '.' not in pkt_params['dst']['vlan']:
+                            pkt_params['dst']['vlan'] += '.0'
+                            
+                 # TODO
+#                 for t in ('src', 'dst'):
+#                     tip = pkt_params[t]
+#                     if 'ip' in tip:
+#                         tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
+#                     else:
+#                         tip['is_mac_ip'] = False
+                
+                self.dendrite.publish('connection', pkt_params)
 
         except Exception as e:
             ExceptionEvent(source='network')\
-                 .add_data('packet', pkt)\
-                 .add_data('hw_header', hwhdr)\
+                 .add_data('packet', packet)\
                  .notify()
+     
 
-
+if __name__ == '__main__':
+    dendrite = neuron.AsyncDendrite()
+    ct = ConnectionTracker(dendrite)
+    dendrite.start()
 
 
         

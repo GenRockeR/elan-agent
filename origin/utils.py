@@ -137,9 +137,7 @@ def if_indextoname(index):
      
     ifname = ctypes.create_string_buffer (32)
     ifname = libc.if_indextoname (index, ifname)
-    if not ifname:
-        raise RuntimeError ("Inavlid Index")
-    return ifname
+    return ifname.decode()
 
 def is_iface_up(iface):
     try:

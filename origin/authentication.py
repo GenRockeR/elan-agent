@@ -2,7 +2,7 @@ import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import subprocess, re, socket
-from origin.neuron import Dendrite, Synapse
+from origin.neuron import Synapse
 from origin.utils import restart_service
 from mako.template import Template
 
@@ -37,17 +37,14 @@ def get_authorization(authenticator_id, login, source):
         
     return authz
 
-class AuthenticationProvider(Dendrite):
+class AuthenticationProvider():
     
-    def __init__(self):
-        super().__init__('authentication')
-
+    def __init__(self, dendrite):
+        self.dendrite = dendrite
+        
         self.agent_id = None
         self.authentications = {} # indexed by id
 
-        self.retrieve('agent/self')
-        self.subscribe('authentication')
-        
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
         self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
         self.ad_template = Template(filename="/origin/authentication/freeradius/ad-module")
@@ -152,23 +149,22 @@ class AuthenticationProvider(Dendrite):
         
         return inner_case
 
-    def answer_cb(self, path, conf):
-        conf_changed = False
-        # update local configuration cache
-        if path == 'agent/self':
-            if self.agent_id != conf['id']:
-                self.agent_id = conf['id']
-                conf_changed = True
-        elif path == 'authentication':
+    def got_agent_id(self, agent_id):
+            if self.agent_id != agent_id:
+                self.agent_id = agent_id
+                self.apply_conf()
+                
+    def new_vlan_conf(self, conf):
             new_authentications = {}
             for auth in conf:
                 new_authentications[auth['id']] = auth
             
             if new_authentications != self.authentications:
                 self.authentications = new_authentications
-                conf_changed = True 
+                self.apply_conf()
 
-        if self.agent_id and conf_changed: # we may receive agent id after conf
+    def apply_conf(self):
+        if self.agent_id is not None: # we may receive agent id after conf
             # Grab templates
             module_conf = self.rest_conf.render(agent_id=self.agent_id)
             module_conf += self.python_conf
@@ -279,16 +275,17 @@ class AuthenticationProvider(Dendrite):
     
             # unprovide
             for service_path in self.get_provided_services() - new_provided_services:
-                self.unprovide(service_path)
+                self.dendrite.unprovide(service_path)
                 
             # Reload freeradius
             restart_service('freeradius')
             
             # new provides
             for service_path in new_provided_services:
-                self.provide(service_path)
+                self.dendrite.provide(service_path, cb=self.on_call)
 
-    def call_cb(self, path, data):
+    def on_call(self, data, path):
+        # TODO: make this async....
         m = re.match(r'authentication/provider/(\d+)/authenticate', path)
         if m:
             # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
@@ -394,7 +391,7 @@ class AD:
         return cls.synapse.get(cls.REDIS_INFO_PATH)
     
     class Error(Exception):
-         def __init__(self, message):
-             self.message = message
+        def __init__(self, message):
+            self.message = message
 
 

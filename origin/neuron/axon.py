@@ -324,7 +324,7 @@ class Axon:
                         self.synapse.set(self.AGENT_UUID_PATH, data['uuid'])
                         self.registered = True
                         self.generate_nginx_conf(reload=True)
-                        # close socket so we start a new one a do correct initialization...
+                        # close socket so we run a new one a do correct initialization...
                         self.nowait_on_reopen = True
                         self.ws.close()
                         
@@ -351,4 +351,4 @@ class Axon:
         self.synapse.lpush( provider_path, dict(data=data, req_id=req_id, path=path) )
     
     def run(self):
-        tornado.ioloop.IOLoop.instance().start()
+        tornado.ioloop.IOLoop.instance().run()

@@ -1,10 +1,10 @@
-from origin.neuron import Dendrite
+from origin.neuron import AsyncDendrite
 import datetime, traceback
 
 class Event(object):
     def __init__(self, event_type, source, level='info', timestamp=None, dendrite=None):
         if dendrite is None:
-            dendrite = Dendrite('events')
+            dendrite = AsyncDendrite()
         if timestamp is None:
             timestamp = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
         
@@ -25,7 +25,7 @@ class Event(object):
         return self
     
     def notify(self):
-        self.dendrite.post('event', {
+        self.dendrite.publish('event', {
                 'type':        self.type,
                 'source':      self.source,
                 'level':       self.level,

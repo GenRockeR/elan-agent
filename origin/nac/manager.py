@@ -1,26 +1,22 @@
-from origin.neuron import Synapse, Dendrite
+from origin.neuron import Synapse, AsyncDendrite
 import subprocess, threading
 import datetime
 from .. import session
 from . import RedisMacAuthorization, notify_end_authorization_session, checkAuthz, tzaware_datetime_to_epoch
-from . import AUTHORIZATION_CHANGE_CHANNEL, DISCONNECT_NOTIFICATION_PATH, CHECK_AUTHZ_PATH, AUTHZ_MAC_EXPIRY_PATH
+from . import CHECK_AUTHZ_PATH, AUTHZ_MAC_EXPIRY_PATH
 
 
 
-class MacAuthorizationManager(Dendrite):
+class MacAuthorizationManager():
     ''' Class to manage FW authz of Macs
         It also provides a service to check Authz of Macs when something has changed (Tags, ...)
     '''
-    def __init__(self):
-        super().__init__(self, 'mac-authorizations')
-
+    def __init__(self, dendrite):
         self.fw_mac_allowed_vlans = {}
         self.fw_mac_bridged_vlans = {}
         
-        self.add_channel(AUTHORIZATION_CHANGE_CHANNEL, self.handle_authz_changed)
-        self.add_channel(DISCONNECT_NOTIFICATION_PATH, self.handle_disconnection)
-        
-        self.provide(CHECK_AUTHZ_PATH)
+        self.dendrite = AsyncDendrite()
+        self.synapse = Synapse()
 
         self.check_expired_authz()
 
@@ -136,16 +132,11 @@ class MacAuthorizationManager(Dendrite):
         self.check_expired_authz()
 
     
-    def timeout_cb(self):
-        self.check_expired_authz()
-        
-    def check_expired_authz(self):
+    async def check_expired_authz(self):
         now = tzaware_datetime_to_epoch(datetime.datetime.now(datetime.timezone.utc))
         for mac in self.synapse.zrangebyscore(AUTHZ_MAC_EXPIRY_PATH, float('-inf'), now):
             self.removeAuthz(mac, reason='expired')
-            # check new authz in other thread to not block.
-            thread = threading.Thread(target=checkAuthz, args=(mac,))
-            thread.start()
+            self.dendrite.add_task(checkAuthz, mac)
         
         # get next mac to expire
         next_expiry_date = float('inf')
@@ -154,16 +145,14 @@ class MacAuthorizationManager(Dendrite):
                 next_expiry_date = epoch_expire
             
         # set timeout for next check
-        if next_expiry_date == float('inf'):
-            self.timeout = 0
-        else:
-            self.timeout = int(next_expiry_date - now) + 1
+        if next_expiry_date != float('inf'):
+            self.add_task(self.check_expired_authz, delay=next_expiry_date)
     
     def call_cb(self, path, data):
         if path == CHECK_AUTHZ_PATH:
             for mac in data['macs']:
                 if session.is_online(mac):
                     thread = threading.Thread(target=checkAuthz, args=(mac,))
-                    thread.start()
+                    thread.run()
     
     

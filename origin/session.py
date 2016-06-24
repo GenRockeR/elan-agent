@@ -106,11 +106,11 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
             notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port, time=time)
             
     if ip_added:
-        notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)
+        notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, run=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)
     elif vlan_added:
-        notify_new_VLAN_session( mac=mac, vlan=vlan,        port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=local_id)
+        notify_new_VLAN_session( mac=mac, vlan=vlan,        port=port, run=time, mac_local_id=mac_local_id, vlan_local_id=local_id)
     elif mac_added:
-        notify_new_MAC_session(  mac=mac,                   port=port, start=time, mac_local_id=local_id)
+        notify_new_MAC_session(  mac=mac,                   port=port, run=time, mac_local_id=local_id)
  
     return mac_added, vlan_added, ip_added
                     
@@ -254,24 +254,24 @@ def remove_expired_authentication_session(mac, date=None):
 
 # Control Center Notifications
 
-def notify_new_MAC_session(mac, mac_local_id, port=None, start=None):
-    ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': mac_local_id}
+def notify_new_MAC_session(mac, mac_local_id, port=None, run=None):
+    ''' run is Epoch '''
+    data = {'run': format_date(run), 'local_id': mac_local_id}
     if port:
         data['port'] = port
     dendrite.post('mac/{mac}/session'.format(mac=mac), data)
 
 def notify_end_MAC_session(mac, mac_local_id, end=None):
-    ''' start is Epoch '''
+    ''' run is Epoch '''
     dendrite.post('mac/{mac}/session/local_id:{local_id}/end'.format(mac=mac, local_id=mac_local_id), {'end': format_date(end)})
 
 def notify_MAC_port(mac, mac_local_id, port, time=None):
     dendrite.post('mac/{mac}/session/local_id:{mac_local_id}/port'.format(mac=mac, mac_local_id=mac_local_id), {'time': format_date(time), 'port': port})
 
 
-def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, start=None):
-    ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': vlan_local_id}
+def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, run=None):
+    ''' run is Epoch '''
+    data = {'run': format_date(run), 'local_id': vlan_local_id}
     if port:
         data['port'] = port
     dendrite.post(
@@ -282,7 +282,7 @@ def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, s
     )
 
 def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
-    ''' start is Epoch '''
+    ''' run is Epoch '''
     dendrite.post(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/end'.format(
                          mac=mac, vlan=vlan, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
@@ -292,9 +292,9 @@ def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
     
 
     
-def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, start=None):
-    ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': ip_local_id}
+def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, run=None):
+    ''' run is Epoch '''
+    data = {'run': format_date(run), 'local_id': ip_local_id}
     if port:
         data['port'] = port
     dendrite.post(
@@ -306,7 +306,7 @@ def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_i
 
 
 def notify_end_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, end=None):
-    ''' start is Epoch '''
+    ''' run is Epoch '''
     dendrite.post(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}/local_id:{ip_local_id}/end'.format(
                           mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=ip_local_id

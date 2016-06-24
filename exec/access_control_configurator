@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 
-import subprocess, time, traceback
-from origin.neuron import Dendrite, Synapse, axon
-from origin.utils import physical_ifaces, reload_service
+import subprocess, traceback
+from origin.neuron import AsyncDendrite, Synapse
+from origin.utils import reload_service
 from origin import network
 from origin.event import ExceptionEvent
 from mako.template import Template
 from pyroute2 import IPDB
 from origin import nac
 
-class AccessControlConfigurator(Dendrite):
+class AccessControlConfigurator():
     bridge = 'br0'
     
     def __init__(self):
-        super().__init__('access-control')
         
         self.agent_path = None
         self.vlans_path = None
@@ -21,59 +20,46 @@ class AccessControlConfigurator(Dendrite):
         self.active = None
         self.vlans = {} # vlans by Vlan-ID
         
-        if not axon.Axon.is_registered():
-            # Retrieve Agent ID... once registered
-            self.retrieve('agent/self')
-            # DEFAULT CONF
-            interfaces = physical_ifaces()
-            # temp cofiguration: 2 interfaces in bridge
-            interface = interfaces.pop()
-            tmp_conf = {
-                     interface: {'access_control': False, 'interface': interface, 'vlan_id': 0} 
-            }
-            if interfaces: 
-                interface = interfaces.pop()
-                tmp_conf[interface] = {'access_control': False, 'interface': interface, 'vlan_id': 0}
-            self.apply_new_vlan_conf(tmp_conf)
-        else:
-            self._init_subscriptions()
-            
-    def _init_subscriptions(self):
-        self.agent_path = 'agent/' + str(self.synapse.get('agent:id'))
-        self.subscribe(self.agent_path)
-        # get vlans to configure them.
-        self.vlans_path = self.agent_path + '/vlans'
-        self.subscribe(self.vlans_path)
+        # TODO: default conf
+#         if not axon.Axon.is_registered():
+#             # Retrieve Agent ID... once registered
+#             self.retrieve('agent/self')
+#             # DEFAULT CONF
+#             interfaces = physical_ifaces()
+#             # temp cofiguration: 2 interfaces in bridge
+#             interface = interfaces.pop()
+#             tmp_conf = {
+#                      interface: {'access_control': False, 'interface': interface, 'vlan_id': 0} 
+#             }
+#             if interfaces: 
+#                 interface = interfaces.pop()
+#                 tmp_conf[interface] = {'access_control': False, 'interface': interface, 'vlan_id': 0}
+#             self.apply_new_vlan_conf(tmp_conf)
 
-    def answer_cb(self, path, conf):
-        # subscribe to our conf updates
-        if path == 'agent/self':
-            self._init_subscriptions()
+    def new_agent_conf(self, conf, path):
+        if conf['access_control'] != self.active:
+            self.active = conf['access_control']
+            if conf['access_control']:
+                # enable Access Control
+                cmd = "nft flush chain bridge origin global_ac;"
+            else:
+                # disable Access Control
+                cmd = "nft insert rule bridge origin global_ac accept;"
 
-        elif self.agent_path and path == self.agent_path:
-            # Only do something if access_control has changed....
-            if conf['access_control'] != self.active:
-                self.active = conf['access_control']
-                if conf['access_control']:
-                    # enable Access Control
-                    cmd = "nft flush chain bridge origin global_ac;"
-                else:
-                    # disable Access Control
-                    cmd = "nft insert rule bridge origin global_ac accept;"
+            subprocess.call(cmd, shell=True)
 
-                subprocess.call(cmd, shell=True)
 
-        elif self.vlans_path and path == self.vlans_path:
-            # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
-            new_vlans = {}
-            for vlan in conf:
-                if vlan['vlan_id']:
-                    nic_name = '{nic}.{vid}'.format(nic=vlan['interface'], vid=vlan['vlan_id'])
-                else:
-                    nic_name = vlan['interface']
-                new_vlans[ nic_name ] = vlan
-            
-            self.apply_new_vlan_conf(new_vlans)
+    def new_vlan_conf(self, conf, path):
+        # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
+        new_vlans = {}
+        for vlan in conf:
+            if vlan['vlan_id']:
+                nic_name = '{nic}.{vid}'.format(nic=vlan['interface'], vid=vlan['vlan_id'])
+            else:
+                nic_name = vlan['interface']
+            new_vlans[ nic_name ] = vlan
+        
+        self.apply_new_vlan_conf(new_vlans)
     
     def apply_new_vlan_conf(self, new_vlans):
         # New VLANS
@@ -222,9 +208,10 @@ def get_vlan_local_index(nic):
     return index
 
 if __name__ == "__main__":
-    conf = AccessControlConfigurator()
-    count = 1
-    while count < 100:
-        conf.run_for_ever()
-        time.sleep(30)
-        count = count + 1
+    configurator = AccessControlConfigurator()
+
+    dendrite = AsyncDendrite()
+    dendrite.subscribe_conf('agent', cb=configurator.new_agent_conf)
+    dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
+
+    dendrite.run()

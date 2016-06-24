@@ -1,30 +1,16 @@
-from origin.neuron import Dendrite;
+from origin.neuron import AsyncDendrite;
 from origin import session, nac
 from origin.event import Event
 import datetime
 
-SNMP_POLL_REQUEST_CHANNEL       = 'snmp:poll:request'
+SNMP_POLL_REQUEST_SOCK       = '/tmp/snmp-poll-request.sock'
+SNMP_PARSE_TRAP_SOCK         = '/tmp/snmp-trap-parse.sock'
+SNMP_NASPORT_TO_IFINDEX_SOCK = '/tmp/snmp-nasport2ifindex.sock'
+
 SNMP_DEFAULT_CREDENTIALS_PATH   = 'snmp:default_credentials'
 SNMP_READ_PARAMS_CACHE_PATH     = 'snmp:read:params'
-SNMP_PARSE_TRAP_CHANNEL         = 'snmp:trap:parse'
-SNMP_NASPORT_TO_IFINDEX_CHANNEL = 'snmp:nasport2ifindex'
 
-class SnmpConfiguration(Dendrite):
-    '''
-        Keeps in sync SNMP configuration with control center
-    '''
-    def __init__(self):
-        super().__init__('snmp-configuration')
-        self.retrieve('agent/self')
-        
-    def answer_cb(self, path, answer):
-        if path == 'agent/self':
-            self.agent_path = 'agent/{id}'.format(id=answer['id']) 
-            self.subscribe(self.agent_path)
-        elif path == self.agent_path:
-            self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, answer['snmp_credentials'])            
-
-class DeviceSnmpManager(Dendrite):
+class DeviceSnmpManager(AsyncDendrite):
     '''
         Class for making SNMP::Info poll request on devices and to process traps. 
         It will keeping track of SNMP poll results (sending them to CC and storing them locally) 
@@ -35,17 +21,8 @@ class DeviceSnmpManager(Dendrite):
     DEVICE_MAC_SNMP_CACHE_PATH = 'device:snmp:mac' # device ID per MAC
     DEVICE_POLL_EVERY = 600 # seconds
 
-    def __init__(self, name='snmp-manager'):
-        super(DeviceSnmpManager, self).__init__(name)
-    
-    def _poll(self, ip, timeout):
-        answer_path = 'snmp:poll:answer:{id}'.format(id=self.synapse.get_unique_id())
-        self.synapse.lpush(SNMP_POLL_REQUEST_CHANNEL, dict(ip=ip, answer_path=answer_path))
-        r = self.synapse.brpop(answer_path, timeout=timeout)
-        if r is None:
-            return
-
-        return r[1]
+    def __init__(self):
+        super().__init__()
     
     # retrieve from cache
     def get_new_device_id(self):
@@ -93,7 +70,7 @@ class DeviceSnmpManager(Dendrite):
         return not equal_dicts(device1, device2, ['fw_mac'])
 
     
-    def poll(self, ip, timeout=10):
+    async def poll(self, ip, timeout=10):
         ''' poll and cache result'''
         device_snmp = self._poll(ip, timeout=timeout)
         

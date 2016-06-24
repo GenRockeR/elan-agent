@@ -6,6 +6,7 @@ from impacket.IP6 import IP6
 from impacket.NDP import NDP, NDP_Option
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
 from origin import session, event, nac
+from origin.neuron import AsyncDendrite, Synapse
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
@@ -90,88 +91,85 @@ def arpPing(mac, vlan, ip):
     s.bind((if_name, socket.SOCK_RAW))
     s.send(ethernet.get_packet())
 
-def getSecondsBeforeNextCheck(dendrite, now=None):
-    if not now:
-        now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
-    nextobj_arr = dendrite.synapse.zrange(LAST_SEEN_PATH, 0, 0, withscores=True)
-    if nextobj_arr:
-        last_seen = nextobj_arr[0][1]
-        if last_seen + PING_OBJECTS_AFTER <= now:
-            return PING_EVERY
-        else:
-            return int(last_seen + PING_OBJECTS_AFTER - now) + 1 # can be 0 if PING_OBJECTS_AFTER + last_seen slightly higher than now 0.1sec for ex.
-    else:
-        # No objects to be watched, we can sleep for PING_OBJECTS_AFTER
-        return PING_OBJECTS_AFTER
 
+class SessionTracker(AsyncDendrite):
     
-def check_session(dendrite):
-    now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
-    synapse = dendrite.synapse
-
-    expired_objects = synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER, withscores=True)
-    
-    
-    # Expire all objects
-    # Don't send expire if object level up has expired as it will be done on its own
-    expired_macs = []
-    expired_vlans = []
-    expired_ips = []
-    last_seen_macs = []
-    last_seen_vlans = []
-    last_seen_ips = []
-
-    for obj, last_seen in expired_objects:
-        if 'ip' in obj:
-            expired_ips.append(obj)
-            last_seen_ips.append((obj, last_seen))
-        elif 'vlan' in obj:
-            expired_vlans.append(obj)
-            last_seen_vlans.append((obj, last_seen))
-        else:
-            expired_macs.append(obj)
-            last_seen_macs.append((obj, last_seen))
-
-    for obj, last_seen in last_seen_ips:
-        if {'mac': obj['mac'], 'vlan': obj['vlan']} not in expired_vlans and {'mac': obj['mac']} not in expired_macs:
-            session.end(time=int(last_seen), **obj)
-
-    for obj, last_seen in last_seen_vlans:
-        if {'mac': obj['mac']} not in expired_macs:
-            session.end(time=last_seen, **obj)
-
-    for obj, last_seen in last_seen_macs:
-        # Consider Mac as disconnected...
-        nac.macDisconnected(mac=obj['mac'], time=last_seen)
-
-
-    # ping Objects
-    for obj in synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - PING_OBJECTS_AFTER):
-        if 'ip' in obj:
-            pingIP(**obj)
-        else:
-            pass # Can not ping a MAC without an IP. MAC, VLAN are just there to know that the session has ended...
+    def __init__(self, dendrite):
+        self.dendrite = dendrite
+        self.synapse = Synapse()
         
-    # Set Timeout for next  check
-    dendrite.timeout = getSecondsBeforeNextCheck(dendrite, now)
     
+    def check_session(self):
+        now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
+    
+        expired_objects = self.synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER, withscores=True)
+        
+        
+        # Expire all objects
+        # Don't send expire if object level up has expired as it will be done on its own
+        expired_macs = []
+        expired_vlans = []
+        expired_ips = []
+        last_seen_macs = []
+        last_seen_vlans = []
+        last_seen_ips = []
+    
+        for obj, last_seen in expired_objects:
+            if 'ip' in obj:
+                expired_ips.append(obj)
+                last_seen_ips.append((obj, last_seen))
+            elif 'vlan' in obj:
+                expired_vlans.append(obj)
+                last_seen_vlans.append((obj, last_seen))
+            else:
+                expired_macs.append(obj)
+                last_seen_macs.append((obj, last_seen))
+    
+        for obj, last_seen in last_seen_ips:
+            if {'mac': obj['mac'], 'vlan': obj['vlan']} not in expired_vlans and {'mac': obj['mac']} not in expired_macs:
+                session.end(time=int(last_seen), **obj)
+    
+        for obj, last_seen in last_seen_vlans:
+            if {'mac': obj['mac']} not in expired_macs:
+                session.end(time=last_seen, **obj)
+    
+        for obj, last_seen in last_seen_macs:
+            # Consider Mac as disconnected...
+            nac.macDisconnected(mac=obj['mac'], time=last_seen)
+    
+    
+        # ping Objects
+        for obj in self.synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - PING_OBJECTS_AFTER):
+            if 'ip' in obj:
+                pingIP(**obj)
+            else:
+                pass # Can not ping a MAC without an IP. MAC, VLAN are just there to know that the session has ended...
+            
+        # Set Timeout for next  check
+        self.dendrite.add_task(self.check_session, delay=self.getSecondsBeforeNextCheck(now))
+    
+    def getSecondsBeforeNextCheck(self, now=None):
+        if not now:
+            now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
+        nextobj_arr = self.synapse.zrange(LAST_SEEN_PATH, 0, 0, withscores=True)
+        if nextobj_arr:
+            last_seen = nextobj_arr[0][1]
+            if last_seen + PING_OBJECTS_AFTER <= now:
+                return PING_EVERY
+            else:
+                return int(last_seen + PING_OBJECTS_AFTER - now) + 1 # can be 0 if PING_OBJECTS_AFTER + last_seen slightly higher than now 0.1sec for ex.
+        else:
+            # No objects to be watched, we can sleep for PING_OBJECTS_AFTER
+            return PING_OBJECTS_AFTER
 
 if __name__ == '__main__':
-    import signal # Todo: clean exit...
     import datetime, time
-    from origin.neuron import Dendrite
     
-    dendrite = Dendrite('session-tracker', timeout_cb=check_session, timeout=1) # make it run almost straight away on first run
+    dendrite = AsyncDendrite() 
+    tracker = SessionTracker(dendrite)
+    dendrite.add_task(tracker.check_session)
     
-    count = 0
-    while count < 100:
-        try:
-            dendrite.run_for_ever()
-        except:
-            event.ExceptionEvent().notify()
-            time.sleep(1) # avoid locking CPU if exception on each loop
-            dendrite.timeout = 4
-            count = count + 1
+    dendrite.run()
 
 
             

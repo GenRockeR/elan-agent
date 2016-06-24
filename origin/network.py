@@ -30,7 +30,7 @@ class NetworkConfiguration:
     def apply_configuration(self):
         subprocess.run(['sudo', 'systemctl', 'stop', 'nac-network.service']) # bring down br0 with old config to deconfigure it properly (DHCP release...)
         self.generate_configuration_files()
-        subprocess.run(['sudo', 'systemctl', '--no-block', 'start', 'nac-network.service'])
+        subprocess.run(['sudo', 'systemctl', '--no-block', 'run', 'nac-network.service'])
     
     def generate_configuration_files(self):
         template = Template(filename=self.configuration_template)

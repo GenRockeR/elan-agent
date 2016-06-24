@@ -1,98 +1,98 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
-import sys, os, socket, subprocess
+import asyncio
+import subprocess
 from idstools import unified2
-from impacket.ImpactDecoder import EthDecoder
-from origin.neuron import Dendrite
+from scapy.all import Ether
+from origin.neuron import AsyncDendrite
 from origin.event import Event, ExceptionEvent
 
 
-dendrite = Dendrite('ids-logger')
-decoder = EthDecoder()
-
-
-def get_bridge_port(mac):
+async def get_bridge_port(mac):
     # TODO: find a better way to get port
-    return subprocess.Popen("bridge fdb | grep  '{mac}' | grep -v permanent | cut -f3 -d' '".format(mac=mac), shell=True, stdout=subprocess.PIPE)\
-            .communicate()[0]\
-            .split('\n',1)[0]
+    process = await asyncio.create_subprocess_shell("bridge fdb | grep  '{mac}' | grep -v permanent | cut -f3 -d' '".format(mac=mac), stdout=subprocess.PIPE)
+    response = await process.communicate()
+    return response[0].decode().split('\n', 1)[0]
 
-def notify_alert(alert):
-    #timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.'+ str(event['event-microsecond']) +'Z', time.gmtime(event['event-second']))
-    event = Event(event_type='device-alert', source='ids', level='danger', timestamp=alert['event-second'], dendrite=dendrite)
-    event.add_data('priority', alert['priority'])
-    event.add_data('signature', alert['signature-id'], data_type = 'signature')
-    event.add_data('revision', alert['signature-revision'])
 
-    # decode Ethernet packet to get mac addresses and protocol
-    packet = decoder.decode( reduce(lambda x,y: x + y['data'], alert['packets'], '') )
-    inet_family = None;
-    direction = 'from_lan'; # from eth1 point of view
-    while packet:
-        if packet.__class__.__name__ == 'Ethernet':
-            src_mac = packet.as_eth_addr(packet.get_ether_shost())
-            dst_mac = packet.as_eth_addr(packet.get_ether_dhost())
+class IdsLogger():
+    DEFAULT_DIRECTORY = '/var/log/suricata'
+    DEFAULT_PREFIX = 'unified2.alert'
+    
+    def __init__(self, dendrite, directory=DEFAULT_DIRECTORY, prefix=DEFAULT_PREFIX, delete_files=True):
+        self.dendrite = dendrite
+        self.directory = directory
+        self.prefix = prefix
+        self.delete_files = delete_files
+        
+
+    def read_ids_events(self):
+        reader = unified2.SpoolEventReader(
+                self.directory, 
+                self.prefix,
+                follow=True,
+                bookmark=True,
+                delete=self.delete_files)
+    
+    
+        for alert in reader:
+            self.add_task( self.process_alert(alert) )
+
+    async def process_alert(self, alert):
+        try: 
+            #timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.'+ str(event['event-microsecond']) +'Z', time.gmtime(event['event-second']))
+            event = Event(event_type='device-alert', source='ids', level='danger', timestamp=alert['event-second'], dendrite=self.dendrite)
+            event.add_data('priority', alert['priority'])
+            event.add_data('signature', alert['signature-id'], data_type = 'signature')
+            event.add_data('revision', alert['signature-revision'])
+        
+            # decode Ethernet packet to get mac addresses and protocol
+            # TODO: This may be nflog wrapped now it is sent via nflog? to be checked...
+            packet = b''
+            for p in alert['packets']:
+                packet += p
+            packet = Ether( packet )
             
-            src_port = get_bridge_port(src_mac)
-            dst_port = get_bridge_port(dst_mac)
-            
-            # TODO: find a better way to tell direction.
-            if 'eth1' not in src_port and 'eth1' in dst_port: # if both on lan, consider as from lan
-                direction = 'from_wan'
-            
+            src_mac = packet.src
             if src_mac != '00:00:00:00:00:00':    
                 event.add_data( 'src_mac', src_mac, 'mac' )
+                        
+            dst_mac = packet.dst
             if dst_mac != '00:00:00:00:00:00':    
                 event.add_data( 'dst_mac', dst_mac, 'mac' )
-            try:
-                event.add_data( 'vlan_id', packet.get_tag(0).get_vid() )
-            except IndexError:
-                event.add_data( 'vlan_id', 0 )
-        if packet.child().__class__.__name__ == 'Data':
-            event.add_data( 'protocol', packet.__class__.__name__ )
-            break
+                    
+            src_vlan = get_bridge_port(src_mac)
+            if src_vlan:
+                event.add_data( 'src_vlan', src_vlan )
         
-        packet = packet.child()
-
-    if direction == 'from_lan':
-        event.add_data( 'lan_ip', alert['source-ip'] )
-        event.add_data( 'wan_ip', alert['destination-ip'] )
-        event.add_data('lan_port', alert['sport-itype'])
-        event.add_data('wan_port', alert['dport-icode'])
-    else:
-        event.add_data( 'lan_ip', alert['destination-ip'] )
-        event.add_data( 'wan_ip', alert['source-ip'] )
-        event.add_data('lan_port', alert['dport-icode'])
-        event.add_data('wan_port', alert['sport-itype'])
-
-    event.notify()
-
-def main():
-    directory = '/var/log/suricata'
-    prefix = 'unified2.alert'
-    
-    if not os.path.exists(directory):
-        print("error: directory %s does not exist" % (directory), 
-              file=sys.stderr)
-        return 1
-
-    reader = unified2.SpoolEventReader(
-            directory, 
-            prefix,
-            follow=True,
-            bookmark=True,
-            delete=True)
-
-
-    for alert in reader:
-        try:
-            alert = notify_alert(alert)
+            dst_vlan = get_bridge_port(dst_mac)
+            if dst_vlan:
+                event.add_data( 'dst_vlan', dst_vlan )
+        
+            protocol = None
+            while packet:
+                if packet.name not in ( 'Raw', 'Padding' ):
+                    protocol = packet.name
+                packet = packet.payload
+        
+            if protocol:
+                event.add_data( 'protocol', protocol )
+                
+        
+            event.add_data( 'src_ip',   alert['source-ip'] )
+            event.add_data( 'dst_ip',   alert['destination-ip'] )
+            event.add_data( 'src_port', alert['sport-itype'] )
+            event.add_data( 'dst_port', alert['dport-icode'] )
+        
+            event.notify()
         except:
-            ExceptionEvent(source='ids', dendrite=dendrite).notify()
+            ExceptionEvent(source='ids').notify()
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    d = AsyncDendrite()
+    idsLogger = IdsLogger(dendrite=d)
+    d.add_task(idsLogger.read_ids_events)
+    d.run()
     
     

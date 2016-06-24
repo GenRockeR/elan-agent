@@ -3,9 +3,8 @@ import subprocess, datetime, re
 from origin import session
 import threading
 
-DISCONNECT_NOTIFICATION_PATH = 'device:vlan_mac_disconnected' # TODO Factorize: also in session_trackerd
-
-AUTHORIZATION_CHANGE_CHANNEL = 'nac:authz:change' # notify that authz changed for mac
+DISCONNECT_NOTIFICATION_TOPIC = 'device/vlan_mac_disconnected' # TODO Factorize: also in session_trackerd
+AUTHORIZATION_CHANGE_TOPIC = 'nac/authz/change' # notify that authz changed for mac
 
 AUTHZ_MAC_EXPIRY_PATH = 'nac:authz:expiry' # sorted set with expiry as score, mac will be used as key of session (we only keep current sessions)
 AUTHZ_SESSIONS_BY_MAC_PATH = 'nac:authz:sessions' # hash
@@ -89,14 +88,14 @@ def authzChanged(mac):
     '''
     notify Mac Authz Manager that authz for mac has changed. Should not need to call this directly
     '''
-    synapse.lpush(AUTHORIZATION_CHANGE_CHANNEL, mac)
+    synapse.lpush(AUTHORIZATION_CHANGE_TOPIC, mac)
 
 
 def macDisconnected(mac, time=None):
     if time is None:
         time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
 
-    synapse.lpush(DISCONNECT_NOTIFICATION_PATH, dict(mac=mac, time=time))
+    synapse.lpush(DISCONNECT_NOTIFICATION_TOPIC, dict(mac=mac, time=time))
 
 
 
@@ -113,19 +112,19 @@ def tzaware_datetime_to_epoch(dt):
     return (dt - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
 
 
-def notify_new_authorization_session(authz, start=None):
+def notify_new_authorization_session(authz, run=None):
     '''
-        start and end are Epoch
+        run and end are Epoch
     '''
     data = authz.__dict__.copy()
     
     if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
-    dendrite.post('mac/{mac}/authorization'.format(mac=authz.mac), dict(start=session.format_date(start), **data))
+    dendrite.post('mac/{mac}/authorization'.format(mac=authz.mac), dict(run=session.format_date(run), **data))
 
 def notify_end_authorization_session(authz, reason, end=None, **kwargs):
-    ''' start is Epoch '''
+    ''' run is Epoch '''
 
     kwargs['termination_reason'] = reason
     kwargs['end'] = session.format_date(end)
