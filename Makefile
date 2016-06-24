@@ -16,7 +16,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, m
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
                    libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
-                   python3-py, python3-lxml, tshark
+                   python3-py, python3-lxml, tshark, mosquitto
 
 include packaging.mk
 
@@ -25,7 +25,7 @@ install: core-install authentication-install captive-portal-install connection-t
 
 .PHONY: test
 test:
-	#py.test tests/
+	python -m unittest
 
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
