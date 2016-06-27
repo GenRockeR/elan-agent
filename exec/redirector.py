@@ -2,7 +2,7 @@
 import os
 from origin.event import ExceptionEvent
 import origin.libnflog_cffi
-from origin.neuron import AsyncDendrite
+from origin.neuron import Dendrite
 from scapy.all import Ether
 import subprocess
 
@@ -64,7 +64,7 @@ class Redirector():
 
 if __name__ == '__main__':
 
-    d = AsyncDendrite()
+    d = Dendrite()
     redirector = Redirector()
     d.add_task(redirector.listen_packets)
     d.start()

@@ -1,10 +1,10 @@
-from origin.neuron import AsyncDendrite
+from origin.neuron import Dendrite
 import datetime, traceback
 
 class Event(object):
     def __init__(self, event_type, source, level='info', timestamp=None, dendrite=None):
         if dendrite is None:
-            dendrite = AsyncDendrite()
+            dendrite = Dendrite()
         if timestamp is None:
             timestamp = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
         

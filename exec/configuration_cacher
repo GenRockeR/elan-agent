@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from origin.neuron import AsyncDendrite, Synapse
+from origin.neuron import Dendrite, Synapse
 from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH, Administrator
 
 class ConfigurationCacher():
@@ -20,7 +20,7 @@ class ConfigurationCacher():
             for profile in data:
                 Administrator.add(**profile)
             
-cacher = AsyncDendrite()
+cacher = Dendrite()
 cacher.subscribe('captive-portal', cb=cacher.cp_conf_updated)
 cacher.subscribe('guest-access',   cb=cacher.ga_conf_updated)
 cacher.subscribe('administrator',  cb=cacher.admins_conf_updated)

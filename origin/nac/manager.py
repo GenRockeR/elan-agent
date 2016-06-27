@@ -1,4 +1,4 @@
-from origin.neuron import Synapse, AsyncDendrite
+from origin.neuron import Synapse, Dendrite
 import subprocess, threading
 import datetime
 from .. import session
@@ -15,7 +15,7 @@ class MacAuthorizationManager():
         self.fw_mac_allowed_vlans = {}
         self.fw_mac_bridged_vlans = {}
         
-        self.dendrite = AsyncDendrite()
+        self.dendrite = Dendrite()
         self.synapse = Synapse()
 
         self.check_expired_authz()

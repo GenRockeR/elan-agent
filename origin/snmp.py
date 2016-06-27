@@ -1,4 +1,4 @@
-from origin.neuron import AsyncDendrite;
+from origin.neuron import Dendrite;
 from origin import session, nac
 from origin.event import Event
 import datetime
@@ -10,7 +10,7 @@ SNMP_NASPORT_TO_IFINDEX_SOCK = '/tmp/snmp-nasport2ifindex.sock'
 SNMP_DEFAULT_CREDENTIALS_PATH   = 'snmp:default_credentials'
 SNMP_READ_PARAMS_CACHE_PATH     = 'snmp:read:params'
 
-class DeviceSnmpManager(AsyncDendrite):
+class DeviceSnmpManager(Dendrite):
     '''
         Class for making SNMP::Info poll request on devices and to process traps. 
         It will keeping track of SNMP poll results (sending them to CC and storing them locally) 

@@ -1,4 +1,4 @@
-from origin.neuron import AsyncDendrite, Synapse
+from origin.neuron import Dendrite, Synapse
 from origin import nac, session
 import datetime, re
 

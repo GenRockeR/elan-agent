@@ -5,7 +5,7 @@ from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
-from origin.neuron import Synapse, AsyncDendrite
+from origin.neuron import Synapse, Dendrite
 from origin.neuron.axon import Axon
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
@@ -323,7 +323,7 @@ def admin_login(request):
     post_dict = request.POST.dict()
 
     if not Axon.is_registered():
-        dendrite = AsyncDendrite()
+        dendrite = Dendrite()
         response = dendrite.sync_call('register', post_dict)
         if response['error']:
             context.update(form_errors = response['data'])

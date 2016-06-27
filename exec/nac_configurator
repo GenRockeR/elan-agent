@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time, subprocess
-from origin.neuron import AsyncDendrite
+from origin.neuron import Dendrite
 from origin.utils import restart_service
 from mako.template import Template
 
@@ -65,7 +65,7 @@ class NacConfigurator():
             restart_service('freeradius')
 
 if __name__ == "__main__":
-    dendrite = AsyncDendrite()
+    dendrite = Dendrite()
     conf = NacConfigurator()
     dendrite.subscribe_conf('agent', conf.agent_conf_updated)
 

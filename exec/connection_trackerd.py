@@ -106,7 +106,7 @@ class ConnectionTracker():
      
 
 if __name__ == '__main__':
-    dendrite = neuron.AsyncDendrite()
+    dendrite = neuron.Dendrite()
     ct = ConnectionTracker(dendrite)
     dendrite.start()
 

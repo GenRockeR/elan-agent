@@ -2,9 +2,11 @@ import json, datetime, traceback, time
 import uuid
 import redis
 from .. import utils
-from passlib.utils.handlers import PADDED_B64_CHARS
 import inspect
 import concurrent.futures
+import asyncio
+import hbmqtt.client
+from signal import SIGTERM
 
 CACHE_PREFIX = 'cache:'
 
@@ -247,182 +249,11 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
     pass
 
 
-class Dendrite(object):
-    """ Dendrite is the interface to the Central Controller
-        
-        Subclass this or provide answer_cb and call_cb to constructor.
-        
-        When subclassing, use add_callback(channel, callback_fn) to listen to other redis queues.
-        By default,listens to answer queue and  call queue (that includes the name)
-    """
-    POST_ANSWER_PATH = '{name}:post:{id}'
-    
-    #TODO: Once everything runs on python3, replace this by asyncio loop
-
-    def __init__(self, name, answer_cb=None, call_cb=None, timeout_cb=None, timeout=0):
-        self.name = name # self name used when communication with synapse.
-        self.channel_cb = {}
-        self.synapse = Synapse()
-        self.timeout = timeout # used to timeout wait on channels
-
-        def add_self_decorator(fn):
-            def wrapper(*args, **kwargs):
-                return fn(self, *args, **kwargs)
-            return wrapper
-        
-        if answer_cb:
-            self.answer_cb = add_self_decorator(answer_cb)
-        if call_cb:
-            self.call_cb = add_self_decorator(call_cb)
-        if timeout_cb:
-            self.timeout_cb = add_self_decorator(timeout_cb)
-
-        # add in order, first one higher priority
-        self.add_channel(AXON_CALLS.format(name=self.name), self.call_cb)
-        self.add_channel(AXON_ANSWERS.format(name=self.name), self.answer_cb)
-
-    def add_channel(self, channel, cb):
-        self.channel_cb[channel] = cb
-    
-    def answer_cb(self, path, answer):
-        # might as well unsubscribe as we do nothing about it...
-        self.unsubscribe(path)
-    
-    def call_cb(self, path, request):
-        # might as well unprovide as we do known what to do with it......
-        self.unprovide(path)
-
-    def timeout_cb(self):
-        pass # to be overridden
-    
-    def run_for_ever(self):
-        while True:
-            channel_data_tuple = self.synapse.brpop(self.channel_cb.keys(), self.timeout)
-            
-            if channel_data_tuple is None: # Timeout
-                self.timeout_cb()
-            else:
-                channel, data = channel_data_tuple
-                # Special cases for common channels call and answer 
-                if channel == AXON_CALLS.format(name=self.name):
-                    path = data['path']
-                    request = data['data']
-                    answer = self.call_cb(path, request)
-                    self._send_answer(req_id = data['req_id'], answer = answer)
-                    
-                elif channel == AXON_ANSWERS.format(name=self.name):
-                    path = data['path']
-                    answer = data['data']
-                    self.answer_cb(path, answer)
-                # user added channels    
-                else:
-                    self.channel_cb[channel](data)
-        
-    def get_provided_services(self):
-        services = set()
-        for path, provider in self.synapse.hgetall('synapse:providers').items():
-            if provider == self.name:
-                services.add(path)
-        return services
-        
-    # REST
-        
-    def post(self, path, data, wait_connection=True):
-        '''
-            POST and forget
-            if no connection, wait and retry (unless wait_connection is set to False)
-        '''
-        while True:
-            try:
-                self.call(path, data)
-                break
-            except redis.exceptions.ConnectionError:
-                if not wait_connection:
-                    break
-                time.sleep(1)
-
-
-    def sync_post(self, path, data, timeout=SYNC_CALL_TIMEOUT):
-        '''
-            Synchronious POST
-            Will block until an answer is received
-        '''
-        post_id = self.synapse.get_unique_id()
-        answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
-        self.call(path, data, answer_path)
-        answer_tuple = self.synapse.brpop(answer_path, timeout)
-        if answer_tuple and not answer_tuple[1]['error']:
-            return answer_tuple[1]['data']
-        # TODO: raise exception with error
-    
-    def sync_register(self, data, timeout=SYNC_CALL_TIMEOUT):
-        '''
-            Synchronious POST
-            Will block until an answer is received
-            will return dict 
-            { 'error': if there was an error
-              'data': data returned by server
-              'status': status code
-            }
-        '''
-        post_id = self.synapse.get_unique_id()
-        answer_path = self.POST_ANSWER_PATH.format(name=self.name, id=post_id)
-        self.register(data, answer_path)
-        answer_tuple = self.synapse.brpop(answer_path, timeout)
-        if answer_tuple:
-            return answer_tuple[1]
-        else:
-            return {'error': True, 'data': {'__all__': ['Request timed out']}}
-    
-    def _send_command(self, **data):
-        if 'answer_path' not in data:
-            data['answer_path'] = AXON_ANSWERS.format(name=self.name)
-        self.synapse.lpush(DENDRITE_COMMANDS, data)
-
-    def _send_answer(self, **data):
-        self.synapse.lpush(DENDRITE_ANSWERS, data)
-
-        
-    def retrieve(self, path):
-        self._send_command(cmd='RETRIEVE', path=path)
-
-    def subscribe(self, path):
-        self._send_command(cmd='SUBSCRIBE', path=path)
-
-    def unsubscribe(self, path):
-        self._send_command(cmd='SUBSCRIBE', path=path)
-
-    def provide(self, path):
-        self._send_command(cmd='PROVIDE', path=path, answer_path=AXON_CALLS.format(name=self.name))
-
-    def unprovide(self, path):
-        self._send_command(cmd='UNPROVIDE', path=path)
-
-    def call(self, path, data, answer_path=None):
-        ''' 
-            POST data to path
-            if answer_path is None, No answer will be sent  back to requester, but will retry to send it on failure
-        '''
-        self._send_command(cmd='CALL', path=path, data=data, answer_path=answer_path)
-
-    def register(self, data, answer_path=None):
-        # Add interfaces to data
-        data['interfaces'] = list(utils.physical_ifaces())
-        
-        self._send_command(cmd='REGISTER', data=data, answer_path=answer_path)
-
-    def answer(self, req_id, answer):
-        self._send_answer(req_id=req_id, answer=answer)
-
-
-import asyncio
-import hbmqtt.client
-from signal import SIGTERM
 
 class TimeOutException(Exception):
     pass
 
-class  AsyncDendrite():
+class  Dendrite():
     '''
         Dendrite is used to retrieve configuration (and configuration updates), declare what RPC are processed by this modeule and make RPC calls
         Instantiate class, call subscribe_conf or provide with path and callback. callback receive path and message. 

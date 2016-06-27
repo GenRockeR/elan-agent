@@ -4,7 +4,7 @@ import asyncio
 import subprocess
 from idstools import unified2
 from scapy.all import Ether
-from origin.neuron import AsyncDendrite
+from origin.neuron import Dendrite
 from origin.event import Event, ExceptionEvent
 
 
@@ -90,7 +90,7 @@ class IdsLogger():
 
 
 if __name__ == "__main__":
-    d = AsyncDendrite()
+    d = Dendrite()
     idsLogger = IdsLogger(dendrite=d)
     d.add_task(idsLogger.read_ids_events)
     d.run()

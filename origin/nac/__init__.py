@@ -1,4 +1,4 @@
-from origin.neuron import Synapse, AsyncDendrite
+from origin.neuron import Synapse, Dendrite
 import subprocess, datetime, re
 from origin import session
 import threading
@@ -15,7 +15,7 @@ ACCESS_CONTROLLED_IFS_PATH = 'nac:access-control:ifs'
 CHECK_AUTHZ_PATH = 'mac/check-authz'
 
 
-dendrite = AsyncDendrite()
+dendrite = Dendrite()
 synapse = Synapse()
 
 # Redis authorizations objects are set straight away, but opening of fw is async. (done by mac authz daemon)

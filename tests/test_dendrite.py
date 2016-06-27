@@ -3,7 +3,7 @@ import hbmqtt
 import asyncio
 import json
 
-from origin.neuron import AsyncDendrite
+from origin.neuron import Dendrite
 
 broker_config = {
     'listeners': {
@@ -28,7 +28,7 @@ class DendriteTest(unittest.TestCase):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
-        self.dendrite = AsyncDendrite(loop=self.loop)
+        self.dendrite = Dendrite(loop=self.loop)
 
         self.client = hbmqtt.client.MQTTClient()
         run(self.client.connect('mqtt://localhost:1883/'))

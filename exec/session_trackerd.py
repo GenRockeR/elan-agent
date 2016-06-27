@@ -6,7 +6,7 @@ from impacket.IP6 import IP6
 from impacket.NDP import NDP, NDP_Option
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
 from origin import session, event, nac
-from origin.neuron import AsyncDendrite, Synapse
+from origin.neuron import Dendrite, Synapse
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
@@ -92,7 +92,7 @@ def arpPing(mac, vlan, ip):
     s.send(ethernet.get_packet())
 
 
-class SessionTracker(AsyncDendrite):
+class SessionTracker(Dendrite):
     
     def __init__(self, dendrite):
         self.dendrite = dendrite
@@ -165,7 +165,7 @@ class SessionTracker(AsyncDendrite):
 if __name__ == '__main__':
     import datetime, time
     
-    dendrite = AsyncDendrite() 
+    dendrite = Dendrite() 
     tracker = SessionTracker(dendrite)
     dendrite.add_task(tracker.check_session)
     
