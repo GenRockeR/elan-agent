@@ -263,7 +263,28 @@ class DendriteTest(unittest.TestCase):
                 
 
 
+    def test_provide_call_sync(self):
+        def cb(data):
+            return 'Test OK: ' + data
+        
+        self.dendrite.provide('test/fct', cb)
+        
+        result = self.dendrite.sync_call('test/fct', 'sent')
+        
+        self.assertEqual(result, 'Test OK: sent')
 
+    def test_provide_call_sync_in_executor(self):
+        self.loop.run_until_complete(asyncio.wrap_future(self.dendrite.add_task(self.test_provide_call_sync)))
+
+    def test_provide_call_async(self):
+        def cb(data):
+            return 'Test OK: ' + data
+        
+        self.dendrite.provide('test/fct', cb)
+        
+        result = run(self.dendrite.async_call('test/fct', 'sent'))
+        
+        self.assertEqual(result, 'Test OK: sent')
 
 
 
