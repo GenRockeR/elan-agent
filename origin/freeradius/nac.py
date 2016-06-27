@@ -7,8 +7,7 @@ from origin.event import Event, InternalEvent, ExceptionEvent
 import re
 
 # TODO: maybe put this in instanciate ?
-dendrite = neuron.Dendrite('freeradius')
-synapse = dendrite.synapse
+synapse = neuron.Synapse()
 snmp_manager = snmp.DeviceSnmpManager() 
 
 def extract_mac(string):

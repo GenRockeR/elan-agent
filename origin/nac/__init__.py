@@ -1,4 +1,4 @@
-from origin.neuron import Synapse, Dendrite
+from origin.neuron import Synapse, AsyncDendrite
 import subprocess, datetime, re
 from origin import session
 import threading
@@ -15,8 +15,8 @@ ACCESS_CONTROLLED_IFS_PATH = 'nac:access-control:ifs'
 CHECK_AUTHZ_PATH = 'mac/check-authz'
 
 
-dendrite = Dendrite('nac')
-synapse = dendrite.synapse
+dendrite = AsyncDendrite()
+synapse = Synapse()
 
 # Redis authorizations objects are set straight away, but opening of fw is async. (done by mac authz daemon)
 # mac authz daemon is also responsible for de authorizing mac on expiry
@@ -105,31 +105,31 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
     if port is None:
         port = synapse.hget(session.MAC_PORT_PATH, mac)
         
-    return dendrite.sync_post('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    return dendrite.sync_call('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
     # TODO: when CC unreachable or Error, retry in a few seconds (maybe use mac authz manager daemon for that) 
 
 def tzaware_datetime_to_epoch(dt):
     return (dt - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
 
 
-def notify_new_authorization_session(authz, run=None):
+def notify_new_authorization_session(authz, start=None):
     '''
-        run and end are Epoch
+        start and end are Epoch
     '''
     data = authz.__dict__.copy()
     
     if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
-    dendrite.post('mac/{mac}/authorization'.format(mac=authz.mac), dict(run=session.format_date(run), **data))
+    dendrite.publish('mac/{mac}/authorization'.format(mac=authz.mac), dict(start=session.format_date(start), **data))
 
 def notify_end_authorization_session(authz, reason, end=None, **kwargs):
-    ''' run is Epoch '''
+    ''' start is Epoch '''
 
     kwargs['termination_reason'] = reason
     kwargs['end'] = session.format_date(end)
 
-    dendrite.post('mac/{mac}/authorization/local_id:{local_id}/end'.format(mac=authz.mac, local_id=authz.local_id), kwargs)
+    dendrite.publish('mac/{mac}/authorization/local_id:{local_id}/end'.format(mac=authz.mac, local_id=authz.local_id), kwargs)
 
 
 class RedisMacAuthorization(object):

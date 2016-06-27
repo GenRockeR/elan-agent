@@ -32,7 +32,7 @@ class Event(object):
                 'timestamp':   datetime.datetime.utcfromtimestamp(self.timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'data':        self.data,
         })
-
+    
 class InternalEvent(Event):
     def __init__(self, source, event_type='runtime', **kwargs):
         super(InternalEvent, self).__init__(event_type, source, level='internal', **kwargs)

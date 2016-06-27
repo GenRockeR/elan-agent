@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite
+from origin.neuron import Synapse, AsyncDendrite
 import datetime
 
 
@@ -15,7 +15,8 @@ MAC_VLANS_PATH = 'device:mac:{mac}:vlans'
 MAC_VLAN_IPS_PATH = 'device:mac:{mac}:vlan:{vlan}:ips'
 MAC_AUTH_SESSION_PATH = 'device:mac:{mac}:authentication'
 
-dendrite = Dendrite('session')
+synapse = Synapse()
+dendrite = AsyncDendrite
 
 def format_date(date):
     if not date:
@@ -32,10 +33,10 @@ def is_online(mac, vlan=None, ip=None):
     if ip is not None:
         data['ip'] = ip
     
-    return bool(dendrite.synapse.zscore(LAST_SEEN_PATH, data))
+    return bool(synapse.zscore(LAST_SEEN_PATH, data))
 
 def mac_has_ip_on_vlan(mac, ip, vlan):
-    return dendrite.synapse.sismember(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan), ip)
+    return synapse.sismember(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan), ip)
 
 def seen(mac, vlan=None, port=None, ip=None, time=None ):
     '''
@@ -49,13 +50,13 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
 
     # if port has changed, end previous session
     if port is not None:
-        old_port = dendrite.synapse.hget(MAC_PORT_PATH, mac)
+        old_port = synapse.hget(MAC_PORT_PATH, mac)
         if old_port is not None and ( port['local_id'] != old_port['local_id'] or \
                                     # Interface may be unknown in new or old port, assume it did not change
                                     ((port['interface'] is not None or old_port['interface'] is not None) and port != old_port)):
             end(mac)
 
-    pipe = dendrite.synapse.pipe
+    pipe = synapse.pipe
 
     pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac))
     if vlan is not None:
@@ -75,7 +76,7 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
         ip_added = bool(results[3])
     
     if mac_added or vlan_added or ip_added:
-        local_id = dendrite.synapse.get_unique_id(SESSION_IDS_SEQUENCE_PATH)
+        local_id = synapse.get_unique_id(SESSION_IDS_SEQUENCE_PATH)
 
     if mac_added:
         pipe.hset(SESSION_IDS_PATH, dict(mac=mac), local_id)
@@ -106,11 +107,11 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
             notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port, time=time)
             
     if ip_added:
-        notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, run=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)
+        notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)
     elif vlan_added:
-        notify_new_VLAN_session( mac=mac, vlan=vlan,        port=port, run=time, mac_local_id=mac_local_id, vlan_local_id=local_id)
+        notify_new_VLAN_session( mac=mac, vlan=vlan,        port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=local_id)
     elif mac_added:
-        notify_new_MAC_session(  mac=mac,                   port=port, run=time, mac_local_id=local_id)
+        notify_new_MAC_session(  mac=mac,                   port=port, start=time, mac_local_id=local_id)
  
     return mac_added, vlan_added, ip_added
                     
@@ -124,7 +125,7 @@ def end(mac, vlan=None, ip=None, time=None):
     if time is None:
         time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
 
-    pipe = dendrite.synapse.pipe
+    pipe = synapse.pipe
     
     if ip is not None and vlan is None: raise 'Error: when ending IP, VLAN should be specified...' 
     
@@ -136,12 +137,12 @@ def end(mac, vlan=None, ip=None, time=None):
     if vlan is None:
         pipe.hdel(SESSION_IDS_PATH, data)
         pipe.zrem(LAST_SEEN_PATH, data)
-        vlans = dendrite.synapse.smembers(MAC_VLANS_PATH.format(mac=mac))
+        vlans = synapse.smembers(MAC_VLANS_PATH.format(mac=mac))
         for v in vlans:
             data = dict(mac=mac, vlan=v)
             pipe.hdel(SESSION_IDS_PATH, data)
             pipe.zrem(LAST_SEEN_PATH, data)
-            ips = dendrite.synapse.smembers(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=v))
+            ips = synapse.smembers(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=v))
             for i in ips:
                 data = dict(mac=mac, vlan=v, ip=i)
                 pipe.hdel(SESSION_IDS_PATH, data)
@@ -156,7 +157,7 @@ def end(mac, vlan=None, ip=None, time=None):
             pipe.hdel(SESSION_IDS_PATH, data)
             pipe.zrem(LAST_SEEN_PATH, data)
             pipe.srem(MAC_VLANS_PATH.format(mac=mac), vlan)
-            ips = dendrite.synapse.smembers(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan))
+            ips = synapse.smembers(MAC_VLAN_IPS_PATH.format(mac=mac, vlan=vlan))
             for i in ips:
                 data = dict(mac=mac, vlan=vlan, ip=i)
                 pipe.hdel(SESSION_IDS_PATH, data)
@@ -185,7 +186,7 @@ def end(mac, vlan=None, ip=None, time=None):
         if vlan_local_id:
             notify_end_VLAN_session(mac=mac, mac_local_id=mac_local_id, vlan=vlan, vlan_local_id=vlan_local_id, end=time)
     elif mac_local_id:
-        dendrite.synapse.hdel(MAC_PORT_PATH, mac)
+        synapse.hdel(MAC_PORT_PATH, mac)
         remove_till_disconnect_authentication_session(mac)
         notify_end_MAC_session( mac=mac, mac_local_id=mac_local_id, end=time)            
 
@@ -209,33 +210,33 @@ def add_authentication_session(mac, **session):
         else:
             session['till_disconnect'] = False
     
-    dendrite.synapse.sadd(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
+    synapse.sadd(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
 
 def get_authentication_sessions(mac):
     # cleanup
     remove_expired_authentication_session(mac)
-    return dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
+    return synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
 
 def source_in_authentication_sessions(mac, source):
-    for session in dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)):
+    for session in synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)):
         if session['source'] == source:
             return True
     return False
 
 def remove_authentication_sessions_by_source(mac, source):
     #TODO: redis transaction
-    current_sessions = dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
+    current_sessions = synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
     for session in current_sessions:
         if session['source'] == source:
-            dendrite.synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
+            synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
 
 def remove_till_disconnect_authentication_session(mac):
     
     #TODO: redis transaction
-    current_sessions = dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
+    current_sessions = synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
     for session in current_sessions:
         if 'till_disconnect' in session and session['till_disconnect']:
-            dendrite.synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
+            synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
             
 def remove_expired_authentication_session(mac, date=None):
     '''
@@ -246,35 +247,35 @@ def remove_expired_authentication_session(mac, date=None):
         date = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # now as EPOCH
 
     #TODO: redis transaction
-    current_sessions = dendrite.synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)) or []
+    current_sessions = synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)) or []
     for session in current_sessions:
         if 'till' in session and session['till'] <= date:
-            dendrite.synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
+            synapse.srem(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
     
 
 # Control Center Notifications
 
-def notify_new_MAC_session(mac, mac_local_id, port=None, run=None):
-    ''' run is Epoch '''
-    data = {'run': format_date(run), 'local_id': mac_local_id}
+def notify_new_MAC_session(mac, mac_local_id, port=None, start=None):
+    ''' start is Epoch '''
+    data = {'start': format_date(start), 'local_id': mac_local_id}
     if port:
         data['port'] = port
-    dendrite.post('mac/{mac}/session'.format(mac=mac), data)
+    dendrite.publish('mac/{mac}/session'.format(mac=mac), data)
 
 def notify_end_MAC_session(mac, mac_local_id, end=None):
-    ''' run is Epoch '''
-    dendrite.post('mac/{mac}/session/local_id:{local_id}/end'.format(mac=mac, local_id=mac_local_id), {'end': format_date(end)})
+    ''' start is Epoch '''
+    dendrite.publish('mac/{mac}/session/local_id:{local_id}/end'.format(mac=mac, local_id=mac_local_id), {'end': format_date(end)})
 
 def notify_MAC_port(mac, mac_local_id, port, time=None):
-    dendrite.post('mac/{mac}/session/local_id:{mac_local_id}/port'.format(mac=mac, mac_local_id=mac_local_id), {'time': format_date(time), 'port': port})
+    dendrite.publish('mac/{mac}/session/local_id:{mac_local_id}/port'.format(mac=mac, mac_local_id=mac_local_id), {'time': format_date(time), 'port': port})
 
 
-def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, run=None):
-    ''' run is Epoch '''
-    data = {'run': format_date(run), 'local_id': vlan_local_id}
+def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, start=None):
+    ''' start is Epoch '''
+    data = {'start': format_date(start), 'local_id': vlan_local_id}
     if port:
         data['port'] = port
-    dendrite.post(
+    dendrite.publish(
             'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}'.format(
                     mac=mac, vlan=vlan, mac_local_id=mac_local_id
             ),
@@ -282,8 +283,8 @@ def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, r
     )
 
 def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
-    ''' run is Epoch '''
-    dendrite.post(
+    ''' start is Epoch '''
+    dendrite.publish(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/end'.format(
                          mac=mac, vlan=vlan, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
               ), 
@@ -292,12 +293,12 @@ def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
     
 
     
-def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, run=None):
-    ''' run is Epoch '''
-    data = {'run': format_date(run), 'local_id': ip_local_id}
+def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, start=None):
+    ''' start is Epoch '''
+    data = {'start': format_date(start), 'local_id': ip_local_id}
     if port:
         data['port'] = port
-    dendrite.post(
+    dendrite.publish(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}'.format(
                          mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
               ), 
@@ -306,8 +307,8 @@ def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_i
 
 
 def notify_end_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, end=None):
-    ''' run is Epoch '''
-    dendrite.post(
+    ''' start is Epoch '''
+    dendrite.publish(
               'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}/local_id:{ip_local_id}/end'.format(
                           mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=ip_local_id
               ), 
