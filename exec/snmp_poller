@@ -311,35 +311,43 @@ my $nasport2ifindex_server = start_unix_server(SNMP_NASPORT_TO_IFINDEX_SOCK);
 my $sel = IO::Select->new($poll_server, $parse_trap_server, $nasport2ifindex_server);
 
 
-while( my @ready = $sel->can_read() ) {
-  foreach my $channel (@ready) {
-  	my $conn = $channel->accept();
+sub handle_connection {
+    my $conn = shift;
+    
+    $redis = Redis->new(); # open connections after fork
 
-    # fork to take care of request...
-    my $pid = fork();
-    if($pid == 0) {
-      $redis = Redis->new(); # open connections after fork
-
-      local $/;
-      my $json_request = <$conn>;
-      
-      my $request = $json->decode($json_request);
-      
-      my $answer;
-      if($channel == $poll_server){
+    local $/;
+    my $json_request = <$conn>;
+  
+    my $request = $json->decode($json_request);
+  
+    my $answer;
+    if($channel == $poll_server){
         $answer = snmp_poll($request->{ip});
-      }
-      elsif($channel == $parse_trap_server ) {
-        $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection});
-      }
-      elsif($channel eq SNMP_NASPORT_TO_IFINDEX_SOCK) {
-        $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection});
-      }
-      
-      print $conn $json->encode($answer);
-      $conn->close(); 
-      exit 0;
     }
-  }
+    elsif($channel == $parse_trap_server ) {
+        $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection});
+    }
+    elsif($channel eq SNMP_NASPORT_TO_IFINDEX_SOCK) {
+        $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection});
+    }
+  
+    print $conn $json->encode($answer);
+    $conn->close(); 
+}
+
+while( my @ready = $sel->can_read() ) {
+    foreach my $channel (@ready) {
+        my $conn = $channel->accept()
+        
+        # fork to take care of request...
+        my $pid = fork();
+        if($pid == 0) {
+
+            handle_connection( $conn );
+
+            exit 0;
+        }
+    }
 }
 

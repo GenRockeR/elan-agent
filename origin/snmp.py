@@ -1,7 +1,9 @@
-from origin.neuron import Dendrite;
+from origin.neuron import Dendrite, Synapse
 from origin import session, nac
 from origin.event import Event
 import datetime
+import asyncio
+import json
 
 SNMP_POLL_REQUEST_SOCK       = '/tmp/snmp-poll-request.sock'
 SNMP_PARSE_TRAP_SOCK         = '/tmp/snmp-trap-parse.sock'
@@ -10,7 +12,7 @@ SNMP_NASPORT_TO_IFINDEX_SOCK = '/tmp/snmp-nasport2ifindex.sock'
 SNMP_DEFAULT_CREDENTIALS_PATH   = 'snmp:default_credentials'
 SNMP_READ_PARAMS_CACHE_PATH     = 'snmp:read:params'
 
-class DeviceSnmpManager(Dendrite):
+class DeviceSnmpManager():
     '''
         Class for making SNMP::Info poll request on devices and to process traps. 
         It will keeping track of SNMP poll results (sending them to CC and storing them locally) 
@@ -21,8 +23,12 @@ class DeviceSnmpManager(Dendrite):
     DEVICE_MAC_SNMP_CACHE_PATH = 'device:snmp:mac' # device ID per MAC
     DEVICE_POLL_EVERY = 600 # seconds
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, dendrite=None):
+        if not dendrite:
+            dendrite = Dendrite()
+        self.dendrite = dendrite
+        self.synapse = Synapse()
+        
     
     # retrieve from cache
     def get_new_device_id(self):
@@ -58,8 +64,8 @@ class DeviceSnmpManager(Dendrite):
             return
         return self.get_device_by_id(device_id)
     
-    def are_different_for_CC(self, device1, device2):
-        def equal_dicts(a, b, ignore_keys):
+    def switch_has_changed(self, device1, device2):
+        def almost_equal_dicts(a, b, ignore_keys):
             try:
                 ka = set(a).difference(ignore_keys)
                 kb = set(b).difference(ignore_keys)
@@ -67,12 +73,29 @@ class DeviceSnmpManager(Dendrite):
             except:
                 return False
         
-        return not equal_dicts(device1, device2, ['fw_mac'])
+        return not almost_equal_dicts(device1, device2, ['fw_mac'])
 
+
+    async def _unix_socket_connection(self, path, data):
+        reader, writer = await asyncio.open_unix_connection(path)
+        await writer.write(data.encode())
+        await writer.write_eof()
+        
+        response = await reader.read()
+        
+        await writer.close()
+        
+        return json.loads(response.decode())
+    
+    async def _poll(self, ip):
+        return await self._unix_socket_connection(SNMP_POLL_REQUEST_SOCK, dict(ip=ip))
     
     async def poll(self, ip, timeout=10):
         ''' poll and cache result'''
-        device_snmp = self._poll(ip, timeout=timeout)
+        try: 
+            device_snmp = await asyncio.wait_for(self._poll(ip), timeout)
+        except asyncio.TimeoutError:
+            device_snmp = None
         
         if device_snmp is None:
             event = Event('runtime-failure', source='snmp', level='warning')
@@ -100,9 +123,9 @@ class DeviceSnmpManager(Dendrite):
             
         # Update cached device if needed
         if cached_device != device_snmp:
-            if self.are_different_for_CC(cached_device, device_snmp):
+            if self.switch_has_changed(cached_device, device_snmp):
                 # send update to CC if has changed
-                self.post('snmp', device_snmp)
+                self.publish('snmp', device_snmp)
             # cache the device, including dynamic fields like fw_mac
             with self.synapse.pipeline() as pipe:
                 pipe.hset( self.DEVICE_SNMP_CACHE_PATH, device_id, device_snmp )
@@ -123,14 +146,9 @@ class DeviceSnmpManager(Dendrite):
                 pipe.execute()
         return device_snmp
     
-    def _parse_trap_str(self, ip, trap_str, read_params, timeout):
-        answer_path = 'snmp:parse_trap:answer:{id}'.format(id=self.synapse.get_unique_id())
-        self.synapse.lpush(SNMP_PARSE_TRAP_CHANNEL, dict(ip=ip, trap=trap_str, connection=read_params, answer_path=answer_path))
-        r = self.synapse.brpop(answer_path, timeout=timeout)
-        if r is None:
-            return
-
-        return r[1]
+    async def _parse_trap_str(self, ip, trap_str, read_params):
+        
+        return await self._unix_socket_connection(SNMP_PARSE_TRAP_SOCK, dict(ip=ip, trap=trap_str, connection=read_params))
 
 
     def get_read_params(self, device_ip):
@@ -142,7 +160,7 @@ class DeviceSnmpManager(Dendrite):
             # TOTO: send alert to CC ON if not read_params here
         return read_params
     
-    def parse_trap_str(self, trap_str, timeout=5):
+    async def parse_trap_str(self, trap_str, timeout=5):
         '''
         parse the trap and return 
         - trap type
@@ -166,70 +184,63 @@ class DeviceSnmpManager(Dendrite):
         if not read_params:
             return
         
-        trap = self._parse_trap_str(device_ip, trap_str, read_params, timeout)
+        try:
+            trap = await asyncio.wait_for(self._parse_trap_str(device_ip, trap_str, read_params), timeout)
+        except asyncio.TimeoutError:
+            trap = None
         
-        if trap:
-            if trap['trapType'] != 'unknown':
-                '''
-                Trap types: 
-                  - up:
-                      - trapIfIndex
-                  - down 
-                      - trapIfIndex
-                  - mac:
-                      - trapOperation:
-                          - learnt
-                          - removed
-                          - unknown -> what do we do ? -> macsuck ?
-                      - trapIfIndex
-                      - trapMac
-                      - trapVlan
-                  - secureMacAddrViolation:
-                      - trapIfIndex
-                      - trapMac
-                      - trapVlan
-                  - dot11Deauthentication:
-                      - trapMac
-                  - wirelessIPS 
-                      - trapMac
-                  - roaming
-                      - trapSSID
-                      - trapIfIndex
-                      - trapVlan
-                      - trapMac
-                      - trapClientUserName
-                      - trapConnectionType
-                '''
-                if 'trapMac' in trap: 
-                    if trap['trapType'] in ['secureMacAddrViolation', 'wirelessIPS', 'roaming'] or \
-                      (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
-                        port = self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
-                        vlan=trap.get('vlan', None)
-                        session.seen(trap['trapMac'], port=port, time=trap_time)
-                    elif trap['trapType'] == 'dot11Deauthentication'or \
-                        (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
-                        nac.macDisconnected(trap['trapMac'], time=trap_time)
-                # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
-            else:
-                event = Event(event_type='runtime-failure', source='snmp-notification', level='warning')
-                event.add_data('ip', device_ip)
-                event.notify()
+        if trap and trap['trapType'] != 'unknown':
+            '''
+            Trap types: 
+              - up:
+                  - trapIfIndex
+              - down 
+                  - trapIfIndex
+              - mac:
+                  - trapOperation:
+                      - learnt
+                      - removed
+                      - unknown -> what do we do ? -> macsuck ?
+                  - trapIfIndex
+                  - trapMac
+                  - trapVlan
+              - secureMacAddrViolation:
+                  - trapIfIndex
+                  - trapMac
+                  - trapVlan
+              - dot11Deauthentication:
+                  - trapMac
+              - wirelessIPS 
+                  - trapMac
+              - roaming
+                  - trapSSID
+                  - trapIfIndex
+                  - trapVlan
+                  - trapMac
+                  - trapClientUserName
+                  - trapConnectionType
+            '''
+            if 'trapMac' in trap: 
+                if trap['trapType'] in ['secureMacAddrViolation', 'wirelessIPS', 'roaming'] or \
+                  (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
+                    port = await self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
+                    vlan=trap.get('vlan', None)
+                    session.seen(trap['trapMac'], port=port, time=trap_time)
+                elif trap['trapType'] == 'dot11Deauthentication'or \
+                    (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
+                    session.end(mac=trap['trapMac'], time=trap_time)
+            # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
+        else:
+            event = Event(event_type='runtime-failure', source='snmp-notification', level='warning')
+            event.add_data('ip', device_ip)
+            event.notify()
                     
     
-    def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):
-        answer_path = 'snmp:nasport2ifindex:answer:{id}'.format(id=self.synapse.get_unique_id())
+    async def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):
         read_params = self.get_read_params(device_ip)
-        if not read_params:
-            return set()
-        self.synapse.lpush(SNMP_NASPORT_TO_IFINDEX_CHANNEL, dict(nas_port=nas_port, ip=device_ip, connection=read_params, answer_path=answer_path))
-        r = self.synapse.brpop(answer_path, timeout=timeout)
-        if r is None:
-            # timeout ! return None
-            return
-
-        return set(r[1])
+        return await self._unix_socket_connection(SNMP_NASPORT_TO_IFINDEX_SOCK, dict(nas_port=nas_port, ip=device_ip, connection=read_params))
                     
-    def getPortFromIndex(self, device_ip, if_index, force_poll=False, no_poll=False):
+    async def getPortFromIndex(self, device_ip, if_index, force_poll=False, no_poll=False):
         '''
             Returns the port as { 'local_id': ..., 'interface':...} from given device_ip and if_index
             force_poll will force the device to be polled before resolving ifIndex to port. Else it will try to use cache.
@@ -244,7 +255,7 @@ class DeviceSnmpManager(Dendrite):
         if device_ip is not None and if_index is not None:
             device_polled = False
             if force_poll:
-                device = self.poll(device_ip)
+                device = await self.poll(device_ip)
                 device_polled = True
             else:
                 device = self.get_device_by_ip(device_ip)
@@ -259,7 +270,7 @@ class DeviceSnmpManager(Dendrite):
         
                 # port not found, retry forcing poll if poll was not done
                 if not device_polled and not no_poll:
-                    return self.getPortFromIndex(device_ip, if_index, force_poll=True)
+                    return await self.getPortFromIndex(device_ip, if_index, force_poll=True)
         
         # Device not found
         return None

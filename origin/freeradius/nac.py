@@ -36,7 +36,7 @@ def seen(request):
 
 def end(request):
     mac = extract_mac(request.get('Calling-Station-Id', None))
-    nac.macDisconnected(mac)
+    session.end(mac)
 
 
 def find_port(request):

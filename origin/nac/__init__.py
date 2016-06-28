@@ -3,7 +3,6 @@ import subprocess, datetime, re
 from origin import session
 import threading
 
-DISCONNECT_NOTIFICATION_TOPIC = 'device/vlan_mac_disconnected' # TODO Factorize: also in session_trackerd
 AUTHORIZATION_CHANGE_TOPIC = 'nac/authz/change' # notify that authz changed for mac
 
 AUTHZ_MAC_EXPIRY_PATH = 'nac:authz:expiry' # sorted set with expiry as score, mac will be used as key of session (we only keep current sessions)
@@ -13,6 +12,9 @@ AUTHZ_SESSIONS_SEQUENCE_PATH = 'nac:authz:sequence'
 ACCESS_CONTROLLED_IFS_PATH = 'nac:access-control:ifs'
 
 CHECK_AUTHZ_PATH = 'mac/check-authz'
+
+
+AUTHORIZATION_SESSION_TOPIC = 'session/authorization'
 
 
 dendrite = Dendrite()
@@ -88,15 +90,7 @@ def authzChanged(mac):
     '''
     notify Mac Authz Manager that authz for mac has changed. Should not need to call this directly
     '''
-    synapse.lpush(AUTHORIZATION_CHANGE_TOPIC, mac)
-
-
-def macDisconnected(mac, time=None):
-    if time is None:
-        time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
-
-    synapse.lpush(DISCONNECT_NOTIFICATION_TOPIC, dict(mac=mac, time=time))
-
+    dendrite.publish(AUTHORIZATION_CHANGE_TOPIC, mac)
 
 
 def get_network_assignments(mac, port=None, current_auth_sessions=None):
@@ -121,15 +115,17 @@ def notify_new_authorization_session(authz, start=None):
     if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
-    dendrite.publish('mac/{mac}/authorization'.format(mac=authz.mac), dict(start=session.format_date(start), **data))
+    dendrite.publish(AUTHORIZATION_SESSION_TOPIC, dict(start=session.format_date(start), mac=authz.mac, **data))
 
 def notify_end_authorization_session(authz, reason, end=None, **kwargs):
     ''' start is Epoch '''
 
     kwargs['termination_reason'] = reason
     kwargs['end'] = session.format_date(end)
+    kwargs['mac'] = authz.mac
+    kwargs['local_id'] = authz.local_id
 
-    dendrite.publish('mac/{mac}/authorization/local_id:{local_id}/end'.format(mac=authz.mac, local_id=authz.local_id), kwargs)
+    dendrite.publish(AUTHORIZATION_SESSION_TOPIC, kwargs)
 
 
 class RedisMacAuthorization(object):

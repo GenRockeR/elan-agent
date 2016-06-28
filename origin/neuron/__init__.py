@@ -266,8 +266,8 @@ class  Dendrite():
         (un)subscribe(_conf), (un)provide and publish(_conf) functions can be called from sync and async functions
     '''
     CONF_PATH_PREFIX = 'conf/'
-    PROVIDE_REQUESTS_PATH_PREFIX = 'provided/requests/'
-    PROVIDE_ANSWERS_PATH_PREFIX  = 'provided/answers/'
+    PROVIDE_REQUESTS_PATH_PREFIX = 'rpc/requests/'
+    PROVIDE_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
     
     def __init__(self, *, mqtt_url='mqtt://127.0.0.1', loop=None):
         self._connection = None

@@ -135,7 +135,7 @@ class SessionTracker(Dendrite):
     
         for obj, last_seen in last_seen_macs:
             # Consider Mac as disconnected...
-            nac.macDisconnected(mac=obj['mac'], time=last_seen)
+            session.end(mac=obj['mac'], time=last_seen)
     
     
         # ping Objects

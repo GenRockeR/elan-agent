@@ -120,12 +120,11 @@ class MacAuthorizationManager():
         # Check if authz have expired and set correct timeout 
         self.check_expired_authz()
 
-    def handle_disconnection(self, data):
-        authz = RedisMacAuthorization.getByMac(data['mac'])
+    def handle_disconnection(self, mac):
+        authz = RedisMacAuthorization.getByMac(mac)
         if authz and authz.till_disconnect:
-            self.removeAuthz(data['mac'], reason='disconnected', authz=authz)
-            self.authzChanged(data['mac'])
-        session.end(data['mac'], time=data['time'])
+            self.removeAuthz(mac, reason='disconnected', authz=authz)
+            self.authzChanged(mac)
         
         
         # Check if authz have expired and set correct timeout 

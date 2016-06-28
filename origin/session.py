@@ -2,6 +2,12 @@ from origin.neuron import Synapse, Dendrite
 import datetime
 
 
+
+MAC_SESSION_TOPIC = 'session/mac'
+VLAN_SESSION_TOPIC = 'session/vlan'
+IP_SESSION_TOPIC = 'session/ip'
+PORT_SESSION_TOPIC = 'session/port'
+
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
 SESSION_IDS_PATH = 'device:mac:session-ids'
@@ -257,62 +263,48 @@ def remove_expired_authentication_session(mac, date=None):
 
 def notify_new_MAC_session(mac, mac_local_id, port=None, start=None):
     ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': mac_local_id}
+    data = {'start': format_date(start), 'local_id': mac_local_id, 'mac': mac}
     if port:
         data['port'] = port
-    dendrite.publish('mac/{mac}/session'.format(mac=mac), data)
+    dendrite.publish(MAC_SESSION_TOPIC, data)
 
 def notify_end_MAC_session(mac, mac_local_id, end=None):
     ''' start is Epoch '''
-    dendrite.publish('mac/{mac}/session/local_id:{local_id}/end'.format(mac=mac, local_id=mac_local_id), {'end': format_date(end)})
+    dendrite.publish(MAC_SESSION_TOPIC, {'end': format_date(end), 'local_id': mac_local_id, 'mac': mac})
 
 def notify_MAC_port(mac, mac_local_id, port, time=None):
-    dendrite.publish('mac/{mac}/session/local_id:{mac_local_id}/port'.format(mac=mac, mac_local_id=mac_local_id), {'time': format_date(time), 'port': port})
+    dendrite.publish(PORT_SESSION_TOPIC, {'time': format_date(time), 'port': port, 'local_id': mac_local_id, 'mac': mac})
 
 
 def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, start=None):
     ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': vlan_local_id}
+    data = {'start': format_date(start), 'local_id': vlan_local_id, 'mac': mac, 'vlan': vlan, 'mac_local_id': mac_local_id}
     if port:
         data['port'] = port
-    dendrite.publish(
-            'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}'.format(
-                    mac=mac, vlan=vlan, mac_local_id=mac_local_id
-            ),
-            data
-    )
+    dendrite.publish(VLAN_SESSION_TOPIC,  data)
 
 def notify_end_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, end=None):
     ''' start is Epoch '''
     dendrite.publish(
-              'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/end'.format(
-                         mac=mac, vlan=vlan, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
-              ), 
-              {'end': format_date(end)}
+            VLAN_SESSION_TOPIC,
+            {'end': format_date(end), 'mac': mac, 'vlan': vlan, 'mac_local_id': mac_local_id, 'local_id': vlan_local_id}
     )
     
 
     
 def notify_new_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, port=None, start=None):
     ''' start is Epoch '''
-    data = {'start': format_date(start), 'local_id': ip_local_id}
+    data = {'start': format_date(start), 'local_id': ip_local_id, 'mac': mac, 'vlan': vlan, 'ip': ip, 'mac_local_id': mac_local_id, 'vlan_local_id': vlan_local_id}
     if port:
         data['port'] = port
-    dendrite.publish(
-              'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}'.format(
-                         mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id
-              ), 
-              data
-    )
+    dendrite.publish(IP_SESSION_TOPIC, data)
 
 
 def notify_end_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_id, end=None):
     ''' start is Epoch '''
     dendrite.publish(
-              'mac/{mac}/session/local_id:{mac_local_id}/vlan/{vlan}/local_id:{vlan_local_id}/ip/{ip}/local_id:{ip_local_id}/end'.format(
-                          mac=mac, vlan=vlan, ip=ip, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=ip_local_id
-              ), 
-              {'end': format_date(end)}
+            IP_SESSION_TOPIC,
+            {'end': format_date(end), 'local_id': ip_local_id, 'mac': mac, 'vlan': vlan, 'ip': ip, 'mac_local_id': mac_local_id, 'vlan_local_id': vlan_local_id}
     )
 
 
