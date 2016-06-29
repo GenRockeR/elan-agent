@@ -12,3 +12,4 @@ ATTRIBUTE Origin-Non-Failed-Auth  3611  string
 ATTRIBUTE Origin-Switch-Id        3612  string
 ATTRIBUTE Origin-Switch-Interface 3613  string
 ATTRIBUTE Origin-AD-Auth-Provider 3614  string
+ATTRIBUTE Elan-Proxy-Path         3615  string

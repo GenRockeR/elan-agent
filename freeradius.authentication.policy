@@ -67,3 +67,25 @@ authentications.authorize {
     }
     
 }
+
+auth_provider_failed {
+     update control {
+          Elan-Proxy-Path := "authentication/provider/failed"
+      }
+      elan
+}
+
+auth_provider_failed_in_group {
+     update control {
+          Elan-Proxy-Path := "authentication/provider/failed-in-group"
+      }
+      elan
+}
+
+auth_all_providers_failed_in_group {
+     update control {
+          Elan-Proxy-Path := "authentication/group/all-failed"
+      }
+      elan
+}
+

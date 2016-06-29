@@ -1,0 +1,13 @@
+nac.post-auth {
+     update control {
+          Elan-Proxy-Path := "nac/post-auth"
+      }
+      elan
+}
+
+nac.accounting {
+     update control {
+          Elan-Proxy-Path := "nac/accounting"
+      }
+      elan
+}

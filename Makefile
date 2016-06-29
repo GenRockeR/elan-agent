@@ -16,7 +16,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, m
                    libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
                    libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
-                   python3-py, python3-lxml, tshark, mosquitto
+                   python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp
 
 include packaging.mk
 
@@ -41,11 +41,10 @@ authentication-freeradius:
 	install -d ${DESTDIR}/etc/freeradius
 	install -m 644 freeradius.dictionary       ${DESTDIR}/etc/freeradius/dictionary
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius
-	install -m 644 freeradius.policy           ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/policy
+	install -m 644 freeradius.authentication.policy           ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/policy
 	install -m 644 freeradius.rest-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/rest-module
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -m 644 freeradius.ad-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ad-module
-	install -m 644 freeradius.python-module    ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/python-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 exec/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
@@ -53,7 +52,7 @@ authentication-freeradius:
 	install -d ${DESTDIR}/etc/freeradius/sites-available
 	install -d ${DESTDIR}/etc/freeradius/sites-enabled
 	install -m 644 freeradius.authentication.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
-	ln -s ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled
+	ln -s ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled/
 	install -d ${DESTDIR}/etc/default
 	install -m 644 freeradius.default          ${DESTDIR}/etc/default/freeradius
 
@@ -173,11 +172,13 @@ nac-freeradius:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius
 	install -m 644 freeradius.nac.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
 	install -d ${DESTDIR}/etc/freeradius/mods-available
-	install -m 644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
-	install -m 644 freeradius.python ${DESTDIR}/etc/freeradius/mods-available/nac
 	install -d ${DESTDIR}/etc/freeradius/mods-enabled
+	install -m 644 freeradius.elan    ${DESTDIR}/etc/freeradius/mods-available/elan
+	ln -s ../mods-available/elan ${DESTDIR}/etc/freeradius/mods-enabled
+	install -m 644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
 	ln -s ../mods-available/nac-eap ${DESTDIR}/etc/freeradius/mods-enabled
-	ln -s ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
+	install -d ${DESTDIR}/etc/freeradius/policy.d
+	install -m 644 freeradius.nac.policy ${DESTDIR}/etc/freeradius/policy.d/nac
 
 .PHONY: nac-nginx
 nac-nginx:

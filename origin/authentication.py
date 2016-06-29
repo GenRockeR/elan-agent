@@ -102,8 +102,6 @@ class AuthenticationProvider():
             }
         ''')
         self.rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
-        with open("/origin/authentication/freeradius/python-module", 'r') as python_module_file:
-            self.python_conf = ''.join(python_module_file.readlines())
 
     def get_group_inner_case(self, auth, ignore_authentications=None):
         if ignore_authentications is None:
@@ -167,7 +165,6 @@ class AuthenticationProvider():
         if self.agent_id is not None: # we may receive agent id after conf
             # Grab templates
             module_conf = self.rest_conf.render(agent_id=self.agent_id)
-            module_conf += self.python_conf
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
