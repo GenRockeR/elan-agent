@@ -42,7 +42,6 @@ authentication-freeradius:
 	install -m 644 freeradius.dictionary       ${DESTDIR}/etc/freeradius/dictionary
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius
 	install -m 644 freeradius.authentication.policy           ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/policy
-	install -m 644 freeradius.rest-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/rest-module
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -m 644 freeradius.ad-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ad-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin

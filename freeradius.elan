@@ -2,43 +2,43 @@ rest elan {
         connect_uri = "http://127.0.0.1:8080/"
         
         authorize {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         authenticate {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         preacct {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         accounting {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         pre_proxy {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         post_proxy {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 
         }
         post_auth {
-                uri = "${..connect_uri}%{control:Elan-Path}"
+                uri = "${..connect_uri}%{control:Elan-Proxy-Path}"
                 method = 'post'
                 data = 'json'
                 

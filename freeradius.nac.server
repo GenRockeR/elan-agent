@@ -242,9 +242,9 @@ server inner-eap-tunnel {
         update outer.session-state {
             Origin-Auth-Provider := &session-state:Origin-Auth-Provider
 
-            ClearText-Password := &control:Cleartext-Password
-            NT-Password := &control:NT-Password
-            LM-Password := &control:LM-Password
+            ClearText-Password   := &control:Cleartext-Password
+            NT-Password          := &control:NT-Password
+            LM-Password          := &control:LM-Password
             Password-With-Header := &control:Password-With-Header
         }
     }
@@ -255,12 +255,6 @@ server inner-eap-tunnel {
     pap
   }
   
-  post-auth {
-    update outer.session-state {
-        &Origin-Login := User-Name
-    }
-
-  }
   
   
   authenticate {
@@ -293,9 +287,12 @@ server inner-eap-tunnel {
   
   
   post-auth {
+    update outer.session-state {
+        &Origin-Login := User-Name
+    }
+
+
     Post-Auth-Type REJECT {
-      # log failed authentications in SQL, too.
-      -sql
       attr_filter.access_reject
     }
   

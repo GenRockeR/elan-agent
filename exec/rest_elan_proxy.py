@@ -1,9 +1,14 @@
  #!/bin/env python
  
 from aiohttp import web
-from origin import freeradius
+from origin import freeradius, neuron
+from origin.freeradius.utils import request_as_hash_of_values
+
 import json
 import asyncio
+
+
+dendrite = neuron.Dendrite()
 
 async def post_auth(request):
     radius_request = json.loads( await request.content.read() )
@@ -18,10 +23,60 @@ async def accounting(request):
     response = freeradius.accounting(radius_request)
 
     return web.json_response(response)
+
+async def authorize(request):
+    source = request.GET['source']
+    provider = request.GET['provider']
+    user = request.GET['user']
+    
+    response = await dendrite.async_call('authentication/external/authorize', {'provider': provider, 'source': source, 'user': user})
+
+    return web.json_response(response)
+
+
+async def authenticate(request):
+    radius_request = json.loads( await request.content.read() )
+    source = request.GET['source']
+    provider = request.GET['provider']
+    
+    response = await dendrite.async_call('authentication/external/authenticate', dict(provider=provider, source=source, **request_as_hash_of_values(radius_request)))
+
+    return web.json_response(response)
+
+
+
+async def provider_failed(request):
+    radius_request = json.loads( await request.content.read() )
+    
+    response = freeradius.AuthenticationProviderFailed(radius_request)
+
+    return web.json_response(response)
+
+async def provider_failed_in_group(request):
+    radius_request = json.loads( await request.content.read() )
+    
+    response = freeradius.AuthenticationProviderFailedInGroup(radius_request)
+
+    return web.json_response(response)
+ 
+async def group_all_failed(request):
+    radius_request = json.loads( await request.content.read() )
+    
+    response = freeradius.AuthenticationGroupFailed(radius_request)
+
+    return web.json_response(response)
+
+
+
  
 app = web.Application()
-app.router.add_route('POST', '/freeradius/nac/post-auth',  post_auth)
-app.router.add_route('POST', '/freeradius/nac/accounting', accounting)
+app.router.add_route('POST', '/nac/post-auth',  post_auth)
+app.router.add_route('POST', '/nac/accounting', accounting)
+app.router.add_route('POST', '/authentication/authorize', authorize)
+app.router.add_route('POST', '/authentication/authenticate', authenticate)
+app.router.add_route('POST', '/authentication/provider/failed', provider_failed)
+app.router.add_route('POST', '/authentication/provider/failed-in-group', provider_failed_in_group)
+app.router.add_route('POST', '/authentication/group/all-failed', group_all_failed)
 
 loop = asyncio.get_event_loop()
 handler = app.make_handler()

@@ -52,7 +52,7 @@ class AuthenticationProvider():
             update session-state {
                 &Origin-Auth-Provider := ${id}
             }
-            cc-auth {
+            external-auth {
                 invalid = 1
                 fail =  2
                 reject = 3
@@ -92,7 +92,7 @@ class AuthenticationProvider():
             update session-state {
                 &Origin-Auth-Provider := ${id}
             }
-            cc-auth.authenticate {
+            external-auth.authenticate {
                 invalid = 1
                 fail =  2
                 reject = 3
@@ -101,7 +101,6 @@ class AuthenticationProvider():
                 updated = return
             }
         ''')
-        self.rest_conf = Template(filename="/origin/authentication/freeradius/rest-module")
 
     def get_group_inner_case(self, auth, ignore_authentications=None):
         if ignore_authentications is None:
@@ -163,8 +162,7 @@ class AuthenticationProvider():
 
     def apply_conf(self):
         if self.agent_id is not None: # we may receive agent id after conf
-            # Grab templates
-            module_conf = self.rest_conf.render(agent_id=self.agent_id)
+            module_conf = ""
     
             inner_switch_server_conf = ""
             # Generate the files if we have all the information...
