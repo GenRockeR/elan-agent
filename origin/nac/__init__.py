@@ -99,7 +99,7 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
     if port is None:
         port = synapse.hget(session.MAC_PORT_PATH, mac)
         
-    return dendrite.sync_call('agent/self/assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    return dendrite.sync_call('assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
     # TODO: when CC unreachable or Error, retry in a few seconds (maybe use mac authz manager daemon for that) 
 
 def tzaware_datetime_to_epoch(dt):
@@ -165,7 +165,7 @@ class RedisMacAuthorization(object):
             till = self.till
 
 
-        pipe = synapse.pipe
+        pipe = synapse.pipeline()
         pipe.zadd(AUTHZ_MAC_EXPIRY_PATH, till, self.mac)
         
         data = self.__dict__.copy()
@@ -178,7 +178,7 @@ class RedisMacAuthorization(object):
     
     @classmethod
     def deleteByMac(cls, mac):
-        pipe = synapse.pipe
+        pipe = synapse.pipeline()
         pipe.hget(AUTHZ_SESSIONS_BY_MAC_PATH, mac)
         pipe.zrem(AUTHZ_MAC_EXPIRY_PATH, mac)
         pipe.hdel(AUTHZ_SESSIONS_BY_MAC_PATH, mac)

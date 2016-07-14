@@ -1,5 +1,5 @@
 rest elan {
-        connect_uri = "http://127.0.0.1/"
+        connect_uri = "http://127.0.0.1:8080/"
         
         authorize {
                 uri = "${..connect_uri}%{control:Elan-Path}"
@@ -52,5 +52,6 @@ rest elan {
 			uses = 0
 			retry_delay = 30
 			lifetime = 0
-			idle_timeout = 0:q
+			idle_timeout = 0
 		}
+}

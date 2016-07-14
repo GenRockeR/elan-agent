@@ -62,7 +62,7 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
                                     ((port['interface'] is not None or old_port['interface'] is not None) and port != old_port)):
             end(mac)
 
-    pipe = synapse.pipe
+    pipe = synapse.pipeline()
 
     pipe.zadd(LAST_SEEN_PATH, time, dict(mac=mac))
     if vlan is not None:
@@ -131,7 +131,7 @@ def end(mac, vlan=None, ip=None, time=None):
     if time is None:
         time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
 
-    pipe = synapse.pipe
+    pipe = synapse.pipeline()
     
     if ip is not None and vlan is None: raise 'Error: when ending IP, VLAN should be specified...' 
     

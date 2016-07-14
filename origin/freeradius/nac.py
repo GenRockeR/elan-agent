@@ -2,12 +2,12 @@
 
 import radiusd
 from .utils import request_as_hash_of_values
-from origin import neuron, snmp, session, nac
+from origin import snmp, session, nac
 from origin.event import Event, InternalEvent, ExceptionEvent
 import re
+import asyncio
+import functools
 
-# TODO: maybe put this in instanciate ?
-synapse = neuron.Synapse()
 snmp_manager = snmp.DeviceSnmpManager() 
 
 def extract_mac(string):
@@ -28,18 +28,18 @@ def extract_ssid(string):
     if m:
         return m.group(1)
 
-def seen(request):
+async def seen(request):
     mac = extract_mac(request.get('Calling-Station-Id', None))
 
-    port = find_port(request)
-    session.seen(mac, port=port)
+    port = await find_port(request)
+    await asyncio.get_event_loop().run_in_executor(None, functools.partial(session.seen, mac, port=port))
 
-def end(request):
+async def end(request):
     mac = extract_mac(request.get('Calling-Station-Id', None))
-    session.end(mac)
+    await asyncio.get_event_loop().run_in_executor(None, session.end, mac)
 
 
-def find_port(request):
+async def find_port(request):
     # will try to find port 
     nas_ip_address = request.get('NAS-IP-Address', None)
     radius_client_ip = request.get('Packet-Src-IP-Address', request.get('Packet-Src-IPv6-Address', None))
@@ -63,12 +63,12 @@ def find_port(request):
         # still not found try polling nas IP adddress, then ip the radius request came from
         switch_polled = True
         if nas_ip_address:
-            switch = snmp_manager.poll(nas_ip_address)
+            switch = await snmp_manager.poll(nas_ip_address)
         if switch:
             switch_ip = nas_ip_address
         else:
             # If not found with NAS-IP-Address, try with Radius client IP
-            switch = snmp_manager.poll(radius_client_ip)
+            switch = await snmp_manager.poll(radius_client_ip)
             if switch:
                 switch_ip = radius_client_ip
             else:
@@ -132,10 +132,10 @@ def find_port(request):
     nas_port = request.get('NAS-Port', None)
     found_ports['nas_port'] = set()
     if nas_port:
-        ifIndexes = snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
+        ifIndexes = await snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
         for if_index in ifIndexes:
             force_poll = not switch_polled # force poll if not already polled
-            port = snmp_manager.getPortFromIndex(switch_ip, if_index, force_poll=force_poll, no_poll=(not force_poll))
+            port = await snmp_manager.getPortFromIndex(switch_ip, if_index, force_poll=force_poll, no_poll=(not force_poll))
             switch_polled = True
             if port:
                 found_ports['nas_port'].add(port['interface'])
@@ -176,28 +176,31 @@ def find_port(request):
     return { 'local_id': str(switch[u'local_id']), 'interface': None }
 
 
-def get_assignments(request):
+async def get_assignments(request):
     ''' Will create new session for Mac and allow it on VLAN and on the net if authorized'''
     mac = extract_mac(request.get('Calling-Station-Id', None))
 
-    port = find_port(request)
+    port = await find_port(request)
 
     session.seen(mac, port=port)
 
     auth_type = request.get('Origin-Auth-Type', None)
     
     if auth_type == 'radius-mac':
-        authz = nac.checkAuthz(mac)
+        authz = await asyncio.get_event_loop().run_in_executor(None, nac.checkAuthz, mac)
     elif auth_type == 'radius-dot1x':
         authentication_provider = request.get('Origin-Auth-Provider')
         login = request.get('Origin-Login', request.get('User-Name'))
-        authz = nac.newAuthz( mac, 
-                              no_duplicate_source = True,
-                              source = 'radius-dot1x',
-                              till_disconnect = True,
-                              authentication_provider = authentication_provider,
-                              login = login
+        authz = await asyncio.get_event_loop().run_in_executor(None, functools.partial(
+                                nac.newAuthz,
+                                mac, 
+                                no_duplicate_source = True,
+                                source = 'radius-dot1x',
+                                till_disconnect = True,
+                                authentication_provider = authentication_provider,
+                                login = login
                             )
+        )
 
     if not authz:
         # log no assignment rule matched....
@@ -214,25 +217,25 @@ def get_assignments(request):
     return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.assign_vlan)), ), ()
 
 
-def post_auth(req):
+async def post_auth(req):
     try:
         request = request_as_hash_of_values(req)
         
         if request.get('Origin-Auth-Type', None) == 'Reject':
-            return seen(request)
+            return await seen(request)
         else:
-            return get_assignments(request)
+            return await get_assignments(request)
     except:
         ExceptionEvent(source='radius').notify()
         raise
 
-def accounting(req):
+async def accounting(req):
     try:
         request = request_as_hash_of_values(req)
         if request.get('Acct-Status-Type') == 'Stop':
-            return end(request)
+            return await end(request)
         elif request.get('Acct-Status-Type') in ['Start', 'Interim-Update']:
-            return seen(request)
+            return await seen(request)
     except:
         ExceptionEvent(source='radius').notify()
         raise

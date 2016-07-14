@@ -10,15 +10,8 @@ def request_as_hash_of_values(request):
             
     ret = MultiDict()
     
-    for key, value in request:
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        if key in ret:
-            if isinstance(ret[key], list):
-                ret[key].append(value)
-            else:
-                ret[key] = [ ret[key], value ]
-        else:
-            ret[key] = value
+    for key, properties in request:
+        values = properties['value']
+        ret[key] = values        
 
     return ret
