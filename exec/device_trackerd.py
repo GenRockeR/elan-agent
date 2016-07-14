@@ -88,7 +88,7 @@ class DeviceTracker():
                     pass
                 else:
                     if self.isNewFingerprint(mac, fingerprint, source=source):
-                        self.publish('mac/{mac}/fingerprint'.format(mac=mac, source=source), dict(source=source, **fingerprint))
+                        self.publish('mac/fingerprint', dict(mac=mac, source=source, **fingerprint))
             
             # Hostname: grab it from netbios or dhcpv4 or dhcpv6
             hostname = None 
@@ -106,7 +106,7 @@ class DeviceTracker():
                         pass
             
             if hostname and self.isNewHostname(mac, hostname, source):
-                self.publish('mac/{mac}/hostname'.format(mac=mac), {'name': hostname, 'source': source})
+                self.publish('mac/hostname', {'mac': mac, 'name': hostname, 'source': source})
 
         except Exception:
             ExceptionEvent(source='network').notify()
