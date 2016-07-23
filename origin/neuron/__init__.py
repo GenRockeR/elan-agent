@@ -266,8 +266,10 @@ class  Dendrite():
         (un)subscribe(_conf), (un)provide and publish(_conf) functions can be called from sync and async functions
     '''
     CONF_PATH_PREFIX = 'conf/'
-    PROVIDE_REQUESTS_PATH_PREFIX = 'rpc/requests/'
-    PROVIDE_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
+    SERVICE_REQUESTS_PATH_PREFIX = 'service/requests/'
+    SERVICE_ANSWERS_PATH_PREFIX  = 'service/answers/'
+    RPC_REQUESTS_PATH_PREFIX = 'rpc/requests/'
+    RPC_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
     
     def __init__(self, *, mqtt_url='mqtt://127.0.0.1', loop=None):
         self._connection = None
@@ -353,8 +355,8 @@ class  Dendrite():
             
             cb = self.subscribe_cb.get(topic, None)
             if cb:
-                if topic.startswith(self.PROVIDE_REQUESTS_PATH_PREFIX):
-                    path = topic[len(self.PROVIDE_REQUESTS_PATH_PREFIX):]
+                if topic.startswith(self.SERVICE_REQUESTS_PATH_PREFIX):
+                    path = topic[len(self.SERVICE_REQUESTS_PATH_PREFIX):]
                     correlation_id = msg['correlation_id']
                     data = msg['message']
                 elif topic.startswith(self.CONF_PATH_PREFIX):
@@ -372,10 +374,10 @@ class  Dendrite():
                 else: 
                     result = await self._call_fn(cb, data, path)
 
-                if topic.startswith(self.PROVIDE_REQUESTS_PATH_PREFIX):
+                if topic.startswith(self.SERVICE_REQUESTS_PATH_PREFIX):
                     # Send back answer
                     await self._connection.publish(
-                                 self.PROVIDE_ANSWERS_PATH_PREFIX + correlation_id,
+                                 self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id,
                                  json.dumps(result).encode(),
                                  hbmqtt.client.QOS_1
                     )
@@ -446,10 +448,10 @@ class  Dendrite():
         '''
         provides a service RPC style by running callback cb on call.
         '''
-        return self.subscribe(self.PROVIDE_REQUESTS_PATH_PREFIX+topic, cb)
+        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX+topic, cb)
 
     def unprovide(self, path):
-        return self.unsubscribe(self.PROVIDE_REQUESTS_PATH_PREFIX+path)
+        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX+path)
     
     def sync_call(self, path, data=None, timeout=30):
         '''
@@ -462,14 +464,14 @@ class  Dendrite():
         
         def cb(result):
             future.set_result(result)
-            self.unsubscribe(self.PROVIDE_ANSWERS_PATH_PREFIX + correlation_id)
+            self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
             
-        sub_task = self.subscribe(self.PROVIDE_ANSWERS_PATH_PREFIX + correlation_id, cb)
+        sub_task = self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
         if self.running:
             sub_task.result()# wait for result
         else:
             self.run([sub_task])
-        self.publish(self.PROVIDE_REQUESTS_PATH_PREFIX + path, {'correlation_id': correlation_id, 'message': data})
+        self.publish(self.RPC_REQUESTS_PATH_PREFIX + path, {'request_id': correlation_id, 'message': data})
         try:
             if self.running:
                 return future.result(timeout)
@@ -488,10 +490,10 @@ class  Dendrite():
         
         def cb(result):
             future.set_result(result)
-            self.unsubscribe(self.PROVIDE_ANSWERS_PATH_PREFIX + correlation_id)
+            self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
             
-        self.subscribe(self.PROVIDE_ANSWERS_PATH_PREFIX + correlation_id, cb)
-        self.publish(self.PROVIDE_REQUESTS_PATH_PREFIX + path, {'correlation_id': correlation_id, 'message': data})
+        self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
+        self.publish(self.RPC_REQUESTS_PATH_PREFIX + path, {'request_id': correlation_id, 'message': data})
         try:
             return await asyncio.wait_for(future, timeout)
         except concurrent.futures.TimeoutError:
