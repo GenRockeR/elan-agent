@@ -1,10 +1,8 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
-                   python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python-cffi, python-impacket, \
-                   gcc, libnetfilter-log-dev, libnfnetlink-dev, python-dev, python3-cffi, libglib2.0-dev, python3-dev, \
-                   nginx, python-pycurl, python-redis, redis-server,\
-                   python3-netifaces, python-netifaces, python-netaddr, python3-netaddr, postfix, suricata, python-tz, python-yaml, \
+                   python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, postfix, suricata, \
+                   nginx, redis-server, gcc, libnetfilter-log-dev, libnfnetlink-dev, libpython3-dev, python3-cffi, libglib2.0-dev, python3-dev, \
                    zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
                    libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
