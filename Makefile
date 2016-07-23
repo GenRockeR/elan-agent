@@ -32,6 +32,8 @@ authentication-python: origin/authentication.py origin/freeradius/*.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/authentication.py
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/*.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install exec/rest_elan_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rest-elan-proxy
   
    
 .PHONY: authentication-freeradius
