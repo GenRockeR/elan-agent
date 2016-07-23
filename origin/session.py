@@ -6,7 +6,6 @@ import datetime
 MAC_SESSION_TOPIC = 'session/mac'
 VLAN_SESSION_TOPIC = 'session/vlan'
 IP_SESSION_TOPIC = 'session/ip'
-PORT_SESSION_TOPIC = 'session/port'
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
@@ -110,7 +109,7 @@ def seen(mac, vlan=None, port=None, ip=None, time=None ):
         pipe.hset(MAC_LAST_PORT_PATH, mac, port) # Keep track of last port when port is deleted
         pipe.execute()
         if not mac_added: # TODO check if can write 'and not vlan_added and not ip_added': in CC will port be updated if mac already present and new vlan or ip session ? 
-            notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port, time=time)
+            notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port)
             
     if ip_added:
         notify_new_IP_session(   mac=mac, vlan=vlan, ip=ip, port=port, start=time, mac_local_id=mac_local_id, vlan_local_id=vlan_local_id, ip_local_id=local_id)
@@ -272,8 +271,8 @@ def notify_end_MAC_session(mac, mac_local_id, end=None):
     ''' start is Epoch '''
     dendrite.publish(MAC_SESSION_TOPIC, {'end': format_date(end), 'local_id': mac_local_id, 'mac': mac})
 
-def notify_MAC_port(mac, mac_local_id, port, time=None):
-    dendrite.publish(PORT_SESSION_TOPIC, {'time': format_date(time), 'port': port, 'local_id': mac_local_id, 'mac': mac})
+def notify_MAC_port(mac, mac_local_id, port):
+    dendrite.publish(MAC_SESSION_TOPIC, {'port': port, 'local_id': mac_local_id, 'mac': mac})
 
 
 def notify_new_VLAN_session(mac, mac_local_id, vlan, vlan_local_id, port=None, start=None):
