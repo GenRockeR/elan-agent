@@ -19,12 +19,20 @@ class IdsLogger():
     DEFAULT_DIRECTORY = '/var/log/suricata'
     DEFAULT_PREFIX = 'unified2.alert'
     
-    def __init__(self, dendrite, directory=DEFAULT_DIRECTORY, prefix=DEFAULT_PREFIX, delete_files=True):
+    def __init__(self, dendrite=None, directory=DEFAULT_DIRECTORY, prefix=DEFAULT_PREFIX, delete_files=True, loop=None):
+        if dendrite is None:
+            dendrite = Dendrite()
+        if loop is None:
+            loop = asyncio.get_event_loop()
+            
         self.dendrite = dendrite
         self.directory = directory
         self.prefix = prefix
         self.delete_files = delete_files
+        self.loop = loop
         
+    def run(self):
+        self.loop.run_until_complete( self.loop.run_in_executor(self.read_ids_events) )
 
     def read_ids_events(self):
         reader = unified2.SpoolEventReader(
@@ -36,7 +44,7 @@ class IdsLogger():
     
     
         for alert in reader:
-            self.add_task( self.process_alert(alert) )
+            asyncio.run_coroutine_threadsafe(self.process_alert(alert), loop=self.loop)
 
     async def process_alert(self, alert):
         try: 
@@ -90,9 +98,8 @@ class IdsLogger():
 
 
 if __name__ == "__main__":
-    d = Dendrite()
-    idsLogger = IdsLogger(dendrite=d)
-    d.add_task(idsLogger.read_ids_events)
-    d.run()
+    idsLogger = IdsLogger()
+    idsLogger.run()
+
     
     

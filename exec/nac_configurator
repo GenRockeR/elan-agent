@@ -69,4 +69,4 @@ if __name__ == "__main__":
     conf = NacConfigurator()
     dendrite.subscribe_conf('agent', conf.agent_conf_updated)
 
-    dendrite.run()
+    dendrite.wait_complete()

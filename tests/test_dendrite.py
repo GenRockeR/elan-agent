@@ -1,290 +1,165 @@
 import unittest
-import hbmqtt
-import asyncio
+import concurrent.futures
+import threading
 import json
 
 from origin.neuron import Dendrite
+from paho.mqtt import client, publish
+import time
 
-broker_config = {
-    'listeners': {
-        'default': {
-            'type': 'tcp',
-            'bind': '127.0.0.1:18883',
-            'max_connections': 10
-        },
-    },
-    'sys_interval': 0,
-    'auth': {
-        'allow-anonymous': True,
-    }
-}
-
-def run(coro):
-    ''' helper function to run coroutines in asyncio loop'''
-    return asyncio.get_event_loop().run_until_complete(coro)
+def run_in_thread(target, *args, **kwargs):
+    fut = concurrent.futures.Future()
+    def run():
+        result = target(*args, **kwargs)
+        fut.set_result( result )
+    
+    threading.Thread(target=run).start()
+    
+    return fut
 
 class DendriteTest(unittest.TestCase):
     def setUp(self):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-        self.dendrite = Dendrite(loop=self.loop)
-
-        self.client = hbmqtt.client.MQTTClient()
-        run(self.client.connect('mqtt://localhost:1883/'))
-
-
+        self.dendrite = Dendrite()
+        self.mqtt = client.Client()
+        self.mqtt.connect(Dendrite.MQTT_HOST, Dendrite.MQTT_PORT)
+    
     def tearDown(self):
-        run(self.client.disconnect())
-
         self.dendrite.finish()
-        self.dendrite.run()
-    
-        self.loop.close()
-
-
-    
-    def test_add_task_sync(self):
-        received_args=[]
-        def task(*args):
-            for arg in args:
-                received_args.append(arg)
-        
-        self.dendrite.add_task(task, 'test', 'test2')
-        
-        self.dendrite.run()
-        
-        self.assertEqual(received_args, ['test', 'test2'])
-        
+        self.mqtt.disconnect()
 
     def test_publish(self):
         topic1 = 'test/topic1'
         topic2 = 'test/topic2'
         msg1 = dict(test='OK')
-        run(self.client.subscribe( [
-                    (topic1, hbmqtt.client.QOS_1),
-                    (topic2, hbmqtt.client.QOS_1)
-                ] ))
+        
+        
+        self.mqtt.subscribe(topic1)
+        self.mqtt.subscribe(topic2)
+        
+        future = concurrent.futures.Future()
+        
+        def on_message(client, userdata, message):
+            future.set_result(message)
+        self.mqtt.on_message = on_message
+        self.mqtt.loop_start()
         
         self.dendrite.publish(topic1, msg1)
-        self.dendrite.run()
-        
-        msg = run(self.client.deliver_message(1))
-        self.assertEqual(json.loads(msg.data.decode()), msg1)
+
+        msg = future.result(2)
+            
+        self.assertEqual(json.loads(msg.payload.decode()), msg1)
         self.assertEqual(msg.topic, topic1)
         
         msg2=dict(test=dict(OK='ok'), OK='ok')
-        
+
+        results = []
+        future = concurrent.futures.Future()
+        def on_message2(client, userdata, message):
+            results.append(message)
+            if len(results) == 3:
+                future.set_result(True)
+        self.mqtt.on_message = on_message2
+
         self.dendrite.publish(topic2, msg1)
         self.dendrite.publish(topic2, msg2)
         self.dendrite.publish(topic1, msg2)
-        self.dendrite.run()
-
-        msg = run(self.client.deliver_message(1))
-        self.assertEqual(json.loads(msg.data.decode()), msg1)
-        self.assertEqual(msg.topic, topic2)
-
-        msg = run(self.client.deliver_message(1))
-        self.assertEqual(json.loads(msg.data.decode()), msg2)
-        self.assertEqual(msg.topic, topic2)
-
-        msg = run(self.client.deliver_message(1))
-        self.assertEqual(json.loads(msg.data.decode()), msg2)
-        self.assertEqual(msg.topic, topic1)
         
-        run(self.client.unsubscribe([topic1, topic2]))
-
-
-    def test_subscribe_corofn(self):
-        results = []
-        async def get_msg(msg, topic):
-            results.append({ 'msg': msg, 'topic': topic})
-            self.dendrite.unsubscribe(topic)
+        future.result(2)
         
+        self.assertEqual(json.loads(results[0].payload.decode()), msg1)
+        self.assertEqual(results[0].topic, topic2)
+
+        self.assertEqual(json.loads(results[1].payload.decode()), msg2)
+        self.assertEqual(results[1].topic, topic2)
+
+        self.assertEqual(json.loads(results[2].payload.decode()), msg2)
+        self.assertEqual(results[2].topic, topic1)
         
+
+    def test_subscribe(self):
         topic1 = 'test/topic1'
         msg1 = dict(test='OK', msg=1)
 
-        
-        self.dendrite.subscribe(topic1, get_msg)
-        
-        
-        self.dendrite.add_task(self.client.publish(topic1, json.dumps(msg1).encode()))
-        
-        self.dendrite.run()
-        
-        self.assertEqual(results, [{'msg': msg1, 'topic': topic1}])
-        
-        results.pop()
-        
-    def test_subscribe_syncfn(self):
-        results = []
+        future = concurrent.futures.Future()
         def get_msg(msg, topic):
-            results.append({ 'msg': msg, 'topic': topic})
-            self.dendrite.unsubscribe(topic)
+            future.set_result({ 'msg': msg, 'topic': topic})
         
         
-        topic1 = 'test/topic1'
-        msg1 = dict(test='OK', msg=1)
-
         
         self.dendrite.subscribe(topic1, get_msg)
         
+        time.sleep(1)
         
-        self.dendrite.add_task(self.client.publish(topic1, json.dumps(msg1).encode()))
+        self.mqtt.publish(topic1, json.dumps(msg1))
         
-        self.dendrite.run()
+        result = future.result(2)
+        self.assertEqual(result, {'msg': msg1, 'topic': topic1})
+
         
-        self.assertEqual(results, [{'msg': msg1, 'topic': topic1}])
         
-        results.pop()
-        
-    def test_subscribe_corofn_1arg(self):
-        results = []
+    def test_subscribe_1arg(self):
         topic1 = 'test/topic1'
         msg1 = dict(test='OK', msg=1)
 
-        async def get_msg(msg):
-            results.append({ 'msg': msg})
-            self.dendrite.unsubscribe(topic1) # stop loop
-        
-        self.dendrite.subscribe(topic1, get_msg)
-        
-        
-        self.dendrite.add_task(self.client.publish(topic1, json.dumps(msg1).encode()))
-        
-        self.dendrite.run()
-        
-        self.assertEqual(results, [{'msg': msg1}])
-        
-        results.pop()
-        
-    def test_subscribe_syncfn_1arg(self):
-        results = []
-        topic1 = 'test/topic1'
-        msg1 = dict(test='OK', msg=1)
-
+        future = concurrent.futures.Future()
         def get_msg(msg):
-            results.append({ 'msg': msg})
-            self.dendrite.unsubscribe(topic1)
-        
+            future.set_result(msg)
         
         self.dendrite.subscribe(topic1, get_msg)
         
+        time.sleep(1)
         
-        self.dendrite.add_task(self.client.publish(topic1, json.dumps(msg1).encode()))
+        self.mqtt.publish(topic1, json.dumps(msg1))
         
-        self.dendrite.run()
+        result = future.result(2)
         
-        self.assertEqual(results, [{'msg': msg1}])
+        self.assertEqual(result, msg1)
         
-        results.pop()
+    def test_subscribe_1arg_method(self):
+        topic1 = 'test/topic1'
+        msg1 = dict(test='OK', msg=1)
 
+        future = concurrent.futures.Future()
+        class Dummy:
+            def get_msg(self, msg):
+                future.set_result(msg)
+        
+        d = Dummy()
+        self.dendrite.subscribe(topic1, d.get_msg)
+        
+        time.sleep(1)
+        
+        self.mqtt.publish(topic1, json.dumps(msg1))
+        
+        result = future.result(2)
+        
+        self.assertEqual(result, msg1)
 
-    def test_add_task_corofn(self):
-        received_args=[]
-        async def coro(*args):
-            for arg in args:
-                received_args.append(arg)
-        
-        self.dendrite.add_task(coro, 'test')
-        
-        self.dendrite.run()
-        
-        self.assertEqual(received_args, ['test'])
-        
-        
-    def test_add_task_coro(self):
-        received_args=[]
-        async def coro(*args):
-            for arg in args:
-                received_args.append(arg)
-        
-        self.dendrite.add_task(coro('test'), 'ignored')
-        
-        self.dendrite.run()
-        
-        self.assertEqual(received_args, ['test'])
-        
-    def test_add_task_syncfn(self):
-        received_args=[]
-        def fn(*args):
-            for arg in args:
-                received_args.append(arg)
-        
-        self.dendrite.add_task(fn, 'test')
-        
-        self.dendrite.run()
-        
-        self.assertEqual(received_args, ['test'])
-        
-    def test_add_task_corofn_delay(self):
-        import datetime
-        
-        result={}
-        async def fn(*args):
-            result['time'] = datetime.datetime.now()
-        
-        started = datetime.datetime.now()
-        self.dendrite.add_task(fn, 'test', delay=2)
-        
-        self.dendrite.run()
-        
-        self.assertGreaterEqual((started - result['time']).seconds, 2)
-
-    def test_add_task_coro_delay(self):
-        import datetime
-        
-        result={}
-        async def fn(*args):
-            result['time'] = datetime.datetime.now()
-        
-        started = datetime.datetime.now()
-        self.dendrite.add_task(fn('test'), delay=2)
-        
-        self.dendrite.run()
-        
-        self.assertGreaterEqual((started - result['time']).seconds, 2)
-                
-
-    def test_add_task_syncfn_delay(self):
-        import datetime
-        
-        result={}
-        def fn(*args):
-            result['time'] = datetime.datetime.now()
-        
-        started = datetime.datetime.now()
-        self.dendrite.add_task(fn, 'test', delay=2)
-        
-        self.dendrite.run()
-        
-        self.assertGreaterEqual((started - result['time']).seconds, 2)
-                
-
-
-    def test_provide_call_sync(self):
+    def test_provide(self):
         def cb(data):
             return 'Test OK: ' + data
         
-        self.dendrite.provide('test/fct', cb)
         
-        result = self.dendrite.sync_call('test/fct', 'sent')
-        
-        self.assertEqual(result, 'Test OK: sent')
-
-    def test_provide_call_sync_in_executor(self):
-        self.loop.run_until_complete(asyncio.wrap_future(self.dendrite.add_task(self.test_provide_call_sync)))
-
-    def test_provide_call_async(self):
-        def cb(data):
-            return 'Test OK: ' + data
+        service = 'test/fct'
         
         self.dendrite.provide('test/fct', cb)
         
-        result = run(self.dendrite.async_call('test/fct', 'sent'))
+        result = self.dendrite.call_provided(service, 'sent')
         
         self.assertEqual(result, 'Test OK: sent')
+
+    def test_call(self):
+        
+        def rpc(data, topic):
+            service = topic[len(Dendrite.RPC_REQUESTS_PATH_PREFIX):]
+            self.dendrite.publish(Dendrite.RPC_ANSWERS_PATH_PREFIX + data['request_id'], 'RPC {service}: got "{data}"'.format(service=service, **data))
+
+        service = 'My Service'
+        self.dendrite.subscribe(Dendrite.RPC_REQUESTS_PATH_PREFIX + service, rpc)
+
+        result = self.dendrite.call(service, 'My Data', timeout=2)
+                
+        self.assertEqual(result, 'RPC {}: got "My Data"'.format(service))
 
 
 

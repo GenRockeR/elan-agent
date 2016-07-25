@@ -18,9 +18,6 @@ class DeviceTracker():
         self.synapse = neuron.Synapse()
         
         self.interfaces = list(utils.physical_ifaces())
-        
-        self.dendrite.add_task(self.capture) # delay start until eventloop starts, else it seems run_in_executor starts the task straight away...
-
     
     def capture(self):
         for packet in pyshark.LiveCapture(
@@ -30,11 +27,11 @@ class DeviceTracker():
                     .sniff_continuously():
             if self.stop:
                 return
-            self.dendrite.add_task(self.process_packet(packet))
+            self.process_packet(packet)
             
         raise RuntimeError('Capture Stopped ! if it ever started...')
 
-    async def process_packet(self, packet):
+    def process_packet(self, packet):
         try:
             # device sessions
             mac = packet.eth.src
@@ -88,7 +85,7 @@ class DeviceTracker():
                     pass
                 else:
                     if self.isNewFingerprint(mac, fingerprint, source=source):
-                        self.publish('mac/fingerprint', dict(mac=mac, source=source, **fingerprint))
+                        self.dendrite.publish('mac/fingerprint', dict(mac=mac, source=source, **fingerprint))
             
             # Hostname: grab it from netbios or dhcpv4 or dhcpv6
             hostname = None 
@@ -106,7 +103,7 @@ class DeviceTracker():
                         pass
             
             if hostname and self.isNewHostname(mac, hostname, source):
-                self.publish('mac/hostname', {'mac': mac, 'name': hostname, 'source': source})
+                self.dendrite.publish('mac/hostname', {'mac': mac, 'name': hostname, 'source': source})
 
         except Exception:
             ExceptionEvent(source='network').notify()
@@ -174,5 +171,5 @@ class DeviceTracker():
 
 if __name__ == '__main__':
     p = DeviceTracker()
-    p.start()
+    p.capture()
 

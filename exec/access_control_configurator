@@ -96,7 +96,7 @@ class AccessControlConfigurator():
                     # configure Access Contol
                     if new_vlan['access_control']:
                         nft('add element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
-                        local_index = get_vlan_local_index(nic_name)
+                        local_index = self.get_vlan_local_index(nic_name)
                         new_vlan['local_index'] = local_index
                         mark = local_index
                         nft('add element bridge origin vlan_mark {{ {nic} : {mark} }}'.format(nic=nic_name, mark = mark))
@@ -188,24 +188,24 @@ class AccessControlConfigurator():
             network.NetworkConfiguration.reload()            
 
 
-def get_vlan_local_index(nic):
-    VLAN_LOCAL_INDEX_PATH = 'conf:local_index:by_ifname'
-    VLAN_LOCAL_INDEX_INDEX_PATH = 'conf:local_index:index'
-    synapse = Synapse()
-    index = synapse.hget(VLAN_LOCAL_INDEX_PATH, nic)
-    if not index:
-        # create an index for that vlan
-        def safe_index(pipe):
-            if not synapse.hget(VLAN_LOCAL_INDEX_PATH, nic):
-                index = pipe.get(VLAN_LOCAL_INDEX_INDEX_PATH) or 0
-                pipe.multi()
-                index += 1
-                pipe.set(VLAN_LOCAL_INDEX_INDEX_PATH, index)
-                pipe.hset(VLAN_LOCAL_INDEX_PATH, nic, index)
-        
-        synapse.transaction(safe_index, VLAN_LOCAL_INDEX_INDEX_PATH)
+    def get_vlan_local_index(self, nic):
+        VLAN_LOCAL_INDEX_PATH = 'conf:local_index:by_ifname'
+        VLAN_LOCAL_INDEX_INDEX_PATH = 'conf:local_index:index'
+        synapse = Synapse()
         index = synapse.hget(VLAN_LOCAL_INDEX_PATH, nic)
-    return index
+        if not index:
+            # create an index for that vlan
+            def safe_index(pipe):
+                if not synapse.hget(VLAN_LOCAL_INDEX_PATH, nic):
+                    index = pipe.get(VLAN_LOCAL_INDEX_INDEX_PATH) or 0
+                    pipe.multi()
+                    index += 1
+                    pipe.set(VLAN_LOCAL_INDEX_INDEX_PATH, index)
+                    pipe.hset(VLAN_LOCAL_INDEX_PATH, nic, index)
+            
+            synapse.transaction(safe_index, VLAN_LOCAL_INDEX_INDEX_PATH)
+            index = synapse.hget(VLAN_LOCAL_INDEX_PATH, nic)
+        return index
 
 if __name__ == "__main__":
     configurator = AccessControlConfigurator()
@@ -214,4 +214,4 @@ if __name__ == "__main__":
     dendrite.subscribe_conf('agent', cb=configurator.new_agent_conf)
     dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
 
-    dendrite.run()
+    dendrite.wait_complete()

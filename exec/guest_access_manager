@@ -9,4 +9,4 @@ if __name__ == "__main__":
     dendrite.subscribe_conf('guest-access/active-authorizations', manager.new_authorizations)
 
     
-    dendrite.run()
+    dendrite.wait_complete()

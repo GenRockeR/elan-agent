@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite, Synapse
+from origin.neuron import Synapse
 from origin import session, nac
 from origin.event import Event
 import datetime
@@ -23,10 +23,7 @@ class DeviceSnmpManager():
     DEVICE_MAC_SNMP_CACHE_PATH = 'device:snmp:mac' # device ID per MAC
     DEVICE_POLL_EVERY = 600 # seconds
 
-    def __init__(self, dendrite=None):
-        if not dendrite:
-            dendrite = Dendrite()
-        self.dendrite = dendrite
+    def __init__(self):
         self.synapse = Synapse()
         
     
@@ -225,7 +222,7 @@ class DeviceSnmpManager():
                   (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'learnt'):
                     port = await self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
                     vlan=trap.get('vlan', None)
-                    session.seen(trap['trapMac'], port=port, time=trap_time)
+                    session.seen(trap['trapMac'], vlan=vlan, port=port, time=trap_time)
                 elif trap['trapType'] == 'dot11Deauthentication'or \
                     (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
                     session.end(mac=trap['trapMac'], time=trap_time)

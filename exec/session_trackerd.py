@@ -5,8 +5,10 @@ from impacket.IP6_Address import IP6_Address
 from impacket.IP6 import IP6
 from impacket.NDP import NDP, NDP_Option
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
-from origin import session, event, nac
-from origin.neuron import Dendrite, Synapse
+from origin import session
+from origin.neuron import Synapse
+import datetime
+import time
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
@@ -92,14 +94,19 @@ def arpPing(mac, vlan, ip):
     s.send(ethernet.get_packet())
 
 
-class SessionTracker(Dendrite):
+class SessionTracker():
     
-    def __init__(self, dendrite):
-        self.dendrite = dendrite
+    def __init__(self):
         self.synapse = Synapse()
-        
     
-    def check_session(self):
+    def run(self):
+        while True:
+            self.check_sessions()
+            wait_time = self.getSecondsBeforeNextCheck()
+            if(wait_time > 0):
+                time.sleep(wait_time)
+    
+    def check_sessions(self):
         now = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() # EPOCH
     
         expired_objects = self.synapse.zrangebyscore(LAST_SEEN_PATH, float('-inf'), now - EXPIRY_OBJECT_AFTER, withscores=True)
@@ -144,9 +151,6 @@ class SessionTracker(Dendrite):
                 pingIP(**obj)
             else:
                 pass # Can not ping a MAC without an IP. MAC, VLAN are just there to know that the session has ended...
-            
-        # Set Timeout for next  check
-        self.dendrite.add_task(self.check_session, delay=self.getSecondsBeforeNextCheck(now))
     
     def getSecondsBeforeNextCheck(self, now=None):
         if not now:
@@ -163,13 +167,9 @@ class SessionTracker(Dendrite):
             return PING_OBJECTS_AFTER
 
 if __name__ == '__main__':
-    import datetime, time
     
-    dendrite = Dendrite() 
-    tracker = SessionTracker(dendrite)
-    dendrite.add_task(tracker.check_session)
-    
-    dendrite.run()
+    tracker = SessionTracker()
+    tracker.run()
 
 
             

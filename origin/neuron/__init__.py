@@ -253,209 +253,124 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
 class TimeOutException(Exception):
     pass
 
-class  Dendrite():
+import paho.mqtt.client as mqtt
+from paho.mqtt import publish
+
+class  Dendrite(mqtt.Client):
     '''
-        Dendrite is used to retrieve configuration (and configuration updates), declare what RPC are processed by this modeule and make RPC calls
-        Instantiate class, call subscribe_conf or provide with path and callback. callback receive path and message. 
+        Dendrite is used to retrieve configuration (and configuration updates), declare what RPC are processed by the calling module and make RPC calls
+        Instantiate class, call subscribe, subscribe_conf, publish, publish_conf, call or provide with topic/service and callback. callback receive message and optionnaly topic. 
         
-        Callbacks can be sync or async. sync callbacks are run in an executor.
-        Parameter of callbacks are:
-        - conf/message
-        - path 
+        Use class method publish_single for a single publish. This will connecet, publish and disconnect and will be blocking.
         
-        (un)subscribe(_conf), (un)provide and publish(_conf) functions can be called from sync and async functions
+        When using instance:
+        - all callbacks are executed in an other thread.
+        - call are non blocking (publish will happen in another thread)
+        
     '''
     CONF_PATH_PREFIX = 'conf/'
+    
     SERVICE_REQUESTS_PATH_PREFIX = 'service/requests/'
     SERVICE_ANSWERS_PATH_PREFIX  = 'service/answers/'
+    
     RPC_REQUESTS_PATH_PREFIX = 'rpc/requests/'
     RPC_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
     
-    def __init__(self, *, mqtt_url='mqtt://127.0.0.1', loop=None):
-        self._connection = None
-        if loop:
-            self._loop = loop
-        else:
-            self._loop = asyncio.get_event_loop()
-        
-        self._loop.add_signal_handler(SIGTERM, self.finish)
-        
-        self._connection = hbmqtt.client.MQTTClient(config={'auto_reconnect': True, 'reconnect_retries': 100000000, 'reconnect_max_interval': 10}, loop=self._loop)
-        self._loop.run_until_complete( self._connection.connect(mqtt_url, cleansession=True) )
-        
-        self.subscribe_cb = {}
-        
-        self.listen_task = None
-        self.tasks = set()
+    MQTT_HOST = '127.0.0.1'
+    MQTT_PORT = 1883
     
-    def _cleanup_tasks(self, tasks=None):
-        if tasks is None:
-            tasks = self.tasks
-        to_remove = set()
-        for task in tasks:
-            if task.done():
-                to_remove.add(task)
-        for task in to_remove:
-            tasks.remove(task)
-
-    @property
-    def running(self):
-        return self._loop.is_running()
+    def __init__(self):
+        super().__init__()
+        
+        self.connect_async(self.MQTT_HOST, self.MQTT_PORT)
+        self.loop_start()
+        
+        self.topics = set()
+        
+    @classmethod
+    def publish_single(cls, topic, data, retain=False):
+        return publish.single(topic, json.dumps(data), qos = 1, retain=retain, hostname=cls.MQTT_HOST, port=cls.MQTT_PORT)
     
-    def run(self, tasks=None, timeout=None):
-        '''
-        Run pending tasks on event loop like subscribe and start listening to messages in case of provide or subscribe.
-        This starts the asyncio event loop  until all pending tasks are finished. In case of subscribe and provide, it runs for ever (listen task never ends until unsubscribe)
-        '''
-        if tasks is None:
-            tasks = self.tasks
-        else:
-            tasks = set(tasks)
-        try:
-            while tasks:
-                start = time.time()
-                self._loop.run_until_complete( asyncio.wait([asyncio.wrap_future(task) for task in tasks], timeout=timeout) ) # tasks here are concurrent.futures.Future, not asyncio.Future
-                self._cleanup_tasks(tasks)
-                if timeout:
-                    timeout = float(timeout) - (time.time() - start)
-                    if timeout < 0:
-                        break
-                    
-        except asyncio.TimeoutError:
-            raise TimeOutException('Run timed out')
 
     def finish(self):
-        self.add_task( self._finish() ) 
+        self.disconnect()
+        self.loop_stop()
     
-    async def _finish(self):
-        if self.listen_task:
-            self.listen_task.cancel()
-            asyncio.wait(self.listen_task)
-        
-        for topic in self.subscribe_cb.keys():
-            await self._unsubscribe(topic)
-
-        await self._connection.disconnect()
-                
-    async def listen_messages(self):
-        while True:
-            try:
-                message = await self._connection.deliver_message()
-                # Create a task so we can receive more message meanwhile instead of waiting for the processing to finish
-                self.add_task( self.process_message(message) )
-            except hbmqtt.client.ClientException as e:
-                print('Error receiving MSG', e)
-            
+    def on_connect(self, mqttc, obj, flags, rc):
+        if self.topics:
+            self._subscribe([ (topic, 1) for topic in self.topics ])
         
             
-    async def process_message(self, message):
-            msg = json.loads(message.data.decode())
-            topic = message.topic
+    def _subscribe_cb_wrapper(self, fn):
+        def wrapper(mqttc, userdata, message):
+            data = json.loads(message.payload.decode())
+            # Accept to send only data without topic
+            if len(inspect.signature(fn).parameters) == 1:
+                return fn(data)
+            else: 
+                return fn(data, message.topic)
+        return wrapper
 
-            
-            cb = self.subscribe_cb.get(topic, None)
-            if cb:
-                if topic.startswith(self.SERVICE_REQUESTS_PATH_PREFIX):
-                    path = topic[len(self.SERVICE_REQUESTS_PATH_PREFIX):]
-                    correlation_id = msg['correlation_id']
-                    data = msg['message']
-                elif topic.startswith(self.CONF_PATH_PREFIX):
-                    path = topic[len(self.CONF_PATH_PREFIX):]
-                    data = msg
-                else:
-                    path = topic
-                    data = msg
+    def _subscribe_conf_cb_wrapper(self, fn):
+        def wrapper(data, topic):
+            subtopic = topic[len(self.CONF_PATH_PREFIX):]
+            if len(inspect.signature(fn).parameters) == 1:
+                return fn(data)
+            else: 
+                return fn(data, subtopic)
+        return wrapper
 
-                # Accept to send only data without topic
-                cb_args_nb = len(inspect.signature(cb).parameters)
-                cb_is_method = inspect.ismethod(cb)
-                if (cb_args_nb == 1 and not cb_is_method) or (cb_args_nb == 2 and cb_is_method):
-                    result = await self._call_fn(cb, data)
-                else: 
-                    result = await self._call_fn(cb, data, path)
-
-                if topic.startswith(self.SERVICE_REQUESTS_PATH_PREFIX):
-                    # Send back answer
-                    await self._connection.publish(
-                                 self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id,
-                                 json.dumps(result).encode(),
-                                 hbmqtt.client.QOS_1
-                    )
-    
-    async def _call_fn(self, fn, *args, delay=0):
-        if delay:
-            await asyncio.sleep(delay, loop=self._loop)
-        # Accepts coroutings (args will be ignored), coroutines functions and synchronous functions
-        if asyncio.iscoroutinefunction(fn):
-            coro = fn(*args)
-        elif asyncio.iscoroutine(fn):
-            coro = fn
-        else:
-            coro = self._loop.run_in_executor(None, fn, *args)
-        
-        return await coro
-                    
-    def add_task(self, fn, *args, delay=0):
-        '''
-        Thread safe function to schedule a task to async queue. task will be added to list of task waited for when using run().
-        Argument can be a function (will be wrapped in run_in_executor), a coroutine (args will be ignored) or a coroutine function.
-        with keyword delay, the task will be delayed delay seconds before running
-        returns a concurent.future.Future
-        '''
-        
-        task = asyncio.run_coroutine_threadsafe( self._call_fn(fn, *args, delay=delay), loop=self._loop )
-        self.tasks.add( task )
-        self._cleanup_tasks()
-        return task
+    def _provide_cb_wrapper(self, fn):
+        def wrapper(data, topic):
+            subtopic = topic[len(self.SERVICE_REQUESTS_PATH_PREFIX):]
+            correlation_id = data['request_id']
+            data = data['data']
+            if len(inspect.signature(fn).parameters) == 1:
+                result = fn(data)
+            else: 
+                result = fn(data, subtopic)
+            self.publish(self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id, result)
+            return result
+        return wrapper
 
     def subscribe(self, topic, cb):
-        return self.add_task(self._subscribe(topic, cb))
-    
-    async def _subscribe(self, topic, cb):
-        if not self.listen_task or self.listen_task.done():
-            self.listen_task = self.add_task( self.listen_messages() )
-        self.subscribe_cb[topic] = cb
-        await self._connection.subscribe([(topic, hbmqtt.client.QOS_1)])
+        self.topics.add(topic)
+        self.message_callback_add(topic, self._subscribe_cb_wrapper(cb))
+        return self._subscribe(topic)
+
+    def _subscribe(self, topic):
+        return super().subscribe(topic, qos=1)
         
     def unsubscribe(self, topic):
-        return self.add_task(self._unsubscribe(topic))
-
-    async def _unsubscribe(self, topic):
-        self.subscribe_cb.pop(topic)
-        await self._connection.unsubscribe([topic])
-        if not self.subscribe_cb and self.listen_task:
-            self.listen_task.cancel()
+        self.topics.discard(topic)
+        self.message_callback_remove(topic)
+        return super().unsubscribe(topic)
     
-    def subscribe_conf(self, path, cb):
-        return self.subscribe('conf/' + path, cb)
+    def subscribe_conf(self, topic, cb):
+        return self.subscribe(self.CONF_PATH_PREFIX + topic, self._subscribe_conf_cb_wrapper(cb))
     
-    async def _publish(self, topic, message, retain=False):
-        await self._connection.publish(topic, json.dumps(message).encode(), qos=hbmqtt.client.QOS_1, retain=retain)
-    
-    def publish(self, topic, message, retain=False, auto_run=True):
+    def publish(self, topic, data, retain=False):
         '''
             publish message to topic.
-            By default, does not ask to retain message and if dendrite not running, will run until this publish has been done (other tasks may run also)
+            By default, does not ask to retain message.
         '''
-        task = self.add_task( self._publish(topic, message, retain=retain) )
-        if auto_run and not self.running:
-            self.run([task])
+        return super().publish(topic, json.dumps(data), retain=retain, qos=1)
 
-    def publish_conf(self, path, message, auto_run=True):
-        return self.publish(self.CONF_PATH_PREFIX+path, message, retain=True, auto_run=auto_run)
+    def publish_conf(self, path, message):
+        return self.publish(self.CONF_PATH_PREFIX+path, message, retain=True)
     
     def provide(self, topic, cb):
         '''
         provides a service RPC style by running callback cb on call.
         '''
-        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX+topic, cb)
+        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX + topic, self._provide_cb_wrapper(cb))
 
-    def unprovide(self, path):
-        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX+path)
+    def unprovide(self, topic):
+        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX + topic)
     
-    def sync_call(self, path, data=None, timeout=30):
+    def call(self, service, data=None, timeout=30):
         '''
-        sync RPC request to path, returns result or raises TimeOutException.
+        RPC request to service, returns result or raises TimeOutException.
         This should not be called in async function as it will block the event loop.
         However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
@@ -466,39 +381,39 @@ class  Dendrite():
             future.set_result(result)
             self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
             
-        sub_task = self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
-        if self.running:
-            sub_task.result()# wait for result
-        else:
-            self.run([sub_task])
-        self.publish(self.RPC_REQUESTS_PATH_PREFIX + path, {'request_id': correlation_id, 'message': data})
+        self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
+        self.publish(self.RPC_REQUESTS_PATH_PREFIX + service, {'request_id': correlation_id, 'data': data})
         try:
-            if self.running:
-                return future.result(timeout)
-            else:
-                self.run([future], timeout=timeout)
-                return future.result(0)
+            return future.result(timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeOutException('Call to {path} timed out after {timeout} seconds'.format(path=path, timeout=timeout))
-    
-    async def async_call(self, path, data=None, timeout=30):
+            raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
+        
+    def call_provided(self, service, data=None, timeout=30):
         '''
-            RPC call to path, returns result or raises TimeOutException.
+        local RPC to a procided service, returns result or raises TimeOutException.
+        This should not be called in async function as it will block the event loop.
+        However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
         correlation_id = str(uuid.uuid4())
-        future = asyncio.Future()
+        future = concurrent.futures.Future()
         
         def cb(result):
             future.set_result(result)
             self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
             
-        self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
-        self.publish(self.RPC_REQUESTS_PATH_PREFIX + path, {'request_id': correlation_id, 'message': data})
+        self.subscribe(self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id, cb)
+        self.publish(self.SERVICE_REQUESTS_PATH_PREFIX + service, {'request_id': correlation_id, 'data': data})
         try:
-            return await asyncio.wait_for(future, timeout)
+            return future.result(timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeOutException('Call to {path} timed out after {timeout} seconds'.format(path=path, timeout=timeout))
+            raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
         
+        
+    def wait_complete(self, timeout=None):
+        '''
+        Block until timeout or disconnect called
+        '''
+        self._thread.join(timeout)
     
     
     

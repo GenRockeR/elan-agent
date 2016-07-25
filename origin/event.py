@@ -2,9 +2,9 @@ from origin.neuron import Dendrite
 import datetime, traceback
 
 class Event(object):
+    EVENT_TOPIC = 'event'
+    
     def __init__(self, event_type, source, level='info', timestamp=None, dendrite=None):
-        if dendrite is None:
-            dendrite = Dendrite()
         if timestamp is None:
             timestamp = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() #Epoch
         
@@ -25,13 +25,18 @@ class Event(object):
         return self
     
     def notify(self):
-        self.dendrite.publish('event', {
+        data = {
                 'type':        self.type,
                 'source':      self.source,
                 'level':       self.level,
                 'timestamp':   datetime.datetime.utcfromtimestamp(self.timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'data':        self.data,
-        })
+        }
+        
+        if self.dendrite is None:
+            return Dendrite.publish_single(self.EVENT_TOPIC, data)
+        else: 
+            return self.dendrite.publish(self.EVENT_TOPIC, data)
     
 class InternalEvent(Event):
     def __init__(self, source, event_type='runtime', **kwargs):

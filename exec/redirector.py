@@ -2,7 +2,6 @@
 import os
 from origin.event import ExceptionEvent
 import origin.libnflog_cffi
-from origin.neuron import Dendrite
 from scapy.all import Ether
 import subprocess
 
@@ -37,14 +36,16 @@ class Redirector():
             # try launching again the nft process
             self.nft_process = subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True)
             self.add_redirect(src_ip, src_port, dst_ip, dst_port, mark, is_retry=True)
-            
+    
+    def run(self):
+        self.listen_packets()
     
     def listen_packets(self):
         nflog = origin.libnflog_cffi.NFLOG().generator(REDIRECTOR_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'nfmark'], nlbufsiz=2**24, handle_overflows = False)
         next(nflog)
         
         for pkt, hwhdr, nfmark in nflog:
-            self._loop.call_soon_threadsafe( self.process_packet, hwhdr+pkt, nfmark )
+            self.process_packet(hwhdr+pkt, nfmark)
     
     def process_packet(self, packet, mark):
         try:
@@ -57,17 +58,15 @@ class Redirector():
             
             # TODO : reinject the packet instead of waiting for client retry
             # TODO : Cleanup maps afet 120 seconds or when in input (nat has be made)
-        except Exception as e:
+        except:
             ExceptionEvent(source='network')\
                  .add_data('packet', packet)\
                  .notify()
 
 if __name__ == '__main__':
 
-    d = Dendrite()
     redirector = Redirector()
-    d.add_task(redirector.listen_packets)
-    d.start()
+    redirector.run()
 
         
             

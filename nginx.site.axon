@@ -30,10 +30,10 @@ server {
     proxy_connect_timeout 5s;
     
     location / {
-        proxy_pass https://controlcenter;
+        proxy_pass http://controlcenter;
     }
     location /ws {
-        proxy_pass https://controlcenter/ws;
+        proxy_pass http://controlcenter/ws;
 
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
@@ -54,14 +54,15 @@ map $http_upgrade $connection_upgrade {
 
 
 upstream controlcenter {
+  server 192.168.0.6:8000;
 % for ip in cc_ipv4:
-  server ${ip}:443;
+  #server ${ip}:443;
 % endfor
 % for ip in cc_ipv6:
   % if registered:
-  server [${ip}]:443;
+  #server [${ip}]:443;
   % else:
-  server [${ip}]:443 backup;
+  #server [${ip}]:443 backup;
   % endif
   
 % endfor

@@ -31,21 +31,20 @@ def ignorePacket(pkt):
 
 
 class ConnectionTracker():
-    def __init__(self, dendrite):
+    def __init__(self, dendrite=None):
+        if dendrite is None:
+            dendrite = neuron.Dendrite()
         self.dendrite = dendrite
         
-        self.dendrite.add_task(self.capture) # delay start until eventloop starts, else it seems run_in_executor starts the task straight away...
-
-    
     def capture(self):
         for packet in pyshark.LiveCapture(
                                             interface=['nflog:'+str(CONNECTION_NFLOG_QUEUE)],
                                          ).sniff_continuously():
-            self.dendrite.add_task(self.process_packet(packet))
+            self.process_packet(packet)
             
         raise RuntimeError('Capture Stopped ! if it ever started...')
 
-    async def process_packet(self, packet):
+    def process_packet(self, packet):
         try:
             ip = packet.layers[1]
             pkt_params = {
@@ -89,13 +88,12 @@ class ConnectionTracker():
                         if pkt_params['dst']['vlan'] and '.' not in pkt_params['dst']['vlan']:
                             pkt_params['dst']['vlan'] += '.0'
                             
-                 # TODO
-#                 for t in ('src', 'dst'):
-#                     tip = pkt_params[t]
-#                     if 'ip' in tip:
-#                         tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
-#                     else:
-#                         tip['is_mac_ip'] = False
+                for t in ('src', 'dst'):
+                    tip = pkt_params[t]
+                    if 'ip' in tip:
+                        tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
+                    else:
+                        tip['is_mac_ip'] = False
                 
                 self.dendrite.publish('connection', pkt_params)
 
@@ -106,9 +104,8 @@ class ConnectionTracker():
      
 
 if __name__ == '__main__':
-    dendrite = neuron.Dendrite()
-    ct = ConnectionTracker(dendrite)
-    dendrite.start()
+    ct = ConnectionTracker()
+    ct.capture()
 
 
         

@@ -39,7 +39,9 @@ def get_authorization(authenticator_id, login, source):
 
 class AuthenticationProvider():
     
-    def __init__(self, dendrite):
+    def __init__(self, dendrite=None):
+        if dendrite is None:
+            dendrite = dendrite()
         self.dendrite = dendrite
         
         self.agent_id = None
@@ -146,12 +148,12 @@ class AuthenticationProvider():
         
         return inner_case
 
-    def got_agent_id(self, agent_id):
-            if self.agent_id != agent_id:
-                self.agent_id = agent_id
+    def agent_conf(self, agent):
+            if self.agent_id != agent.id:
+                self.agent_id = agent.id
                 self.apply_conf()
                 
-    def new_vlan_conf(self, conf):
+    def new_authentication_conf(self, conf):
             new_authentications = {}
             for auth in conf:
                 new_authentications[auth['id']] = auth
@@ -279,9 +281,9 @@ class AuthenticationProvider():
             for service_path in new_provided_services:
                 self.dendrite.provide(service_path, cb=self.on_call)
 
-    def on_call(self, data, path):
+    def on_call(self, data, service):
         # TODO: make this async....
-        m = re.match(r'authentication/provider/(\d+)/authenticate', path)
+        m = re.match(r'authentication/provider/(\d+)/authenticate', service)
         if m:
             # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
             try:
@@ -289,7 +291,7 @@ class AuthenticationProvider():
             except KeyError:
                 return { 'success': False }
 
-        m = re.match(r'authentication/provider/(\d+)/authorize', path)
+        m = re.match(r'authentication/provider/(\d+)/authorize', service)
         if m:
             # TODO: have a way to detect failure of provider (LDAP...) in FR ... via exception ? based on RADIUS Reply-Message ?
             try:

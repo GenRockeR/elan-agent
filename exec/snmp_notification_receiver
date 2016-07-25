@@ -26,4 +26,4 @@ async def receive_traps():
             asyncio.ensure_future( snmp_manager.parse_trap_str(trap_str) )
             
 
-asyncio.get_event_loop().run_until_complete( receive_traps()  )
+asyncio.get_event_loop().run_until_complete( receive_traps() )

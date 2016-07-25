@@ -3,7 +3,7 @@ import subprocess, threading
 import datetime
 from .. import session
 from . import RedisMacAuthorization, notify_end_authorization_session, checkAuthz, tzaware_datetime_to_epoch
-from . import CHECK_AUTHZ_PATH, AUTHZ_MAC_EXPIRY_PATH
+from . import AUTHZ_MAC_EXPIRY_PATH
 
 
 
@@ -11,12 +11,18 @@ class MacAuthorizationManager():
     ''' Class to manage FW authz of Macs
         It also provides a service to check Authz of Macs when something has changed (Tags, ...)
     '''
-    def __init__(self, dendrite):
+    def __init__(self, dendrite=None):
+        if dendrite is None:
+            self.dendrite = Dendrite()
+        
         self.fw_mac_allowed_vlans = {}
         self.fw_mac_bridged_vlans = {}
         
-        self.dendrite = Dendrite()
+        self.dendrite = dendrite
         self.synapse = Synapse()
+        
+        self.next_check = None
+        self.check_authz_sema = threading.BoundedSemaphore()
 
         self.check_expired_authz()
 
@@ -131,25 +137,33 @@ class MacAuthorizationManager():
         self.check_expired_authz()
 
     
-    async def check_expired_authz(self):
-        now = tzaware_datetime_to_epoch(datetime.datetime.now(datetime.timezone.utc))
-        for mac in self.synapse.zrangebyscore(AUTHZ_MAC_EXPIRY_PATH, float('-inf'), now):
-            self.removeAuthz(mac, reason='expired')
-            self.dendrite.add_task(checkAuthz, mac)
+    def check_expired_authz(self):
+        if self.next_check:
+            self.next_check.cancel()
         
+        with self.check_authz_sema:
+            now = tzaware_datetime_to_epoch(datetime.datetime.now(datetime.timezone.utc))
+            for mac in self.synapse.zrangebyscore(AUTHZ_MAC_EXPIRY_PATH, float('-inf'), now):
+                self.removeAuthz(mac, reason='expired')
+                self.check_authz( [mac] )
+        
+            self.schedule_next_expiry_check()
+    
+    def schedule_next_expiry_check(self):
         # get next mac to expire
         next_expiry_date = float('inf')
-        for mac, epoch_expire in self.synapse.zrange(AUTHZ_MAC_EXPIRY_PATH, 0, 0, withscores=True): # returns first mac to expire
+        for _mac, epoch_expire in self.synapse.zrange(AUTHZ_MAC_EXPIRY_PATH, 0, 0, withscores=True): # returns first mac to expire: will iterate at most once
             if next_expiry_date > epoch_expire:
                 next_expiry_date = epoch_expire
             
         # set timeout for next check
         if next_expiry_date != float('inf'):
-            self.add_task(self.check_expired_authz, delay=next_expiry_date)
+            now = tzaware_datetime_to_epoch(datetime.datetime.now(datetime.timezone.utc))
+            self.next_check = threading.Timer(next_expiry_date-now, self.check_expired_authz)
+            self.next_check.start()
     
-    def call_cb(self, path, data):
-        if path == CHECK_AUTHZ_PATH:
-            for mac in data['macs']:
+    def check_authz(self, macs):
+            for mac in macs:
                 if session.is_online(mac):
                     thread = threading.Thread(target=checkAuthz, args=(mac,))
                     thread.run()

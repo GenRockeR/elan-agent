@@ -21,7 +21,7 @@ MAC_VLAN_IPS_PATH = 'device:mac:{mac}:vlan:{vlan}:ips'
 MAC_AUTH_SESSION_PATH = 'device:mac:{mac}:authentication'
 
 synapse = Synapse()
-dendrite = Dendrite
+dendrite = Dendrite()
 
 def format_date(date):
     if not date:

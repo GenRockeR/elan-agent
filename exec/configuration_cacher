@@ -20,9 +20,10 @@ class ConfigurationCacher():
             for profile in data:
                 Administrator.add(**profile)
             
-cacher = Dendrite()
-cacher.subscribe_conf('captive-portal', cb=cacher.cp_conf_updated)
-cacher.subscribe_conf('guest-access',   cb=cacher.ga_conf_updated)
-cacher.subscribe_conf('administrator',  cb=cacher.admins_conf_updated)
+cacher = ConfigurationCacher()
+dendrite = Dendrite()
+dendrite.subscribe_conf('captive-portal', cb=cacher.cp_conf_updated)
+dendrite.subscribe_conf('guest-access',   cb=cacher.ga_conf_updated)
+dendrite.subscribe_conf('administrator',  cb=cacher.admins_conf_updated)
 
-cacher.start()
+dendrite.wait_complete()

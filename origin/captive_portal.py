@@ -69,7 +69,7 @@ class GuestAccessManager():
 
         self.synapse = Synapse()
     
-    def new_authorizations(self, path, authorizations):
+    def new_authorizations(self, authorizations):
         # Here we get only valid authz/authentications
         authz_by_mac = {}
         for authz in authorizations:
