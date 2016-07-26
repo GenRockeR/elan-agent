@@ -333,6 +333,19 @@ class  Dendrite(mqtt.Client):
             return result
         return wrapper
 
+    def _provide_rpc_cb_wrapper(self, fn):
+        def wrapper(data, topic):
+            subtopic = topic[len(self.RPC_REQUESTS_PATH_PREFIX):]
+            correlation_id = data['request_id']
+            data = data['data']
+            if len(inspect.signature(fn).parameters) == 1:
+                result = fn(data)
+            else: 
+                result = fn(data, subtopic)
+            self.publish(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, result)
+            return result
+        return wrapper
+
     def subscribe(self, topic, cb):
         self.topics.add(topic)
         self.message_callback_add(topic, self._subscribe_cb_wrapper(cb))
@@ -359,15 +372,24 @@ class  Dendrite(mqtt.Client):
     def publish_conf(self, path, message):
         return self.publish(self.CONF_PATH_PREFIX+path, message, retain=True)
     
-    def provide(self, topic, cb):
+    def provide(self, service, cb):
         '''
         provides a service RPC style by running callback cb on call.
         '''
-        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX + topic, self._provide_cb_wrapper(cb))
+        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX + service, self._provide_cb_wrapper(cb))
 
-    def unprovide(self, topic):
-        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX + topic)
+    def unprovide(self, service):
+        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX + service)
     
+    def provide_rpc(self, service, cb):
+        '''
+        provides a service RPC style by running callback cb on call.
+        '''
+        return self.subscribe(self.RPC_REQUESTS_PATH_PREFIX + service, self._provide_rpc_cb_wrapper(cb))
+
+    def unprovide_rpc(self, service):
+        return self.unsubscribe(self.RPC_REQUESTS_PATH_PREFIX + service)
+
     def call(self, service, data=None, timeout=30):
         '''
         RPC request to service, returns result or raises TimeOutException.
@@ -407,7 +429,7 @@ class  Dendrite(mqtt.Client):
             return future.result(timeout)
         except concurrent.futures.TimeoutError:
             raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
-        
+    
         
     def wait_complete(self, timeout=None):
         '''

@@ -151,11 +151,10 @@ class DendriteTest(unittest.TestCase):
     def test_call(self):
         
         def rpc(data, topic):
-            service = topic[len(Dendrite.RPC_REQUESTS_PATH_PREFIX):]
-            self.dendrite.publish(Dendrite.RPC_ANSWERS_PATH_PREFIX + data['request_id'], 'RPC {service}: got "{data}"'.format(service=service, **data))
+            return 'RPC {service}: got "{data}"'.format(service=service, data=data)
 
         service = 'My Service'
-        self.dendrite.subscribe(Dendrite.RPC_REQUESTS_PATH_PREFIX + service, rpc)
+        self.dendrite.provide_rpc(service, rpc)
 
         result = self.dendrite.call(service, 'My Data', timeout=2)
                 
