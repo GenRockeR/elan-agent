@@ -7,6 +7,7 @@ import concurrent.futures
 import asyncio
 import hbmqtt.client
 from signal import SIGTERM
+import re
 
 CACHE_PREFIX = 'cache:'
 
@@ -270,11 +271,11 @@ class  Dendrite(mqtt.Client):
     '''
     CONF_PATH_PREFIX = 'conf/'
     
-    SERVICE_REQUESTS_PATH_PREFIX = 'service/requests/'
-    SERVICE_ANSWERS_PATH_PREFIX  = 'service/answers/'
+    SERVICE_REQUESTS_TOPIC_PATTERN = 'service/requests/{service}/{request_id}'
+    SERVICE_ANSWERS_TOPIC_PATTERN  = 'service/answers/{service}/{request_id}'
     
-    RPC_REQUESTS_PATH_PREFIX = 'rpc/requests/'
-    RPC_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
+#     RPC_REQUESTS_PATH_PREFIX = 'rpc/requests/'
+#     RPC_ANSWERS_PATH_PREFIX  = 'rpc/answers/'
     
     MQTT_HOST = '127.0.0.1'
     MQTT_PORT = 1883
@@ -299,50 +300,31 @@ class  Dendrite(mqtt.Client):
     def on_connect(self, mqttc, obj, flags, rc):
         if self.topics:
             self._subscribe([ (topic, 1) for topic in self.topics ])
+    
+    def _call_fn_with_good_arg_nb(self, fn, *args):
+        nb_args = len(inspect.signature(fn).parameters)
+        args = args[:nb_args]
         
+        return fn(*args)
             
     def _subscribe_cb_wrapper(self, fn):
         def wrapper(mqttc, userdata, message):
             data = json.loads(message.payload.decode())
             # Accept to send only data without topic
-            if len(inspect.signature(fn).parameters) == 1:
-                return fn(data)
-            else: 
-                return fn(data, message.topic)
+            return self._call_fn_with_good_arg_nb(fn, data, message.topic)
         return wrapper
 
     def _subscribe_conf_cb_wrapper(self, fn):
         def wrapper(data, topic):
             subtopic = topic[len(self.CONF_PATH_PREFIX):]
-            if len(inspect.signature(fn).parameters) == 1:
-                return fn(data)
-            else: 
-                return fn(data, subtopic)
+            return self._call_fn_with_good_arg_nb(fn, data, subtopic)
         return wrapper
 
     def _provide_cb_wrapper(self, fn):
         def wrapper(data, topic):
-            subtopic = topic[len(self.SERVICE_REQUESTS_PATH_PREFIX):]
-            correlation_id = data['request_id']
-            data = data['data']
-            if len(inspect.signature(fn).parameters) == 1:
-                result = fn(data)
-            else: 
-                result = fn(data, subtopic)
-            self.publish(self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id, result)
-            return result
-        return wrapper
-
-    def _provide_rpc_cb_wrapper(self, fn):
-        def wrapper(data, topic):
-            subtopic = topic[len(self.RPC_REQUESTS_PATH_PREFIX):]
-            correlation_id = data['request_id']
-            data = data['data']
-            if len(inspect.signature(fn).parameters) == 1:
-                result = fn(data)
-            else: 
-                result = fn(data, subtopic)
-            self.publish(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, result)
+            m = re.match(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service='(?P<service>.+)', request_id='(?P<request_id>[^/]+)') + '$', topic)
+            result = self._call_fn_with_good_arg_nb(fn, data, m.group('service'))
+            self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=m.group('request_id'), service=m.group('service')), result)
             return result
         return wrapper
 
@@ -376,19 +358,11 @@ class  Dendrite(mqtt.Client):
         '''
         provides a service RPC style by running callback cb on call.
         '''
-        return self.subscribe(self.SERVICE_REQUESTS_PATH_PREFIX + service, self._provide_cb_wrapper(cb))
+        return self.subscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id='#'), self._provide_cb_wrapper(cb))
 
     def unprovide(self, service):
-        return self.unsubscribe(self.SERVICE_REQUESTS_PATH_PREFIX + service)
+        return self.unsubscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id='#'))
     
-    def provide_rpc(self, service, cb):
-        '''
-        provides a service RPC style by running callback cb on call.
-        '''
-        return self.subscribe(self.RPC_REQUESTS_PATH_PREFIX + service, self._provide_rpc_cb_wrapper(cb))
-
-    def unprovide_rpc(self, service):
-        return self.unsubscribe(self.RPC_REQUESTS_PATH_PREFIX + service)
 
     def call(self, service, data=None, timeout=30):
         '''
@@ -396,40 +370,22 @@ class  Dendrite(mqtt.Client):
         This should not be called in async function as it will block the event loop.
         However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
-        correlation_id = str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
         future = concurrent.futures.Future()
         
         def cb(result):
             future.set_result(result)
-            self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
+            self.unsubscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id))
             
-        self.subscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id, cb)
-        self.publish(self.RPC_REQUESTS_PATH_PREFIX + service, {'request_id': correlation_id, 'data': data})
+        self.subscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id), cb)
+        # normally, we should wait for on_subscribe callback to make sure we have subscribed before sending request,
+        #  but let's assume that if mosquitto receives the publish, it has already received the subscribe...
+        self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id=request_id), data)
         try:
             return future.result(timeout)
         except concurrent.futures.TimeoutError:
             raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
-        
-    def call_provided(self, service, data=None, timeout=30):
-        '''
-        local RPC to a procided service, returns result or raises TimeOutException.
-        This should not be called in async function as it will block the event loop.
-        However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
-        '''
-        correlation_id = str(uuid.uuid4())
-        future = concurrent.futures.Future()
-        
-        def cb(result):
-            future.set_result(result)
-            self.unsubscribe(self.RPC_ANSWERS_PATH_PREFIX + correlation_id)
             
-        self.subscribe(self.SERVICE_ANSWERS_PATH_PREFIX + correlation_id, cb)
-        self.publish(self.SERVICE_REQUESTS_PATH_PREFIX + service, {'request_id': correlation_id, 'data': data})
-        try:
-            return future.result(timeout)
-        except concurrent.futures.TimeoutError:
-            raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
-    
         
     def wait_complete(self, timeout=None):
         '''

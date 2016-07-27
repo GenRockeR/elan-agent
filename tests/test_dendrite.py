@@ -135,30 +135,17 @@ class DendriteTest(unittest.TestCase):
         
         self.assertEqual(result, msg1)
 
-    def test_provide(self):
+    def test_call_and_provide(self):
         def cb(data):
             return 'Test OK: ' + data
         
         
         service = 'test/fct'
-        
         self.dendrite.provide('test/fct', cb)
         
-        result = self.dendrite.call_provided(service, 'sent')
+        result = self.dendrite.call(service, 'sent')
         
         self.assertEqual(result, 'Test OK: sent')
-
-    def test_call(self):
-        
-        def rpc(data, topic):
-            return 'RPC {service}: got "{data}"'.format(service=service, data=data)
-
-        service = 'My Service'
-        self.dendrite.provide_rpc(service, rpc)
-
-        result = self.dendrite.call(service, 'My Data', timeout=2)
-                
-        self.assertEqual(result, 'RPC {}: got "My Data"'.format(service))
 
 
 
