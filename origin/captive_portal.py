@@ -34,6 +34,10 @@ class Administrator:
     ADMINISTRATOR_CONF_PATH = 'conf:administrator'
     synapse = Synapse()
     @classmethod
+    def count(cls):
+        return cls.synapse.hlen(cls.ADMINISTRATOR_CONF_PATH)
+    
+    @classmethod
     def get(cls, login):
         params = cls.synapse.hget(cls.ADMINISTRATOR_CONF_PATH, login)
         if not params:

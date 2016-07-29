@@ -15,7 +15,7 @@ def get_ip6_address(if_name=DEFAULT_IFACE):
         pass
     try:
         return get_ip6_addresses(if_name)[0]
-    except (KeyError, IndexError):
+    except:
         return None
 
 
@@ -26,7 +26,7 @@ def get_ip6_addresses(if_name=DEFAULT_IFACE):
                     { 'address': iface['addr'], 'mask': iface['netmask'], 'prefix_length': IPNetwork('::/'+iface['netmask']).prefixlen } 
                         for iface in netifaces.ifaddresses(if_name)[netifaces.AF_INET6] 
                ]
-    except (KeyError, IndexError):
+    except:
         return []
 
 def get_ip6_global_addresses(if_name=DEFAULT_IFACE):
@@ -40,7 +40,7 @@ def get_ip4_address(if_name=DEFAULT_IFACE):
     ''' returns first ip4 address found, None if not found'''
     try:
         return get_ip4_addresses(if_name)[0]
-    except (KeyError, IndexError):
+    except:
         return None
 
 def get_ip4_addresses(if_name=DEFAULT_IFACE):
@@ -50,14 +50,14 @@ def get_ip4_addresses(if_name=DEFAULT_IFACE):
                     { 'address': iface['addr'], 'mask': iface['netmask'], 'prefix_length': IPNetwork('0/'+iface['netmask']).prefixlen } 
                         for iface in netifaces.ifaddresses(if_name)[netifaces.AF_INET] 
                 ]
-    except (KeyError, IndexError):
+    except:
         return []
 
     
 def get_ether_address(if_name=DEFAULT_IFACE):
     try:
         return netifaces.ifaddresses(if_name)[netifaces.AF_PACKET][0]['addr']
-    except (KeyError, IndexError):
+    except:
         return None
 
 def ip4_to_mac(ip):

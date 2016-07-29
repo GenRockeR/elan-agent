@@ -22,7 +22,7 @@ class ConfigurationCacher():
             
 cacher = ConfigurationCacher()
 dendrite = Dendrite()
-dendrite.subscribe_conf('captive-portal', cb=cacher.cp_conf_updated)
+#dendrite.subscribe_conf('captive-portal', cb=cacher.cp_conf_updated)
 dendrite.subscribe_conf('guest-access',   cb=cacher.ga_conf_updated)
 dendrite.subscribe_conf('administrator',  cb=cacher.admins_conf_updated)
 

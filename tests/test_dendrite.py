@@ -2,9 +2,10 @@ import unittest
 import concurrent.futures
 import threading
 import json
+from uuid import uuid4 
 
-from origin.neuron import Dendrite
-from paho.mqtt import client, publish
+from origin.neuron import Dendrite, TimeoutException
+from paho.mqtt import client
 import time
 
 def run_in_thread(target, *args, **kwargs):
@@ -146,7 +147,18 @@ class DendriteTest(unittest.TestCase):
         result = self.dendrite.call(service, 'sent')
         
         self.assertEqual(result, 'Test OK: sent')
+    
+    def test_get(self):
+        dummy = str(uuid4())
+        self.dendrite.publish('test_get', dummy, retain=True)
+        result = self.dendrite.get('test_get')
+        
+        self.assertEqual(result, dummy)
 
+        Dendrite.publish_single('test_get', retain=True)
+        
+        with self.assertRaises(TimeoutException):
+            self.dendrite.get('test_get')
 
 
 

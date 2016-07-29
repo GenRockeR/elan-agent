@@ -1,7 +1,7 @@
 import json, datetime, traceback, time
 import uuid
 import redis
-from .. import utils
+from . import utils
 import inspect
 import concurrent.futures
 import asyncio
@@ -251,7 +251,7 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
 
 
 
-class TimeOutException(Exception):
+class TimeoutException(Exception):
     pass
 
 import paho.mqtt.client as mqtt
@@ -289,8 +289,10 @@ class  Dendrite(mqtt.Client):
         self.topics = set()
         
     @classmethod
-    def publish_single(cls, topic, data, retain=False):
-        return publish.single(topic, json.dumps(data), qos = 1, retain=retain, hostname=cls.MQTT_HOST, port=cls.MQTT_PORT)
+    def publish_single(cls, topic, data=None, retain=False):
+        if data is not None:
+            data = json.dumps(data)
+        return publish.single(topic, data, qos = 1, retain=retain, hostname=cls.MQTT_HOST, port=cls.MQTT_PORT)
     
 
     def finish(self):
@@ -309,7 +311,10 @@ class  Dendrite(mqtt.Client):
             
     def _subscribe_cb_wrapper(self, fn):
         def wrapper(mqttc, userdata, message):
-            data = json.loads(message.payload.decode())
+            if message.payload:
+                data = json.loads(message.payload.decode())
+            else:
+                data = None
             # Accept to send only data without topic
             return self._call_fn_with_good_arg_nb(fn, data, message.topic)
         return wrapper
@@ -344,15 +349,18 @@ class  Dendrite(mqtt.Client):
     def subscribe_conf(self, topic, cb):
         return self.subscribe(self.CONF_PATH_PREFIX + topic, self._subscribe_conf_cb_wrapper(cb))
     
-    def publish(self, topic, data, retain=False):
+    def publish(self, topic, data=None, retain=False):
         '''
-            publish message to topic.
+            publish message (JSON encoded) to topic.
             By default, does not ask to retain message.
+            If data not provided or None, empty message sent.
         '''
-        return super().publish(topic, json.dumps(data), retain=retain, qos=1)
+        if data is not None:
+            data = json.dumps(data)
+        return super().publish(topic, data, retain=retain, qos=1)
 
-    def publish_conf(self, path, message):
-        return self.publish(self.CONF_PATH_PREFIX+path, message, retain=True)
+    def publish_conf(self, path, message, retain=True):
+        return self.publish(self.CONF_PATH_PREFIX+path, message, retain=retain)
     
     def provide(self, service, cb):
         '''
@@ -364,9 +372,28 @@ class  Dendrite(mqtt.Client):
         return self.unsubscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id='#'))
     
 
+    def get(self, topic, timeout=1):
+        '''
+        Get first message from topic
+        '''
+        future = concurrent.futures.Future()
+        
+        def cb(result):
+            future.set_result(result)
+        self.subscribe(topic, cb)
+        
+        try:
+            return future.result(timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutException('Could not retrieve first value of "{topic}" within {timeout} seconds'.format(topic=topic, timeout=timeout))
+        finally:
+            if topic not in self.topics:
+                self.unsubscribe(topic)
+        
+
     def call(self, service, data=None, timeout=30):
         '''
-        RPC request to service, returns result or raises TimeOutException.
+        RPC request to service, returns result or raises TimeoutException.
         This should not be called in async function as it will block the event loop.
         However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
@@ -375,7 +402,6 @@ class  Dendrite(mqtt.Client):
         
         def cb(result):
             future.set_result(result)
-            self.unsubscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id))
             
         self.subscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id), cb)
         # normally, we should wait for on_subscribe callback to make sure we have subscribed before sending request,
@@ -384,8 +410,10 @@ class  Dendrite(mqtt.Client):
         try:
             return future.result(timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeOutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
-            
+            raise TimeoutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
+        finally:
+            self.unsubscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id))
+
         
     def wait_complete(self, timeout=None):
         '''

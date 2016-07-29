@@ -10,6 +10,9 @@ import asyncio
 
 dendrite = neuron.Dendrite()
 
+async def call_service(service, data):
+    return asyncio.get_event_loop().run_in_executor( dendrite.call, service, data )
+
 async def post_auth(request):
     radius_request = json.loads( await request.content.read() )
     
@@ -25,11 +28,18 @@ async def accounting(request):
     return web.json_response(response)
 
 async def authorize(request):
+    radius_request = json.loads( await request.content.read() ) 
     source = request.GET['source']
     provider = request.GET['provider']
-    user = request.GET['user']
     
-    response = await dendrite.async_call('authentication/external/authorize', {'provider': provider, 'source': source, 'user': user})
+    response = await call_service(
+            'authentication/external/authorize',
+            dict( 
+                    provider=provider,
+                    source=source,
+                    **request_as_hash_of_values(radius_request)
+            )
+    )
 
     return web.json_response(response)
 
@@ -39,7 +49,14 @@ async def authenticate(request):
     source = request.GET['source']
     provider = request.GET['provider']
     
-    response = await dendrite.async_call('authentication/external/authenticate', dict(provider=provider, source=source, **request_as_hash_of_values(radius_request)))
+    response = await call_service(
+            'authentication/external/authenticate', 
+            dict(
+                    provider=provider,
+                    source=source,
+                    **request_as_hash_of_values(radius_request)
+            )
+    )
 
     return web.json_response(response)
 

@@ -1,6 +1,6 @@
 external-auth.authorize {
      update control {
-          Elan-Proxy-Path := "authentication/authorize?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}&user=%{User-Name}"
+          Elan-Proxy-Path := "authentication/authorize?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}"
      }
      elan
 }

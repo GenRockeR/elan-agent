@@ -1,7 +1,7 @@
 {% extends 'captive-portal/base_angular.html' %}
 {% load i18n %}
 
-{% block body_header %}<h1>Origin Nexus <small>Edge Agent Dashboard</small></h1>{% endblock %}
+{% block body_header %}<h1><small>ELAN Agent Dashboard</small> <span class="pull-right">Easy LAN</span></h1>{% endblock %}
 
 {% block body_main %}
   <div class="container" ng-app>
@@ -14,27 +14,37 @@
 
           <ul class="list-group">
             <li class="list-group-item" title="{% spaceless %}
-                        {% if not is_connected %}
+                        {% if is_connected == None %}
+                          {% trans 'Not Implemented' %}
+                        {% elif not is_connected %}
                           {% trans 'Disconnected' %}
-                        {% elif is_registered %}
-                          {% trans 'Connected' %}
                         {% else %}
-                          {% trans 'Connected but Not Registered' %}
+                          {% trans 'Connected' %}
                         {% endif%}
                     {% endspaceless %}">
-              {% trans "Control Center Connection" %}
+              {% trans "Internet Connectivity" %}
               <span class="fa {% spaceless %}
-                        {% if not is_connected %}
-                          fa-warning fa-2x text-danger
-                        {% elif is_registered %}
-                          fa-circle text-success
-                        {% else %}
+                        {% if is_connected == None %}
+                          fa-warning text-muted
+                        {% elif not is_connected %}
                           fa-warning fa-2x text-warning
+                        {% else %}
+                          fa-circle text-success
                         {% endif%}
                     {% endspaceless %} pull-right">
               </span>
+              <small class="help-block {% spaceless %}
+                        {% if is_connected == None %}
+                          text-muted
+                        {% elif not is_connected %}
+                          text-warning
+                        {% endif%}
+                    {% endspaceless %}">{{connectivity_error}}</small>
             </li>
-
+            <li class="list-group-item "></li>
+            <li class="list-group-item">
+                {% trans "Interface Connectivity" %}
+            </li>
             {% for iface, status in interfaces.items %}
             <li class="list-group-item" title="{% spaceless %}
                         {% if status.up %}
@@ -43,15 +53,19 @@
                           {% trans 'Disconnected' %}
                         {% endif%}
                     {% endspaceless %}">
-              {% blocktrans %}- Interface {{iface}}{% endblocktrans %} 
-              <span class="fa {% spaceless %}
-                        {% if status.up %}
-                          fa-circle text-success
-                        {% else %}
-                          fa-warning text-warning
-                        {% endif%}
-                   {% endspaceless %} pull-right">
-               </span>
+                <ul>
+                    <li>
+                        {{iface}}
+                        <span class="fa {% spaceless %}
+                                 {% if status.up %}
+                                   fa-circle text-success
+                                 {% else %}
+                                   fa-warning text-warning
+                                 {% endif%}
+                            {% endspaceless %} pull-right">
+                        </span>
+                    </li>
+                </ul>
             </li>
             {% endfor %}
             
@@ -72,9 +86,9 @@
           </div>
           
           <div class="panel-body">
-            {% if not is_connected and not is_registered %}
+            {% if not registration_available %}
             <div class="alert alert-warning" role="alert">
-              {% trans 'Registration requires an IP address and to be connected with the Control Center.' %}
+              {% trans 'Registration Unavailable:' %} {{registration_error}}
             </div>
             {% endif %}
             {% if form_errors.non_field_errors %}

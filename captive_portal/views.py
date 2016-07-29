@@ -5,17 +5,17 @@ from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
-from origin.neuron import Synapse, Dendrite
-from origin.neuron.axon import Axon
+from origin.neuron import Synapse, Dendrite, TimeoutException
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
-from origin import nac, session, utils
+from origin import nac, utils
 from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
 from origin.network import NetworkConfiguration
 from origin.mail import send_mail
 from origin.event import Event
 from django.core.urlresolvers import reverse
+from django.conf import settings
 import time
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
@@ -25,6 +25,9 @@ def requirePortalURL(fn):
     '''
     View decorator to make sure url used is the one of the agent and not the target URL 
     '''
+    if settings.DEBUG:
+        return fn
+    
     def wrapper(request, *args, **kwargs):
         agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
         allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
@@ -36,7 +39,7 @@ def requirePortalURL(fn):
 
 
 def redirect2status(request):
-    if 'dashboard' in request.META:
+    if 'dashboard' in request.META or settings.DEBUG and 'dashboard' in request.GET:
         host = request.META.get('HTTP_HOST', EDGE_AGENT_FQDN)
         agent_ips = [ip['address'] for ip in utils.get_ip4_addresses() + utils.get_ip6_addresses()]
         if host in agent_ips:
@@ -44,6 +47,10 @@ def redirect2status(request):
             redirect_fqdn = host
         else:
             redirect_fqdn = EDGE_AGENT_FQDN
+            
+        if settings.DEBUG:
+            redirect_fqdn = host
+            
         return HttpResponseRedirect( 'https://' + redirect_fqdn + reverse('dashboard'))
     return HttpResponseRedirect( 'https://' + CAPTIVE_PORTAL_FQDN + reverse('status'))
 
@@ -285,13 +292,42 @@ def dashboard(request, context=None):
     if context is None:
         context={}
     
+    dendrite = Dendrite()
+    
+    is_registered = Administrator.count()
+    
+    try:
+        connectivity = dendrite.call('check-connectivity', timeout=2)
+        connectivity_error = connectivity.get('error', '')
+        if not connectivity_error: 
+            is_connected = True
+        else:
+            is_connected = False
+    except TimeoutException:
+        is_connected = None # Unknown
+        connectivity_error = 'Connectivity check not implemented'
+        
+    registration_available = False
+    if not is_registered:
+        try:
+            availability = dendrite.call('register', timeout=1)
+            registration_error = availability.get('error', '')
+            if not registration_error: 
+                registration_available = True
+        except TimeoutException:
+            registration_error = 'Registration service not implemented'
+    
+    
     context.update(
-               is_connected = Axon.is_connected(),
+               registration_available = registration_available,
+               registration_error = registration_error,
                is_admin = bool(request.session.get('admin', False)),
-               is_registered = Axon.is_registered(),
+               is_connected = is_connected,
+               connectivity_error = connectivity_error,
+               is_registered = is_registered,
                interfaces = { iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
-               ipsv4 = [utils.get_ip4_address('br0')],
+               ipsv4 = utils.get_ip4_addresses('br0'),
                ipv4_gw = utils.get_ip4_default_gateway(),
                ipv4_dns = utils.get_ip4_dns_servers(),
 
@@ -299,8 +335,10 @@ def dashboard(request, context=None):
                ipv6_gw = utils.get_ip6_default_gateway(),
                ipv6_dns = utils.get_ip6_dns_servers(),
     )
+    print(context)
     if not context.get('location', ''):
-        context['location'] = Axon.agent_location() or ''
+        #TODO: 
+        context['location'] = ''
     
     ip_conf = NetworkConfiguration()
     if not context.get('ipv4_form', None):
@@ -322,9 +360,9 @@ def admin_login(request):
     context = {}                    
     post_dict = request.POST.dict()
 
-    if not Axon.is_registered():
+    if not Administrator.count():
         dendrite = Dendrite()
-        response = dendrite.sync_call('register', post_dict)
+        response = dendrite.call('register', post_dict)
         if response['error']:
             context.update(form_errors = response['data'])
         else:

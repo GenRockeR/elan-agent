@@ -2,8 +2,9 @@ import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import subprocess, re, socket
-from origin.neuron import Synapse
+from origin.neuron import Synapse, Dendrite
 from origin.utils import restart_service
+from origin.event import Event
 from mako.template import Template
 
 
@@ -41,7 +42,7 @@ class AuthenticationProvider():
     
     def __init__(self, dendrite=None):
         if dendrite is None:
-            dendrite = dendrite()
+            dendrite = Dendrite()
         self.dendrite = dendrite
         
         self.agent_id = None
@@ -50,7 +51,7 @@ class AuthenticationProvider():
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
         self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
         self.ad_template = Template(filename="/origin/authentication/freeradius/ad-module")
-        self.cc_auth_template = Template('''
+        self.external_auth_template = Template('''
             update session-state {
                 &Origin-Auth-Provider := ${id}
             }
@@ -90,19 +91,6 @@ class AuthenticationProvider():
                 updated = return
             }
         ''')
-        self.google_auth_template = Template('''
-            update session-state {
-                &Origin-Auth-Provider := ${id}
-            }
-            external-auth.authenticate {
-                invalid = 1
-                fail =  2
-                reject = 3
-                notfound = 4
-                ok = return
-                updated = return
-            }
-        ''')
 
     def get_group_inner_case(self, auth, ignore_authentications=None):
         if ignore_authentications is None:
@@ -118,7 +106,11 @@ class AuthenticationProvider():
         
         if auth['type'] == 'group':
             for member in auth['members']:
-                inner_case += self.get_group_inner_case( self.authentications[member['authentication']], ignore_authentications )
+                member_auth = self.authentications.get(
+                        member['authentication'],
+                        {'id': member['authentication'], 'type': 'external'} # external may not be declared 
+                )
+                inner_case += self.get_group_inner_case( member_auth, ignore_authentications )
         else:
             if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
                 inner_case += self.ldap_auth_template.render(**auth)
@@ -127,7 +119,7 @@ class AuthenticationProvider():
             elif auth['type'] == 'google-apps':
                 inner_case += self.google_auth_template.render(**auth)
             else:
-                inner_case += self.cc_auth_template.render(**auth)
+                inner_case += self.external_auth_template.render(**auth)
     
             inner_case += '''
                     if(fail) {
@@ -173,7 +165,7 @@ class AuthenticationProvider():
             has_active_directory = False
             
             for auth in self.authentications.values():
-                if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
+                if auth['type'] == 'LDAP':
                     module_conf += "\n" + self.ldap_template.render(**auth)
                     inner_switch_server_conf +=  '''
                         case {id} {{
@@ -194,7 +186,7 @@ class AuthenticationProvider():
                     # also notify that we provide this auth
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
                     new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
-                elif auth['type'] == 'active-directory' and str(self.agent_id) in auth['agent_statuses']:
+                elif auth['type'] == 'active-directory':
                     # Join domain if not already done
                     if not AD.joined(auth['domain']):
                         if AD.joined():
@@ -203,13 +195,12 @@ class AuthenticationProvider():
                         try: 
                             AD.join(realm=auth['domain'], user=auth['adminLogin'], password=auth['adminPwd'])
                         except AD.Error as e:
-                            self.post('authentication/provider/{id}/join-failed'.format(id=auth['id']), {'detail': e.message})
+                            status = {'status': 'error', 'error': e.message}
+                        else:
+                            status = {'status': 'joined'}
+                        self.dendrite.publish_conf('authentication/provider/{id}/status'.format(id=auth['id']), status)
                     
                     if AD.joined(auth['domain']):
-                        # if auth status for this agent is not joined, update it...
-                        if auth['agent_statuses'][str(self.agent_id)]['status'] != 'joined':
-                            self.post('authentication/provider/{id}/join-success'.format(id=auth['id']), {})
-                        
                         has_active_directory = True
                         inner_switch_server_conf +=  '''
                             case {id} {{
@@ -244,12 +235,6 @@ class AuthenticationProvider():
                     '''.format(
                            id = auth['id'],
                            inner_case = self.get_group_inner_case(auth) )
-                elif auth['type'] == 'google-apps':
-                    inner_switch_server_conf +=  '''
-                            case {id} {{
-                    '''.format(id=auth['id'])
-                    inner_switch_server_conf += self.google_auth_template.render(**auth)
-                    inner_switch_server_conf +=  '}'
             
             # Always add AD module conf as it is used even if no AD declared
             ad_info = AD.info() or {}
@@ -327,7 +312,7 @@ class AD:
     
     @classmethod
     def joined(cls, realm=None):
-        AD_info = cls.synapse.get(cls.REDIS_INFO_PATH)
+        AD_info = cls.info()
         
         if AD_info:
             if realm:
@@ -346,6 +331,9 @@ class AD:
             cls._run(['net', '-P', 'ads', 'leave'])
         except cls.Error:
             pass
+        
+        cls.synapse.delete(cls.REDIS_INFO_PATH)
+        
 
     @classmethod
     def join(cls, realm, user, password):
