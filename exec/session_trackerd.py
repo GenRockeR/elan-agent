@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import socket
 from impacket.ImpactPacket import EthernetTag, Ethernet, ARP
 from impacket.IP6_Address import IP6_Address

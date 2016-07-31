@@ -20,22 +20,6 @@ class AccessControlConfigurator():
         self.active = None
         self.vlans = {} # vlans by Vlan-ID
         
-        # TODO: default conf
-#         if not axon.Axon.is_registered():
-#             # Retrieve Agent ID... once registered
-#             self.retrieve('agent/self')
-#             # DEFAULT CONF
-#             interfaces = physical_ifaces()
-#             # temp cofiguration: 2 interfaces in bridge
-#             interface = interfaces.pop()
-#             tmp_conf = {
-#                      interface: {'access_control': False, 'interface': interface, 'vlan_id': 0} 
-#             }
-#             if interfaces: 
-#                 interface = interfaces.pop()
-#                 tmp_conf[interface] = {'access_control': False, 'interface': interface, 'vlan_id': 0}
-#             self.apply_new_vlan_conf(tmp_conf)
-
     def new_agent_conf(self, conf, path):
         if conf['access_control'] != self.active:
             self.active = conf['access_control']

@@ -11,7 +11,7 @@ RestartSec=10
 
 Environment=PYTHONPATH=/origin/lib/python
 
-ExecStart=/origin/bin/captive-portal_configuration_cacher
+ExecStart=/origin/bin/captive-portal-configuration-cacher
 
 [Install]
 WantedBy=multi-user.target

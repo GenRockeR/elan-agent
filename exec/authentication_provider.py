@@ -5,7 +5,7 @@ from origin.neuron import Dendrite
 
 if __name__ == "__main__":
 
-    dendrite = Dendrite
+    dendrite = Dendrite()
     provider = AuthenticationProvider(dendrite=dendrite)
 
     

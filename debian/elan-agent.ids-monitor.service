@@ -1,9 +1,6 @@
 [Unit]
 Description=IDS monitor
 
-After=registered.service
-Wants=registered.service
-
 [Service]
 Restart=always
 RestartSec=10

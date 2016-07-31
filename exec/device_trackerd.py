@@ -4,6 +4,7 @@ from origin import session, nac, neuron, utils
 from origin.event import Event, ExceptionEvent
 import re
 import pyshark
+import threading
 
 
 
@@ -11,9 +12,9 @@ import pyshark
 class DeviceTracker():
     REDIS_LIFETIME = 60 * 24 * 60 * 60 # 60 days in seconds
 
-    def __init__(self, dendrite):
+    def __init__(self):
         
-        self.dendrite = dendrite
+        self.dendrite = neuron.Dendrite()
         
         self.synapse = neuron.Synapse()
         
@@ -64,7 +65,8 @@ class DeviceTracker():
         
             if vlan_added and nac.vlan_has_access_control(vlan):
                 # Check Mac authorized on VLAN
-                self.dendrite.add_task(self.checkAuthzOnVlan, mac, vlan)
+                task = threading.Thread(target=self.checkAuthzOnVlan, args=(mac, vlan))
+                task.start()
         
             source = packet.highest_layer
             # more meaningful name

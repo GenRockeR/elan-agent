@@ -144,9 +144,11 @@ class DendriteTest(unittest.TestCase):
         service = 'test/fct'
         self.dendrite.provide('test/fct', cb)
         
-        result = self.dendrite.call(service, 'sent')
+        params = str(uuid4())
         
-        self.assertEqual(result, 'Test OK: sent')
+        result = self.dendrite.call(service, params)
+        
+        self.assertEqual(result, 'Test OK: ' + params)
     
     def test_get(self):
         dummy = str(uuid4())

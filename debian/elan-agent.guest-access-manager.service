@@ -2,8 +2,8 @@
 
 Description=Guest Acces Manager
 
-After=registered.service
-Wants=registered.service
+After=redis.service
+Wants=redis.service
 
 [Service]
 Restart=always
@@ -11,7 +11,7 @@ RestartSec=10
 
 Environment=PYTHONPATH=/origin/lib/python
 
-ExecStart=/origin/bin/guest_access_manager
+ExecStart=/origin/bin/guest-access-manager
 
 [Install]
 WantedBy=multi-user.target

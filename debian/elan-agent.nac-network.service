@@ -1,6 +1,6 @@
 [Unit]
 
-Description=Access Control Network
+Description=NAC network
 
 After=redis.service
 Wants=redis.service

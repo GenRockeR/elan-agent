@@ -1,16 +1,13 @@
 [Unit]
 Description=Allow MACs on VLANs
 
-After=registered.service
-Wants=registered.service
-
 [Service]
 Restart=always
 RestartSec=10
 
 Environment=PYTHONPATH=/origin/lib/python
 
-ExecStart=/origin/bin/mac_authz_manager
+ExecStart=/origin/bin/mac-authz-manager
 
 [Install]
 WantedBy=multi-user.target

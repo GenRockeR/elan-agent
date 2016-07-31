@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import asyncio
 import subprocess
@@ -32,7 +32,7 @@ class IdsLogger():
         self.loop = loop
         
     def run(self):
-        self.loop.run_until_complete( self.loop.run_in_executor(self.read_ids_events) )
+        self.loop.run_until_complete( self.loop.run_in_executor(None, self.read_ids_events) )
 
     def read_ids_events(self):
         reader = unified2.SpoolEventReader(

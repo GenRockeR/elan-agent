@@ -7,7 +7,7 @@ Wants=axon.service
 [Service]
 Environment="PYTHONPATH=/origin/lib/python"
 
-ExecStart=/origin/bin/authentication_provider
+ExecStart=/origin/bin/authentication-provider
 
 Restart=always
 RestartSec=10

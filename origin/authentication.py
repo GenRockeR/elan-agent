@@ -4,7 +4,6 @@ from pyrad.dictionary import Dictionary
 import subprocess, re, socket
 from origin.neuron import Synapse, Dendrite
 from origin.utils import restart_service
-from origin.event import Event
 from mako.template import Template
 
 

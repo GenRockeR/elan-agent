@@ -1,9 +1,9 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
+PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, postfix, suricata, \
                    nginx, redis-server, gcc, libnetfilter-log-dev, libnfnetlink-dev, libpython3-dev, python3-cffi, libglib2.0-dev, python3-dev, \
-                   zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, \
+                   zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, python3-yaml, python3-websockets, \
                    libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
                    libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
                    libdbi-perl, libfile-flock-perl, libfile-slurp-perl, libfile-which-perl, libhash-merge-perl, libhttp-browserdetect-perl, \
@@ -11,7 +11,7 @@ PACKAGE-DEPENDS := freeradius, freeradius-ldap, freeradius-rest, python3-mako, m
                    libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
                    libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
                    libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, python3-tornado, \
+                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, \
                    bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
                    libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
                    python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp
@@ -45,7 +45,7 @@ authentication-freeradius:
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -m 644 freeradius.ad-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ad-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/authentication_provider ${DESTDIR}${ORIGIN_PREFIX}/bin/
+	install -m 755 exec/authentication_provider.py ${DESTDIR}${ORIGIN_PREFIX}/bin/authentication-provider
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
 	install -m 644 pyrad.dictionary            ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
 	install -d ${DESTDIR}/etc/freeradius/sites-available
@@ -70,8 +70,8 @@ captive-portal-python: origin/captive_portal.py
 .PHONY: captive-portal-conf
 captive-portal-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/configuration_cacher ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal_configuration_cacher
-	install -m 755 exec/guest_access_manager ${DESTDIR}${ORIGIN_PREFIX}/bin/
+	install -m 755 exec/captive_portal_configuration_cacher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal-configuration-cacher
+	install -m 755 exec/guest_access_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/guest-access-manager
     
 .PHONY: captive-portal-www
 captive-portal-www:
@@ -105,16 +105,14 @@ connection-tracker-pyshark:
 install: core-python core-nginx
 
 .PHONY: core-python
-core-python: origin/*.py origin/nac/*.py origin/neuron/*.py core-pylib exec/axon.py
+core-python: origin/*.py origin/nac/*.py core-pylib exec/axon_websocket_proxy.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
+	install exec/axon_websocket_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon-websocket-proxy
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/neuron
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/neuron origin/neuron/*.py
 
 .PHONY: core-pylib
-core-pylib: tornadoredis idstools
+core-pylib: idstools paho scapy
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
 	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /origin/lib/python
 	( cd lib/python3.5/site-packages; \
@@ -123,8 +121,9 @@ core-pylib: tornadoredis idstools
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
 	)
 
-.PHONY: tornadoredis
 .PHONY: idstools
+.PHONY: paho
+.PHONY: scapy
 
 core-redis:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
@@ -148,13 +147,13 @@ ids-install-suricata:
 	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
 	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/rule_fetcher ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
-	install exec/ids_monitor ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
+	install exec/rule_fetcher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
+	install exec/ids_monitor.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
 
 .PHONY: ids-install-logger
 ids-install-logger:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/ids_loggerd ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
+	install exec/ids_loggerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
 
@@ -164,7 +163,7 @@ nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
 .PHONY: nac-conf
 nac-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/nac_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/nac_configurator
+	install -m 755 exec/nac_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/nac-configurator
 
 .PHONY: nac-freeradius
 nac-freeradius:
@@ -195,13 +194,13 @@ nac-python: origin/nac/*.py origin/snmp.py
 .PHONY: nac-authz
 nac-authz:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/mac_authz_manager ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 exec/mac_authz_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/mac-authz-manager
 
 .PHONY: nac-snmp
 nac-snmp: nac-perl-lib nac-mibs
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/snmp_poller ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/snmp_notification_receiver ${DESTDIR}${ORIGIN_PREFIX}/bin
+	install -m 755 exec/snmp_poller.pl ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-poller
+	install -m 755 exec/snmp_notification_receiver.py ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-notification-receiver
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp
 	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
 
@@ -220,7 +219,7 @@ nac-mibs:
 .PHONY: network-install
 network-install:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/access_control_configurator ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
+	install -m 755 exec/access_control_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
 	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/

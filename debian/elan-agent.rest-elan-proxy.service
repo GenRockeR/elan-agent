@@ -1,8 +1,5 @@
 [Unit]
-Description=Axon
-
-After=redis.service
-Wants=redis.service
+Description=FreeRADIUS gw to ELAN via REST
 
 [Service]
 

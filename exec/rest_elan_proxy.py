@@ -1,4 +1,4 @@
- #!/bin/env python
+ #!/usr/bin/env python3
  
 from aiohttp import web
 from origin import freeradius, neuron
@@ -11,7 +11,7 @@ import asyncio
 dendrite = neuron.Dendrite()
 
 async def call_service(service, data):
-    return asyncio.get_event_loop().run_in_executor( dendrite.call, service, data )
+    return asyncio.get_event_loop().run_in_executor( None, dendrite.call, service, data )
 
 async def post_auth(request):
     radius_request = json.loads( await request.content.read() )

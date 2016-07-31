@@ -2,16 +2,13 @@
 
 Description=Poll Switches
 
-After=registered.service
-Wants=registered.service
-
 [Service]
 Restart=always
 RestartSec=10
 
 Environment=PERL5LIB=/origin/lib/perl5
 
-ExecStart=/origin/bin/snmp_poller
+ExecStart=/origin/bin/snmp-poller
 
 [Install]
 WantedBy=multi-user.target

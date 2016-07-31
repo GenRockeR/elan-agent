@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import time, subprocess
 from origin.neuron import Dendrite
 from origin.utils import restart_service
 from mako.template import Template
@@ -15,7 +14,6 @@ class NacConfigurator():
     SNMPTRAPD_KEYS  = ('snmp_credentials', 'snmp_engine_ids')
     
     def __init__(self):
-        self.agent_id = None
         self.conf = {}
         # subscribe to providers and group lists
 

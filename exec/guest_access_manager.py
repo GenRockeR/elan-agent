@@ -5,7 +5,7 @@ from origin.neuron import Dendrite
 
 if __name__ == "__main__":
     dendrite = Dendrite()
-    manager = GuestAccessManager(dendrite)
+    manager = GuestAccessManager()
     dendrite.subscribe_conf('guest-access/active-authorizations', manager.new_authorizations)
 
     

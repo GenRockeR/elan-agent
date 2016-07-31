@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 from origin.event import ExceptionEvent, InternalEvent
 from origin import session, neuron

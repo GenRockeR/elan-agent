@@ -1,6 +1,6 @@
-from origin.neuron import Dendrite, Synapse
+from origin.neuron import Synapse
 from origin import nac, session
-import datetime, re
+import datetime
 
 CONF_PATH = 'conf:captive-portal'
 GUEST_ACCESS_CONF_PATH = 'conf:guest-access'

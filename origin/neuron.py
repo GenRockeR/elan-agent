@@ -1,12 +1,11 @@
-import json, datetime, traceback, time
+import paho.mqtt.client as mqtt
+from paho.mqtt import publish
+import json
 import uuid
 import redis
-from . import utils
 import inspect
+import time
 import concurrent.futures
-import asyncio
-import hbmqtt.client
-from signal import SIGTERM
 import re
 
 CACHE_PREFIX = 'cache:'
@@ -254,8 +253,6 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
 class TimeoutException(Exception):
     pass
 
-import paho.mqtt.client as mqtt
-from paho.mqtt import publish
 
 class  Dendrite(mqtt.Client):
     '''

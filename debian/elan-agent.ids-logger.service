@@ -2,9 +2,6 @@
 
 Description=IDS logger to Central Manager
 
-After=registered.service
-Wants=registered.service
-
 [Service]
 Restart=always
 RestartSec=10
