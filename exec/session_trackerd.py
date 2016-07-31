@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-import socket
-from impacket.ImpactPacket import EthernetTag, Ethernet, ARP
-from impacket.IP6_Address import IP6_Address
-from impacket.IP6 import IP6
-from impacket.NDP import NDP, NDP_Option
+from scapy.all import sendp, Ether, ARP, Dot1Q, IPv6, ICMPv6ND_NS
 from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
 from origin import session
 from origin.neuron import Synapse
@@ -23,75 +19,39 @@ def pingIP(mac, vlan, ip):
         arpPing(mac, vlan, ip)
 
 
-def ndpPing(dst_mac, vlan, ip):
+def ndpPing(mac, vlan, ip):
     src_mac = get_ether_address('br0')
+    packet = Ether(src=src_mac, dst=mac) 
 
-
-    ethernet = Ethernet()
-    ethernet.set_ether_shost( tuple(int(v,16) for v in src_mac.split(':')) )
-    ethernet.set_ether_dhost( tuple(int(v,16) for v in dst_mac.split(':')) )
-
+    if_name = vlan
     if '.' in vlan:
-        if_name, vlan_id = vlan.split('.')
-        tag = EthernetTag()
-        tag.set_vid(int(vlan_id))
-        ethernet.push_tag(tag)
-    else:
-        if_name = vlan
+        if_name, vlan_id = vlan.rsplit('.', 1)
+        vlan_id = int(vlan_id)
+        if vlan_id:
+            packet = packet / Dot1Q(vlan=vlan_id)
 
-    ip6 = IP6()
-    ip6.set_source_address( get_ip6_address('br0')['address'] )
-    ip6.set_destination_address(ip)
-    ip6.set_traffic_class(0)
-    ip6.set_flow_label(0)
-    ip6.set_hop_limit(255)
-
-    ndp = NDP.Neighbor_Solicitation(IP6_Address(ip))
-    ndp.append_ndp_option(NDP_Option.Source_Link_Layer_Address(ethernet.get_ether_shost()))
-
-    ip6.contains(ndp)
-    ip6.set_next_header(ip6.child().get_ip_protocol_number())
-    ip6.set_payload_length(ip6.child().get_size())
-
-    ethernet.contains(ip6)
-
-    ndp.calculate_checksum()
-
-    s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.SOCK_RAW)
-    s.bind((if_name, socket.SOCK_RAW))
-    s.send(ethernet.get_packet())
-
+    src_ip = get_ip6_address('br0')['address']
+    packet = packet / IPv6(src=src_ip, dst=ip)
+    packet = packet / ICMPv6ND_NS(tgt=ip)
+    
+    sendp(packet, iface=if_name)
 
     
 def arpPing(mac, vlan, ip):    
+    src_mac = get_ether_address('br0')
+    packet = Ether(src=src_mac, dst=mac) 
 
-    ethernet = Ethernet()
-    ethernet.set_ether_shost( tuple(int(v,16) for v in get_ether_address('br0').split(':')) )
-    ethernet.set_ether_dhost( tuple(int(v,16) for v in mac.split(':')) )
-
+    if_name = vlan
     if '.' in vlan:
-        if_name, vlan_id = vlan.split('.')
-        tag = EthernetTag()
-        tag.set_vid(int(vlan_id))
-        ethernet.push_tag(tag)
-    else:
-        if_name = vlan
+        if_name, vlan_id = vlan.rsplit('.', 1)
+        vlan_id = int(vlan_id)
+        if vlan_id:
+            packet = packet / Dot1Q(vlan=vlan_id)
 
-    arp = ARP()
-    
-    arp.set_ar_pro(0x800) # IP
-    arp.set_ar_hln(6) # protocol address length (IP)
-    arp.set_ar_pln(4) # link layer address length (ethernet)
-    arp.set_ar_op(1) # Arp request
-    arp.set_ar_hrd(1) # ethernet
-    arp.set_ar_spa( tuple(int(v) for v in get_ip4_address('br0')['address'].split('.')) )
-    arp.set_ar_tpa( tuple(int(v) for v in ip.split('.')) )
+    src_ip = get_ip4_address('br0')['address']
+    packet = packet / ARP(psrc=src_ip, pdst=ip)
 
-    ethernet.contains(arp)
-
-    s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.SOCK_RAW)
-    s.bind((if_name, socket.SOCK_RAW))
-    s.send(ethernet.get_packet())
+    sendp(packet, iface=if_name)
 
 
 class SessionTracker():
