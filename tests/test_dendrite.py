@@ -4,7 +4,7 @@ import threading
 import json
 from uuid import uuid4 
 
-from origin.neuron import Dendrite, TimeoutException
+from origin.neuron import Dendrite, RequestTimeout
 from paho.mqtt import client
 import time
 
@@ -162,7 +162,7 @@ class DendriteTest(unittest.TestCase):
         
         time.sleep(1)
         
-        with self.assertRaises(TimeoutException):
+        with self.assertRaises(RequestTimeout):
             self.dendrite.get('test/get')
 
     def test_get_from_cb(self):

@@ -5,7 +5,7 @@ from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
-from origin.neuron import Synapse, Dendrite, TimeoutException
+from origin.neuron import Synapse, Dendrite, RequestTimeout
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
 from origin import nac, utils
@@ -303,7 +303,7 @@ def dashboard(request, context=None):
             is_connected = True
         else:
             is_connected = False
-    except TimeoutException:
+    except RequestTimeout:
         is_connected = None # Unknown
         connectivity_error = 'Connectivity check not implemented'
         
@@ -314,7 +314,7 @@ def dashboard(request, context=None):
             registration_error = availability.get('error', '')
             if not registration_error: 
                 registration_available = True
-        except TimeoutException:
+        except RequestTimeout:
             registration_error = 'Registration service not implemented'
     
     
@@ -364,7 +364,7 @@ def admin_login(request):
         dendrite = Dendrite()
         try:
             response = dendrite.call('register', post_dict)
-        except TimeoutException:
+        except RequestTimeout:
             response = {'error': {'non_field_errors': [_('Request timeout')]}}
         if response['error']:
             context.update(form_errors = response['error'])

@@ -251,7 +251,7 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
 
 
 
-class TimeoutException(Exception):
+class RequestTimeout(Exception):
     pass
 
 
@@ -269,7 +269,7 @@ class  Dendrite(mqtt.Client):
     '''
     CONF_PATH_PREFIX = 'conf/'
     
-    SERVICE_REQUESTS_TOPIC_PATTERN = 'service/requests/{service}/{request_id}'
+    SERVICE_REQUESTS_TOPIC_PATTERN = 'service/requests/{service}'
     SERVICE_ANSWERS_TOPIC_PATTERN  = 'service/answers/{service}/{request_id}'
     
 #     RPC_REQUESTS_PATH_PREFIX = 'rpc/requests/'
@@ -325,9 +325,9 @@ class  Dendrite(mqtt.Client):
 
     def _provide_cb_wrapper(self, fn):
         def wrapper(data, topic):
-            m = re.match(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service='(?P<service>.+)', request_id='(?P<request_id>[^/]+)') + '$', topic)
-            result = self._call_fn_with_good_arg_nb(fn, data, m.group('service'))
-            self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=m.group('request_id'), service=m.group('service')), result)
+            m = re.match(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service='(?P<service>.+)') + '$', topic)
+            result = self._call_fn_with_good_arg_nb(fn, data['request'], m.group('service'))
+            self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=data['id'], service=m.group('service')), result)
             return result
         return wrapper
 
@@ -364,10 +364,10 @@ class  Dendrite(mqtt.Client):
         '''
         provides a service RPC style by running callback cb on call.
         '''
-        return self.subscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id='#'), self._provide_cb_wrapper(cb))
+        return self.subscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), self._provide_cb_wrapper(cb))
 
     def unprovide(self, service):
-        return self.unsubscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id='#'))
+        return self.unsubscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service))
     
 
     def get(self, topic, timeout=1):
@@ -383,7 +383,7 @@ class  Dendrite(mqtt.Client):
         try:
             return future.result(timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeoutException('Could not retrieve first value of "{topic}" within {timeout} seconds'.format(topic=topic, timeout=timeout))
+            raise RequestTimeout('Could not retrieve first value of "{topic}" within {timeout} seconds'.format(topic=topic, timeout=timeout))
         finally:
             if topic not in self.topics:
                 self.unsubscribe(topic)
@@ -393,7 +393,7 @@ class  Dendrite(mqtt.Client):
 
     def call(self, service, data=None, timeout=30):
         '''
-        RPC request to service, returns result or raises TimeoutException.
+        RPC request to service, returns result or raises RequestTimeout.
         This should not be called in async function as it will block the event loop.
         However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
@@ -406,11 +406,11 @@ class  Dendrite(mqtt.Client):
         self.subscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id), cb)
         # normally, we should wait for on_subscribe callback to make sure we have subscribed before sending request,
         #  but let's assume that if mosquitto receives the publish, it has already received the subscribe...
-        self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service, request_id=request_id), data)
+        self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), {'request': data, 'id': request_id})
         try:
             return future.result(timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeoutException('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
+            raise RequestTimeout('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
         finally:
             self.unsubscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id))
 

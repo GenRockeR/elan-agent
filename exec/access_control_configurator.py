@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import subprocess, traceback
-from origin.neuron import Dendrite, Synapse, TimeoutException
+from origin.neuron import Dendrite, Synapse, RequestTimeout
 from origin.utils import reload_service, physical_ifaces
 from origin import network
 from origin.event import ExceptionEvent
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     # Set default conf if not yet configured  
     try:
         vlans = dendrite.get_conf('vlans', timeout=5)
-    except TimeoutException:
+    except RequestTimeout:
         # Default vlan conf: first 2 interfaces bridged
         vlans = []
         count = 0

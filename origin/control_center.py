@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite, Synapse, TimeoutException
+from origin.neuron import Dendrite, Synapse, RequestTimeout
 from origin import utils
 from mako.template import Template
 from uuid import uuid4
@@ -43,7 +43,7 @@ class AxonMapper:
         # check control-center connectivity
         try:
             connected = bool(int( self.dendrite.get('$SYS/broker/connection/{uuid}/state'.format(uuid=synapse.get(AGENT_UUID_PATH) ))))
-        except TimeoutException:
+        except RequestTimeout:
             connected = False
         
         if connected:
