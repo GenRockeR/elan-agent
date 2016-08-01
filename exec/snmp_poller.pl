@@ -313,6 +313,7 @@ my $sel = IO::Select->new($poll_server, $parse_trap_server, $nasport2ifindex_ser
 
 sub handle_connection {
     my $conn = shift;
+    my $channel = shift;
     
     $redis = Redis->new(); # open connections after fork
 
@@ -336,15 +337,16 @@ sub handle_connection {
     $conn->close(); 
 }
 
+
 while( my @ready = $sel->can_read() ) {
     foreach my $channel (@ready) {
-        my $conn = $channel->accept()
+        my $conn = $channel->accept();
         
         # fork to take care of request...
         my $pid = fork();
         if($pid == 0) {
 
-            handle_connection( $conn );
+            handle_connection( $conn, $channel );
 
             exit 0;
         }

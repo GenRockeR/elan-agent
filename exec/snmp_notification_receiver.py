@@ -15,7 +15,7 @@ async def receive_traps():
     trap_str = ''
     while True:
         line = await proc.stdout.readline()
-        line = line.rstrip('\n')
+        line = line.decode().rstrip('\n')
         if in_trap:
             trap_str += line
         elif 'BEGIN VARIABLEBINDINGS' in line:
