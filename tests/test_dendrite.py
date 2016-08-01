@@ -44,6 +44,7 @@ class DendriteTest(unittest.TestCase):
         self.mqtt.on_message = on_message
         self.mqtt.loop_start()
         
+        time.sleep(1)
         self.dendrite.publish(topic1, msg1)
 
         msg = future.result(2)
@@ -152,17 +153,38 @@ class DendriteTest(unittest.TestCase):
     
     def test_get(self):
         dummy = str(uuid4())
-        self.dendrite.publish('test_get', dummy, retain=True)
-        result = self.dendrite.get('test_get')
+        self.dendrite.publish('test/get', dummy, retain=True)
+        result = self.dendrite.get('test/get')
         
         self.assertEqual(result, dummy)
 
-        Dendrite.publish_single('test_get', retain=True)
+        Dendrite.publish_single('test/get', retain=True)
+        
+        time.sleep(1)
         
         with self.assertRaises(TimeoutException):
-            self.dendrite.get('test_get')
+            self.dendrite.get('test/get')
 
+    def test_get_from_cb(self):
+        get_result=[]
+        dummy = str(uuid4())
+        def cb(data):
+            self.dendrite.publish('test/get', dummy, retain=True)
+            get_result.append( self.dendrite.get('test/get') )
+            return 'Test OK: ' + data
+            
 
+        service = 'test/fct'
+        self.dendrite.provide('test/fct', cb)
+        
+        params = str(uuid4())
+        
+        call_result = self.dendrite.call(service, params, timeout=5)
+        
+        self.assertEqual(call_result, 'Test OK: ' + params)
+        self.assertEqual(get_result[0], dummy)
+
+        Dendrite.publish_single('test/get', retain=True)
 
 
 

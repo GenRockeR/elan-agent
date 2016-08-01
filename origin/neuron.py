@@ -6,6 +6,7 @@ import redis
 import inspect
 import time
 import concurrent.futures
+import threading
 import re
 
 CACHE_PREFIX = 'cache:'
@@ -278,13 +279,12 @@ class  Dendrite(mqtt.Client):
     MQTT_PORT = 1883
     
     def __init__(self):
+        self.topics = set()
         super().__init__()
         
         self.connect_async(self.MQTT_HOST, self.MQTT_PORT)
         self.loop_start()
-        
-        self.topics = set()
-        
+               
     @classmethod
     def publish_single(cls, topic, data=None, retain=False):
         if data is not None:
@@ -312,8 +312,9 @@ class  Dendrite(mqtt.Client):
                 data = json.loads(message.payload.decode())
             else:
                 data = None
-            # Accept to send only data without topic
-            return self._call_fn_with_good_arg_nb(fn, data, message.topic)
+            # start in a Thread so we can call again some function like call and get from callbacks (or else thay are all run in same thread (paho mqtt impementation), so any other callback is not called until cb finished)
+            task = threading.Thread(target=self._call_fn_with_good_arg_nb, args=(fn, data, message.topic))
+            task.start()
         return wrapper
 
     def _subscribe_conf_cb_wrapper(self, fn):
