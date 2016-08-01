@@ -15,6 +15,8 @@ async def receive_traps():
     trap_str = ''
     while True:
         line = await proc.stdout.readline()
+        if not line:
+            break # process ended.
         line = line.decode().rstrip('\n')
         if in_trap:
             trap_str += line

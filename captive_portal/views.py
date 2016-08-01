@@ -310,7 +310,7 @@ def dashboard(request, context=None):
     registration_available = False
     if not is_registered:
         try:
-            availability = dendrite.call('register', timeout=1)
+            availability = dendrite.call('register', timeout=2)
             registration_error = availability.get('error', '')
             if not registration_error: 
                 registration_available = True
@@ -362,9 +362,12 @@ def admin_login(request):
 
     if not Administrator.count():
         dendrite = Dendrite()
-        response = dendrite.call('register', post_dict)
+        try:
+            response = dendrite.call('register', post_dict)
+        except TimeoutException:
+            response = {'error': {'non_field_errors': [_('Request timeout')]}}
         if response['error']:
-            context.update(form_errors = response['data'])
+            context.update(form_errors = response['error'])
         else:
             # Registration succeeded -> redirect to same to avoid repost
             admin_session_login(request.session, post_dict['login'])

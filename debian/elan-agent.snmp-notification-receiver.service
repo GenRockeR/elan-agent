@@ -9,7 +9,6 @@ RestartSec=10
 
 Environment=PYTHONPATH=/origin/lib/python
 
-ExecStartPre=-/usr/bin/mkfifo /var/run/trap_fifo
 ExecStart=/origin/bin/snmp-notification-receiver
 
 [Install]
