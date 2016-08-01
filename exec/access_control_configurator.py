@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import subprocess, traceback
-from origin.neuron import Dendrite, Synapse
-from origin.utils import reload_service
+from origin.neuron import Dendrite, Synapse, TimeoutException
+from origin.utils import reload_service, physical_ifaces
 from origin import network
 from origin.event import ExceptionEvent
 from mako.template import Template
@@ -33,11 +33,11 @@ class AccessControlConfigurator():
             subprocess.call(cmd, shell=True)
 
 
-    def new_vlan_conf(self, conf, path):
+    def new_vlan_conf(self, conf):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
         new_vlans = {}
         for vlan in conf:
-            if vlan['vlan_id']:
+            if vlan.get('vlan_id', 0):
                 nic_name = '{nic}.{vid}'.format(nic=vlan['interface'], vid=vlan['vlan_id'])
             else:
                 nic_name = vlan['interface']
@@ -50,13 +50,12 @@ class AccessControlConfigurator():
         ip = IPDB(mode='direct')
         try:
             bridge = ip.interfaces[self.bridge]
-            # TODO: separate this and make it more efficient for NFT...(use Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL)
             
             # Create New VLANs
             for nic_name in set(new_vlans.keys()) - set(self.vlans.keys()):
                 try:
                     nic = ip.interfaces[ new_vlans[nic_name]['interface'] ]
-                    vlan_id = new_vlans[nic_name]['vlan_id']
+                    vlan_id = new_vlans[nic_name].get('vlan_id', 0)
                     # Make sure NIC is up
                     nic.up()
                     
@@ -78,7 +77,7 @@ class AccessControlConfigurator():
                         
                 for nic_name, new_vlan in new_vlans.items():
                     # configure Access Contol
-                    if new_vlan['access_control']:
+                    if new_vlan.get('access_control', False):
                         nft('add element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
                         local_index = self.get_vlan_local_index(nic_name)
                         new_vlan['local_index'] = local_index
@@ -165,6 +164,7 @@ class AccessControlConfigurator():
             reload_service('nginx')
             
             self.vlans = new_vlans
+
             nac.set_access_controlled_vlans_cache(new_vlans.keys())
             
         finally:
@@ -195,6 +195,22 @@ if __name__ == "__main__":
     configurator = AccessControlConfigurator()
 
     dendrite = Dendrite()
+
+    # Set default conf if not yet configured  
+    try:
+        vlans = dendrite.get_conf('vlans', timeout=5)
+    except TimeoutException:
+        # Default vlan conf: first 2 interfaces bridged
+        vlans = []
+        count = 0
+        for interface in physical_ifaces():
+            count += 1
+            vlans.append({'interface': interface})
+            if count == 2:
+                break
+    configurator.new_vlan_conf(vlans)
+    
+    # wait for changes
     dendrite.subscribe_conf('agent', cb=configurator.new_agent_conf)
     dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
 

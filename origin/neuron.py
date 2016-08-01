@@ -386,7 +386,9 @@ class  Dendrite(mqtt.Client):
         finally:
             if topic not in self.topics:
                 self.unsubscribe(topic)
-        
+    
+    def get_conf(self, topic, timeout=1):
+        return self.get(self.CONF_PATH_PREFIX + topic, timeout=timeout)
 
     def call(self, service, data=None, timeout=30):
         '''

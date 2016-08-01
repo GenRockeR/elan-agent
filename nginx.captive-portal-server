@@ -53,7 +53,7 @@ server {
 }
 
 % for index in vlans:
-  % if vlans[index]['access_control']:
+  % if vlans[index].get('access_control', False):
 
 server {
 
@@ -79,10 +79,9 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
-      uwsgi_param "vlan" "${vlans[index]['id']}"; ## id of cc agent vlan object
-      uwsgi_param "vlan_id" "${vlans[index]['vlan_id']}";
-      uwsgi_param "web_authentication" "${vlans[index]['web_authentication'] or ''}";
-      uwsgi_param "guest_access" "${vlans[index]['guest_access'] or ''}";
+      uwsgi_param "vlan_id" "${vlans[index].get('vlan_id', 0)}";
+      uwsgi_param "web_authentication" "${vlans[index].get('web_authentication', '')}";
+      uwsgi_param "guest_access" "${vlans[index].get('guest_access', '')}";
     }
 }
   % endif
