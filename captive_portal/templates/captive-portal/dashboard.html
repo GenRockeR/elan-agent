@@ -125,7 +125,7 @@
               <div class="form-group{% if 'account' in form_errors or 'login' in form_errors%} has-error{% endif %}">
                 <label for="inputLogin" class="col-sm-3 control-label">{% trans 'Login' %}</label>
                 <div class="col-sm-9">
-                  <input type="email" class="form-control" id="inputLogin" placeholder="Email" name="login" required  value={{login}}>
+                  <input type="text" class="form-control" id="inputLogin" placeholder="{% trans 'Login' %}" name="login" required  value={{login}}>
                   {% for msg in form_errors.account %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
@@ -137,7 +137,7 @@
               <div class="form-group{% if 'account' in form_errors or 'password' in form_errors%} has-error{% endif %}">
                 <label for="inputPassword" class="col-sm-3 control-label">{% trans 'Password' %}</label>
                 <div class="col-sm-9">
-                  <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" required>
+                  <input type="password" class="form-control" id="inputPassword" name="password" placeholder="{% trans 'Password' %}" required>
                   {% for msg in form_errors.password %}                 
                   <span class="help-block">{{msg}}</span>
                   {% endfor %}
