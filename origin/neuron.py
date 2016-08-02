@@ -252,8 +252,39 @@ class SynapsePipeline(redis.client.BasePipeline, Synapse):
 
 
 class RequestTimeout(Exception):
-    pass
+    def __init__(self, details):
+        super().__init__(details)
 
+class RequestError(Exception):
+    '''Exception to indicate an error occured during RPC request. This can be raised in provide callback, the caller will receive it.
+       Note: errors should be json serializable by json.dumps
+    '''
+    def __init__(self, errors, error_str=''):
+        ''' 
+        errors can be any JSON serializale object. error_str should be a a string. If not given, defaults to str(errors)
+        '''
+        if not error_str:
+            error_str = str(errors)
+        if not isinstance(error_str, str):
+            raise ValueError('error_str should be a string')
+            
+        super().__init__(errors, error_str)
+    
+    @property
+    def errors(self):
+        return self.args[0]
+
+    @property
+    def error_str(self):
+        return self.args[1]
+
+
+class FormRequestError(RequestError):
+    def __init__(self, error):
+        if not isinstance(error, dict):
+            error = dict(non_field_errors=[str(error)])
+        
+        super().__init__(error)
 
 class  Dendrite(mqtt.Client):
     '''
@@ -326,9 +357,15 @@ class  Dendrite(mqtt.Client):
     def _provide_cb_wrapper(self, fn):
         def wrapper(data, topic):
             m = re.match(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service='(?P<service>.+)') + '$', topic)
-            result = self._call_fn_with_good_arg_nb(fn, data['request'], m.group('service'))
-            self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=data['id'], service=m.group('service')), result)
-            return result
+            answer = {}
+            try:
+                answer['result'] = self._call_fn_with_good_arg_nb(fn, data['request'], m.group('service'))
+            except RequestError as e:
+                answer['errors'] = e.errors
+                answer['error_str'] = e.error_str
+            except Exception as e:
+                answer['errors'] = str(e)
+            self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=data['id'], service=m.group('service')), answer)
         return wrapper
 
     def subscribe(self, topic, cb):
@@ -363,6 +400,7 @@ class  Dendrite(mqtt.Client):
     def provide(self, service, cb):
         '''
         provides a service RPC style by running callback cb on call.
+        callback may raise RequestError to indicate an error that will be sent back to caller. error must be json serializable.
         '''
         return self.subscribe(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), self._provide_cb_wrapper(cb))
 
@@ -408,7 +446,11 @@ class  Dendrite(mqtt.Client):
         #  but let's assume that if mosquitto receives the publish, it has already received the subscribe...
         self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), {'request': data, 'id': request_id})
         try:
-            return future.result(timeout)
+            answer = future.result(timeout)
+            if 'errors' in answer:
+                raise RequestError(answer['errors'], answer.get('error_str', str(answer['errors'])))
+            
+            return answer['result']
         except concurrent.futures.TimeoutError:
             raise RequestTimeout('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
         finally:

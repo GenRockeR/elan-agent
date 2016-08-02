@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite, Synapse, RequestTimeout
+from origin.neuron import Dendrite, Synapse, RequestTimeout, RequestError, FormRequestError
 from origin import utils
 from mako.template import Template
 from uuid import uuid4
@@ -48,25 +48,16 @@ class AxonMapper:
         
         if connected:
             return {'status': 'connected'}
-        else:
-            return {'status': 'disconnected', 'error': 'Connection to Control Center down'}
+        raise RequestError('Connection to Control Center down')
 
     def register(self, data):
         # check control-center connectivity
-        connectivity = self.check_connectivity(data)
-        
-        if 'error' in connectivity:
-            if data:
-                return {'error': {'non_field_errors' : [connectivity['error']]}}
-            else:
-                return connectivity['error']
+        self.check_connectivity(data)
         
         if not data:
             return {'status': 'available'}
         
         result = self.dendrite.call('control-center/register', data)
-        if 'error' in result: 
-            return result
         
         synapse.set(ACCOUNT_ID_PATH, result['account'])
         synapse.set(AGENT_ID_PATH, result['id'])

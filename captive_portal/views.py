@@ -5,7 +5,7 @@ from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
 from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
-from origin.neuron import Synapse, Dendrite, RequestTimeout
+from origin.neuron import Synapse, Dendrite, RequestTimeout, RequestError
 from origin.authentication import pwd_authenticate
 from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
 from origin import nac, utils
@@ -297,27 +297,28 @@ def dashboard(request, context=None):
     is_registered = Administrator.count()
     
     try:
-        connectivity = dendrite.call('check-connectivity', timeout=2)
-        connectivity_error = connectivity.get('error', '')
-        if not connectivity_error: 
-            is_connected = True
-        else:
-            is_connected = False
+        # will raise error if not connected
+        dendrite.call('check-connectivity', timeout=2)
+        is_connected = True
     except RequestTimeout:
         is_connected = None # Unknown
         connectivity_error = 'Connectivity check not implemented'
+    except RequestError as e:
+        is_connected = False
+        connectivity_error = e.error_str
         
     registration_available = False
     if not is_registered:
         try:
-            availability = dendrite.call('register', timeout=2)
-            registration_error = availability.get('error', '')
-            if not registration_error: 
-                registration_available = True
+            dendrite.call('register', timeout=2)
+            registration_available = True
         except RequestTimeout:
+            registration_available = False
             registration_error = 'Registration service not implemented'
-    
-    
+        except RequestError as e:
+            registration_available = False
+            registration_error = e.error_str
+
     context.update(
                registration_available = registration_available,
                registration_error = registration_error,
@@ -335,7 +336,6 @@ def dashboard(request, context=None):
                ipv6_gw = utils.get_ip6_default_gateway(),
                ipv6_dns = utils.get_ip6_dns_servers(),
     )
-    print(context)
     if not context.get('location', ''):
         #TODO: 
         context['location'] = ''

@@ -4,7 +4,7 @@ import threading
 import json
 from uuid import uuid4 
 
-from origin.neuron import Dendrite, RequestTimeout
+from origin.neuron import Dendrite, RequestTimeout, RequestError
 from paho.mqtt import client
 import time
 
@@ -19,6 +19,8 @@ def run_in_thread(target, *args, **kwargs):
     return fut
 
 class DendriteTest(unittest.TestCase):
+    'These tests require a MQTT broker'
+    
     def setUp(self):
         self.dendrite = Dendrite()
         self.mqtt = client.Client()
@@ -151,6 +153,19 @@ class DendriteTest(unittest.TestCase):
         
         self.assertEqual(result, 'Test OK: ' + params)
     
+    def test_call_and_provide_exception(self):
+        def cb(data):
+            raise RequestError({'something': 'happened'}, 'Error: Something Happened !')
+        
+        
+        service = 'test/fct2'
+        self.dendrite.provide('test/fct2', cb)
+                
+        with self.assertRaises(RequestError) as cm:
+            self.dendrite.call(service, {})
+        self.assertEqual(cm.exception.error_str, 'Error: Something Happened !')
+        self.assertEqual(cm.exception.errors, {'something': 'happened'})
+
     def test_get(self):
         dummy = str(uuid4())
         self.dendrite.publish('test/get', dummy, retain=True)
