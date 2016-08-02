@@ -259,14 +259,15 @@ class RequestError(Exception):
     '''Exception to indicate an error occured during RPC request. This can be raised in provide callback, the caller will receive it.
        Note: errors should be json serializable by json.dumps
     '''
-    def __init__(self, errors, error_str=''):
+    def __init__(self, errors=None, error_str=''):
         ''' 
         errors can be any JSON serializale object. error_str should be a a string. If not given, defaults to str(errors)
+        errors should be used by apps that know how it is formated and should handle the use of error_str when errors not provided.
         '''
-        if not error_str:
-            error_str = str(errors)
+        if not errors and not error_str:
+            raise ValueError('"errors" or "error_str" should be set')
         if not isinstance(error_str, str):
-            raise ValueError('error_str should be a string')
+            raise ValueError('"error_str" should be a string')
             
         super().__init__(errors, error_str)
     
@@ -276,15 +277,8 @@ class RequestError(Exception):
 
     @property
     def error_str(self):
-        return self.args[1]
+        return self.args[1] or str(self.args[0])
 
-
-class FormRequestError(RequestError):
-    def __init__(self, error):
-        if not isinstance(error, dict):
-            error = dict(non_field_errors=[str(error)])
-        
-        super().__init__(error)
 
 class  Dendrite(mqtt.Client):
     '''
@@ -364,7 +358,7 @@ class  Dendrite(mqtt.Client):
                 answer['errors'] = e.errors
                 answer['error_str'] = e.error_str
             except Exception as e:
-                answer['errors'] = str(e)
+                answer['error_str'] = str(e)
             self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=data['id'], service=m.group('service')), answer)
         return wrapper
 
@@ -447,8 +441,8 @@ class  Dendrite(mqtt.Client):
         self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), {'request': data, 'id': request_id})
         try:
             answer = future.result(timeout)
-            if 'errors' in answer:
-                raise RequestError(answer['errors'], answer.get('error_str', str(answer['errors'])))
+            if 'errors' in answer or 'error_str' in answer:
+                raise RequestError(answer.get('errors', None), answer.get('error_str', ''))
             
             return answer['result']
         except concurrent.futures.TimeoutError:

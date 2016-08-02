@@ -300,6 +300,7 @@ def dashboard(request, context=None):
         # will raise error if not connected
         dendrite.call('check-connectivity', timeout=2)
         is_connected = True
+        connectivity_error = ''
     except RequestTimeout:
         is_connected = None # Unknown
         connectivity_error = 'Connectivity check not implemented'
@@ -312,6 +313,7 @@ def dashboard(request, context=None):
         try:
             dendrite.call('register', timeout=2)
             registration_available = True
+            registration_error = ''
         except RequestTimeout:
             registration_available = False
             registration_error = 'Registration service not implemented'
@@ -365,9 +367,12 @@ def admin_login(request):
         try:
             response = dendrite.call('register', post_dict)
         except RequestTimeout:
-            response = {'error': {'non_field_errors': [_('Request timeout')]}}
-        if response['error']:
-            context.update(form_errors = response['error'])
+            context.update(form_errors = {'non_field_errors': [_('Request timeout')]})
+        except RequestError as e:
+            if e.errors:
+                context.update(form_errors = e.errors)
+            else:
+                context.update(form_errors = {'non_field_errors': [e.error_str]})
         else:
             # Registration succeeded -> redirect to same to avoid repost
             admin_session_login(request.session, post_dict['login'])

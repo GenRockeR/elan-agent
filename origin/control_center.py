@@ -74,7 +74,7 @@ def configure_axon(reload=True):
     except:
         uuid = None
     if not uuid:
-        uuid = uuid4()
+        uuid = str(uuid4())
         try:
             synapse.set(AGENT_UUID_PATH, uuid)
         except:
