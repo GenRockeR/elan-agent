@@ -57,6 +57,8 @@ class AxonMapper:
         if not data:
             return {'status': 'available'}
         
+        data['interfaces'] = sorted(utils.physical_ifaces())
+        
         result = self.dendrite.call('control-center/register', data)
         
         synapse.set(ACCOUNT_ID_PATH, result['account'])
