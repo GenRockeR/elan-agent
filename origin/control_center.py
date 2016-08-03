@@ -1,4 +1,4 @@
-from origin.neuron import Dendrite, Synapse, RequestTimeout, RequestError, FormRequestError
+from origin.neuron import Dendrite, Synapse, RequestTimeout, RequestError
 from origin import utils
 from mako.template import Template
 from uuid import uuid4
