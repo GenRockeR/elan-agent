@@ -99,7 +99,7 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
     if port is None:
         port = synapse.hget(session.MAC_PORT_PATH, mac)
         
-    return dendrite.sync_call('assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    return dendrite.call('assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
     # TODO: when CC unreachable or Error, retry in a few seconds (maybe use mac authz manager daemon for that) 
 
 def tzaware_datetime_to_epoch(dt):
@@ -110,12 +110,12 @@ def notify_new_authorization_session(authz, start=None):
     '''
         start and end are Epoch
     '''
-    data = authz.__dict__.copy()
+    data = authz.serialize()
     
     if data.get('till', None): # format date
         data['till'] = session.format_date(data['till'])
         
-    dendrite.publish(AUTHORIZATION_SESSION_TOPIC, dict(start=session.format_date(start), mac=authz.mac, **data))
+    dendrite.publish(AUTHORIZATION_SESSION_TOPIC, dict(start=session.format_date(start), **data))
 
 def notify_end_authorization_session(authz, reason, end=None, **kwargs):
     ''' start is Epoch '''
@@ -168,13 +168,16 @@ class RedisMacAuthorization(object):
         pipe = synapse.pipeline()
         pipe.zadd(AUTHZ_MAC_EXPIRY_PATH, till, self.mac)
         
+        pipe.hset(AUTHZ_SESSIONS_BY_MAC_PATH, self.mac, self.serialize())
+        pipe.execute()
+    
+    def serialize(self):
         data = self.__dict__.copy()
         # sets are not serialializable, serialize them as lists
         data['allow_on'] = list(data['allow_on'])
         data['bridge_to'] = list(data['bridge_to'])
         
-        pipe.hset(AUTHZ_SESSIONS_BY_MAC_PATH, self.mac, data)
-        pipe.execute()
+        return data
     
     @classmethod
     def deleteByMac(cls, mac):

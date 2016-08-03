@@ -26,8 +26,6 @@ class DeviceTracker():
                         bpf_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
                     )\
                     .sniff_continuously():
-            if self.stop:
-                return
             self.process_packet(packet)
             
         raise RuntimeError('Capture Stopped ! if it ever started...')

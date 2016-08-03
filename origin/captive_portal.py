@@ -19,7 +19,7 @@ CAPTIVE_PORTAL_FQDN_IP6 = '2001:41d0:2:ba47::1000:1010'
 def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
     d = GuestAccessManager()
-    r = d.sync_call('guest-request', request)
+    r = d.call('guest-request', request)
     if r:
         request_id = r['id']
         
