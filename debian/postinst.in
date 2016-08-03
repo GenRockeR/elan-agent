@@ -11,8 +11,6 @@ ln -s /lib/init/upstart-job /etc/init.d/freeradius
 
 # Configure Nginx
 rm -f /etc/nginx/sites-enabled/default
-PYTHONPATH=/origin/lib/python python3 -c 'from origin.neuron.axon import Axon; Axon.generate_nginx_conf()'
-
 
 # deconfigure freeradius default sites
 rm -f /etc/freeradius/sites-enabled/default

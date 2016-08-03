@@ -2,7 +2,11 @@ from origin.neuron import Dendrite, Synapse, RequestTimeout, RequestError
 from origin import utils
 from mako.template import Template
 from uuid import uuid4
+
+from django.conf import settings
+settings.configure()
 from django.contrib.auth.hashers  import make_password
+
 
 CC_IPv4 = ['87.98.150.15'] # Control center IPs to be used in NGINX conf: indeed, when no resolver available, NGINX fails if we use fqdn
 CC_IPv6 = ['2001:41d0:2:ba47::1:10']

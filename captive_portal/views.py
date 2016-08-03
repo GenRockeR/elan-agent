@@ -299,7 +299,7 @@ def dashboard(request, context=None):
     
     dendrite = Dendrite()
     
-    is_registered = is_registered()
+    registered = is_registered()
     
     try:
         # will raise error if not connected
@@ -315,7 +315,7 @@ def dashboard(request, context=None):
         
     registration_available = False
     registration_error = ''
-    if not is_registered:
+    if not registered:
         try:
             dendrite.call('register', timeout=2)
             registration_available = True
@@ -332,7 +332,7 @@ def dashboard(request, context=None):
                is_admin = bool(request.session.get('admin', False)),
                is_connected = is_connected,
                connectivity_error = connectivity_error,
-               is_registered = is_registered,
+               is_registered = registered,
                interfaces = { iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
                ipsv4 = utils.get_ip4_addresses('br0'),
@@ -367,7 +367,7 @@ def admin_login(request):
     context = {}                    
     post_dict = request.POST.dict()
 
-    if not is_registered:
+    if not is_registered():
         dendrite = Dendrite()
         try:
             response = dendrite.call('register', post_dict)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from origin.neuron import Dendrite
+from origin.neuron import Dendrite, Synapse
 from origin.utils import restart_service
 from mako.template import Template
 
@@ -15,7 +15,7 @@ class NacConfigurator():
     
     def __init__(self):
         self.conf = {}
-        # subscribe to providers and group lists
+        self.synapse = Synapse()
 
     def agent_conf_updated(self, conf):
         freeradius_conf_changed = False
