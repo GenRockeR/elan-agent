@@ -358,7 +358,7 @@ class  Dendrite(mqtt.Client):
                 answer['errors'] = e.errors
                 answer['error_str'] = e.error_str
             except Exception as e:
-                answer['error_str'] = str(e)
+                answer['error_str'] = repr(e)
             self.publish(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(request_id=data['id'], service=m.group('service')), answer)
         return wrapper
 
