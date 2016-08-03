@@ -441,14 +441,15 @@ class  Dendrite(mqtt.Client):
         self.publish(self.SERVICE_REQUESTS_TOPIC_PATTERN.format(service=service), {'request': data, 'id': request_id})
         try:
             answer = future.result(timeout)
-            if 'errors' in answer or 'error_str' in answer:
-                raise RequestError(answer.get('errors', None), answer.get('error_str', ''))
-            
-            return answer['result']
         except concurrent.futures.TimeoutError:
             raise RequestTimeout('Call to "{service}" timed out after {timeout} seconds'.format(service=service, timeout=timeout))
         finally:
             self.unsubscribe(self.SERVICE_ANSWERS_TOPIC_PATTERN.format(service=service, request_id=request_id))
+
+        if 'errors' in answer or 'error_str' in answer:
+            raise RequestError(answer.get('errors', None), answer.get('error_str', ''))
+        
+        return answer['result']
 
         
     def wait_complete(self, timeout=None):

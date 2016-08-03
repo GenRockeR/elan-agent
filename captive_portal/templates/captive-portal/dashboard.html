@@ -86,7 +86,7 @@
           </div>
           
           <div class="panel-body">
-            {% if not registration_available %}
+            {% if not registration_available and not is_registered %}
             <div class="alert alert-warning" role="alert">
               {% trans 'Registration Unavailable:' %} {{registration_error}}
             </div>

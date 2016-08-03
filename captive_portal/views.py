@@ -265,7 +265,8 @@ def admin_session_logout(session):
 
 def require_admin(fn):
     def wrapper(request, *args, **kwargs):
-        if request.session.get('admin', None):
+        # when not registered, allow all, else required admin session
+        if not is_registered() or request.session.get('admin', None):
             return fn(request, *args, **kwargs)
         return redirect('dashboard')
 
@@ -286,6 +287,10 @@ def save_admin_session(fn):
         return fn(request, *args, **kwargs)
     return wrapper
 
+def is_registered():
+    # consider registered if at leat one admin has been set
+    return bool(Administrator.count())
+
 @requirePortalURL
 @save_admin_session
 def dashboard(request, context=None):
@@ -294,7 +299,7 @@ def dashboard(request, context=None):
     
     dendrite = Dendrite()
     
-    is_registered = Administrator.count()
+    is_registered = is_registered()
     
     try:
         # will raise error if not connected
@@ -309,11 +314,11 @@ def dashboard(request, context=None):
         connectivity_error = e.error_str
         
     registration_available = False
+    registration_error = ''
     if not is_registered:
         try:
             dendrite.call('register', timeout=2)
             registration_available = True
-            registration_error = ''
         except RequestTimeout:
             registration_available = False
             registration_error = 'Registration service not implemented'
@@ -362,7 +367,7 @@ def admin_login(request):
     context = {}                    
     post_dict = request.POST.dict()
 
-    if not Administrator.count():
+    if not is_registered:
         dendrite = Dendrite()
         try:
             response = dendrite.call('register', post_dict)

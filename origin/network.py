@@ -1,5 +1,5 @@
 from origin.neuron import Synapse
-from origin.utils import restart_service
+from origin.utils import restart_service, stop_service, start_service
 import subprocess
 from mako.template import Template
 
@@ -28,9 +28,9 @@ class NetworkConfiguration:
         self.synapse.set(self.IPv6_CONF_PATH, self.ipv6)
         
     def apply_configuration(self):
-        subprocess.run(['sudo', 'systemctl', 'stop', 'nac-network.service']) # bring down br0 with old config to deconfigure it properly (DHCP release...)
+        stop_service('nac-network') # bring down br0 with old config to deconfigure it properly (DHCP release...)
         self.generate_configuration_files()
-        subprocess.run(['sudo', 'systemctl', '--no-block', 'run', 'nac-network.service'])
+        start_service('nac-network', no_block=True)
     
     def generate_configuration_files(self):
         template = Template(filename=self.configuration_template)

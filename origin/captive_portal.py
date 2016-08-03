@@ -46,8 +46,8 @@ class Administrator:
     
     @classmethod
     def add(cls, **kwargs):
-        if 'email' in kwargs and 'password' in kwargs:
-            login = kwargs.pop('email')
+        if 'login' in kwargs and 'password' in kwargs:
+            login = kwargs.pop('login')
             cls.synapse.hset(cls.ADMINISTRATOR_CONF_PATH, login, kwargs)
             return True
         return False
