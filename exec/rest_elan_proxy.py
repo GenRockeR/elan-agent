@@ -32,14 +32,20 @@ async def authorize(request):
     source = request.GET['source']
     provider = request.GET['provider']
     
-    response = await call_service(
-            'authentication/external/authorize',
-            dict( 
-                    provider=provider,
-                    source=source,
-                    **request_as_hash_of_values(radius_request)
-            )
-    )
+    try:
+        response = await call_service(
+                'authentication/external/authorize',
+                dict( 
+                        provider=provider,
+                        source=source,
+                        **request_as_hash_of_values(radius_request)
+                )
+        )
+    except neuron.RequestError as e:
+        if 'status' in e.errors and e.errors['status'] == 'wrong_credentials':
+            return web.json_response(e.errors, 401)
+        return web.json_response(e.errors, 404)
+        
 
     return web.json_response(response)
 
@@ -49,14 +55,19 @@ async def authenticate(request):
     source = request.GET['source']
     provider = request.GET['provider']
     
-    response = await call_service(
-            'authentication/external/authenticate', 
-            dict(
-                    provider=provider,
-                    source=source,
-                    **request_as_hash_of_values(radius_request)
-            )
-    )
+    try:
+        response = await call_service(
+                'authentication/external/authenticate', 
+                dict(
+                        provider=provider,
+                        source=source,
+                        **request_as_hash_of_values(radius_request)
+                )
+        )
+    except neuron.RequestError as e:
+        if 'status' in e.errors and e.errors['status'] == 'wrong_credentials':
+            return web.json_response(e.errors, 401)
+        return web.json_response(e.errors, 404)
 
     return web.json_response(response)
 
