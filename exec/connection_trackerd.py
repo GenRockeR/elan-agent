@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os
-from origin.event import ExceptionEvent, InternalEvent
+from origin.event import ExceptionEvent
 from origin import session, neuron
 import pyshark
 import time
