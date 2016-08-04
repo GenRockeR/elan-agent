@@ -7,6 +7,7 @@ from uuid import uuid4
 from origin.neuron import Dendrite, RequestTimeout, RequestError
 from paho.mqtt import client
 import time
+from unittest.mock import patch, Mock
 
 def run_in_thread(target, *args, **kwargs):
     fut = concurrent.futures.Future()
@@ -201,10 +202,29 @@ class DendriteTest(unittest.TestCase):
 
         Dendrite.publish_single('test/get', retain=True)
 
-
-
-
-
+    def test_subscribe_cb_exception_catch(self):
+        event_instance = Mock()
+        with patch('origin.event.ExceptionEvent', return_value=event_instance) as ExceptionEventMock:
+            topic1 = 'test/topic1'
+            msg1 = dict(test='OK', msg=1)
+    
+            future = concurrent.futures.Future()
+            def get_msg(msg, topic):
+                future.set_result({ 'msg': msg, 'topic': topic})
+                raise KeyError("foo")
+            
+            
+            
+            self.dendrite.subscribe(topic1, get_msg)
+            
+            time.sleep(1)
+            
+            self.mqtt.publish(topic1, json.dumps(msg1))
+            
+            result = future.result(2)
+        
+        ExceptionEventMock.assert_called_with(source='dendrite-subscribe-cb')
+        event_instance.notify.assert_called_once_with()
 
 
 

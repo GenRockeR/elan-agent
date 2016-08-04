@@ -330,6 +330,13 @@ class  Dendrite(mqtt.Client):
         args = args[:nb_args]
         
         return fn(*args)
+    
+    def _run_and_notifify_exceptions(self, fn, *args, source='dendrite'):
+        from . import  event
+        try:
+            self._call_fn_with_good_arg_nb(fn, *args)
+        except:
+            event.ExceptionEvent(source=source).notify()
             
     def _subscribe_cb_wrapper(self, fn):
         def wrapper(mqttc, userdata, message):
@@ -339,7 +346,7 @@ class  Dendrite(mqtt.Client):
                 data = None
             # start in a Thread so we can call again some function like call and get from callbacks (or else thay are all run in same thread (paho mqtt impementation), so any other callback is not called until cb finished)
             # TODO: catch exceptions in those threads and send event....
-            task = threading.Thread(target=self._call_fn_with_good_arg_nb, args=(fn, data, message.topic))
+            task = threading.Thread(target=self._run_and_notifify_exceptions, args=(fn, data, message.topic), kwargs={'source': 'dendrite-subscribe-cb'})
             task.start()
         return wrapper
 
