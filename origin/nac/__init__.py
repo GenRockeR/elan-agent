@@ -11,7 +11,7 @@ AUTHZ_SESSIONS_SEQUENCE_PATH = 'nac:authz:sequence'
 
 ACCESS_CONTROLLED_IFS_PATH = 'nac:access-control:ifs'
 
-CHECK_AUTHZ_PATH = 'mac/check-authz'
+CHECK_AUTHZ_PATH = 'check-macs-authz'
 
 
 AUTHORIZATION_SESSION_TOPIC = 'session/authorization'

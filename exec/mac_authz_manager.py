@@ -16,6 +16,6 @@ if __name__ == "__main__":
     
     dendrite.subscribe(AUTHORIZATION_CHANGE_TOPIC, manager.handle_authz_changed)
     dendrite.subscribe(MAC_SESSION_TOPIC, handle_disconnection)
-    dendrite.provide(CHECK_AUTHZ_PATH, manager.check_authz)
+    dendrite.subscribe(CHECK_AUTHZ_PATH, manager.check_authz)
 
     dendrite.wait_complete()
