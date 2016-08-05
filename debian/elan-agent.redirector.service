@@ -1,0 +1,15 @@
+[Unit]
+Description=Redirector of not authorized traffic
+
+[Service]
+
+Restart=always
+RestartSec=10
+
+Environment="PYTHONPATH=/origin/lib/python"
+
+ExecStart=/origin/bin/redirector
+
+[Install]
+WantedBy=multi-user.target
+

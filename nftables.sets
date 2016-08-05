@@ -25,6 +25,12 @@ table bridge origin {
   set mac_to_vlan {
     type ether_addr . iface_index ;
   }
+  set ip_conn2mark {
+  	type ipv4_addr . inet_service . ipv4_addr . inet_service ;
+  }
+  set ip6_conn2mark {
+  	type ipv6_addr . inet_service . ipv6_addr . inet_service ;
+  }
   
   map vlan_mark {
     type iface_index : mark ;
@@ -35,16 +41,10 @@ table ip origin {
   map captive_portals {
     type mark . inet_service : inet_service ;
   }
-  map redirect_marks {
-  	type ipv4_addr . inet_service . ipv4_addr . inet_service : inet_service ;
-  }
 }
 
 table ip6 origin {
   map captive_portals {
     type mark . inet_service : inet_service ;
-  }
-  map redirect_marks {
-  	type ipv6_addr . inet_service . ipv6_addr . inet_service : inet_service ;
   }
 }

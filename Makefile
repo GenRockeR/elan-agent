@@ -68,10 +68,11 @@ captive-portal-python: origin/captive_portal.py
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/captive_portal.py
 
 .PHONY: captive-portal-conf
-captive-portal-conf:
+captive-portal-conf: exec/captive_portal_configuration_cacher.py exec/guest_access_manager.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install -m 755 exec/captive_portal_configuration_cacher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal-configuration-cacher
 	install -m 755 exec/guest_access_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/guest-access-manager
+	install -m 755 exec/redirector.py ${DESTDIR}${ORIGIN_PREFIX}/bin/redirector
     
 .PHONY: captive-portal-www
 captive-portal-www:

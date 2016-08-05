@@ -24,6 +24,9 @@ table bridge origin {
 
     jump global_ac
 
+	tcp dport { http, https } ip  saddr . tcp sport . ip  daddr . tcp dport @ip_conn2mark  mark set iif map @vlan_mark accept
+	tcp dport { http, https } ip6 saddr . tcp sport . ip6 daddr . tcp dport @ip6_conn2mark mark set iif map @vlan_mark accept
+
     iif @ac_ifs jump access_control_in
   }
 
@@ -58,7 +61,7 @@ table bridge origin {
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-solicit, nd-neighbor-solicit } iif . oif @dhcp_pt_ifs accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-router-advert,  nd-neighbor-advert  } oif . iif @dhcp_pt_ifs accept
 
-    mark 0 tcp dport {http, https} mark set iif map @vlan_mark log group 20 drop
+    mark 0 tcp dport {http, https} log group 20 drop
 
     drop 
   }
@@ -115,8 +118,7 @@ table ip origin {
                 
     ip daddr $portal_ip ip protocol tcp redirect to tcp dport map {80: 20000, 443: 20001}
     
-    mark set ip saddr . tcp sport . ip daddr . tcp dport map @redirect_marks
-    redirect to mark . tcp dport map @captive_portals
+    ip protocol tcp redirect to mark . tcp dport map @captive_portals
   }
   
   chain postrouting { 
@@ -136,8 +138,7 @@ table ip6 origin {
                 
     ip6 daddr $portal_ip6 ip6 nexthdr tcp redirect to tcp dport map { 80: 20000, 443: 20001}
 
-    mark set ip saddr . tcp sport . ip daddr . tcp dport map @redirect_marks
-    redirect to mark . tcp dport map @captive_portals
+    ip6 nexthdr tcp redirect to mark . tcp dport map @captive_portals
   }
   
   chain postrouting { 
