@@ -23,7 +23,7 @@ class AxonMapper:
         self.dendrite = Dendrite()
         
     def once_registered(self, agent):
-        self.agent_id = agent.id
+        self.agent_id = agent['id']
         
         self.dendrite.subscribe("control-center/conf/authentication", self.parse_authentications)
     

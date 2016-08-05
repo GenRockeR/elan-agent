@@ -44,8 +44,8 @@ class AuthenticationProvider():
             dendrite = Dendrite()
         self.dendrite = dendrite
         
-        self.agent_id = None
         self.authentications = {} # indexed by id
+        self.provided_services = set()
 
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
         self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
@@ -111,9 +111,9 @@ class AuthenticationProvider():
                 )
                 inner_case += self.get_group_inner_case( member_auth, ignore_authentications )
         else:
-            if auth['type'] == 'LDAP' and self.agent_id in auth['agents']:
+            if auth['type'] == 'LDAP':
                 inner_case += self.ldap_auth_template.render(**auth)
-            elif auth['type'] == 'active-directory' and self.agent_id in auth['agents']:
+            elif auth['type'] == 'active-directory':
                 inner_case += self.ad_auth_template.render(**auth)
             elif auth['type'] == 'google-apps':
                 inner_case += self.google_auth_template.render(**auth)
@@ -139,10 +139,6 @@ class AuthenticationProvider():
         
         return inner_case
 
-    def agent_conf(self, agent):
-            if self.agent_id != agent.id:
-                self.agent_id = agent.id
-                self.apply_conf()
                 
     def new_authentication_conf(self, conf):
             new_authentications = {}
@@ -154,22 +150,56 @@ class AuthenticationProvider():
                 self.apply_conf()
 
     def apply_conf(self):
-        if self.agent_id is not None: # we may receive agent id after conf
-            module_conf = ""
-    
-            inner_switch_server_conf = ""
-            # Generate the files if we have all the information...
-            new_provided_services = set()
-            
-            has_active_directory = False
-            
-            for auth in self.authentications.values():
-                if auth['type'] == 'LDAP':
-                    module_conf += "\n" + self.ldap_template.render(**auth)
+        module_conf = ""
+
+        inner_switch_server_conf = ""
+        # Generate the files if we have all the information...
+        new_provided_services = set()
+        
+        has_active_directory = False
+        
+        for auth in self.authentications.values():
+            if auth['type'] == 'LDAP':
+                module_conf += "\n" + self.ldap_template.render(**auth)
+                inner_switch_server_conf +=  '''
+                    case {id} {{
+                '''.format(id=auth['id'])
+                inner_switch_server_conf += self.ldap_auth_template.render(**auth)
+                inner_switch_server_conf += '''
+                        if(fail) {
+                            update request {
+                                Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                            }
+                            auth_provider_failed
+                            update request {
+                                Module-Failure-Message !* ANY
+                            }
+                        }
+                    }
+                '''
+                # also notify that we provide this auth
+                new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
+                new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
+            elif auth['type'] == 'active-directory':
+                # Join domain if not already done
+                if not AD.joined(auth['domain']):
+                    if AD.joined():
+                        AD.leave()
+                    # try to join
+                    try: 
+                        AD.join(realm=auth['domain'], user=auth['adminLogin'], password=auth['adminPwd'])
+                    except AD.Error as e:
+                        status = {'status': 'error', 'error': e.message}
+                    else:
+                        status = {'status': 'joined'}
+                    self.dendrite.publish_conf('authentication/provider/{id}/status'.format(id=auth['id']), status)
+                
+                if AD.joined(auth['domain']):
+                    has_active_directory = True
                     inner_switch_server_conf +=  '''
                         case {id} {{
                     '''.format(id=auth['id'])
-                    inner_switch_server_conf += self.ldap_auth_template.render(**auth)
+                    inner_switch_server_conf += self.ad_auth_template.render(**auth)
                     inner_switch_server_conf += '''
                             if(fail) {
                                 update request {
@@ -182,88 +212,54 @@ class AuthenticationProvider():
                             }
                         }
                     '''
+                    
+                    module_conf += "\n" + self.ad_template.render(has_active_directory=has_active_directory, **AD.info())
+
                     # also notify that we provide this auth
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
                     new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
-                elif auth['type'] == 'active-directory':
-                    # Join domain if not already done
-                    if not AD.joined(auth['domain']):
-                        if AD.joined():
-                            AD.leave()
-                        # try to join
-                        try: 
-                            AD.join(realm=auth['domain'], user=auth['adminLogin'], password=auth['adminPwd'])
-                        except AD.Error as e:
-                            status = {'status': 'error', 'error': e.message}
-                        else:
-                            status = {'status': 'joined'}
-                        self.dendrite.publish_conf('authentication/provider/{id}/status'.format(id=auth['id']), status)
-                    
-                    if AD.joined(auth['domain']):
-                        has_active_directory = True
-                        inner_switch_server_conf +=  '''
-                            case {id} {{
-                        '''.format(id=auth['id'])
-                        inner_switch_server_conf += self.ad_auth_template.render(**auth)
-                        inner_switch_server_conf += '''
-                                if(fail) {
-                                    update request {
-                                        Origin-Auth-Failed := &session-state:Origin-Auth-Provider
-                                    }
-                                    auth_provider_failed
-                                    update request {
-                                        Module-Failure-Message !* ANY
-                                    }
-                                }
-                            }
-                        '''
-                        # also notify that we provide this auth
-                        new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
-                        new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
-                elif auth['type'] == 'group':
-                    # Take care of groups, that can be nested:
-                    inner_switch_server_conf +=  '''
-                            case {id} {{
-                                group {{
-                                    {inner_case}
-                                    if( ! &Origin-Non-Failed-Auth) {{
-                                        auth_all_providers_failed_in_group
-                                    }}
+            elif auth['type'] == 'group':
+                # Take care of groups, that can be nested:
+                inner_switch_server_conf +=  '''
+                        case {id} {{
+                            group {{
+                                {inner_case}
+                                if( ! &Origin-Non-Failed-Auth) {{
+                                    auth_all_providers_failed_in_group
                                 }}
                             }}
-                    '''.format(
-                           id = auth['id'],
-                           inner_case = self.get_group_inner_case(auth) )
-            
-            # Always add AD module conf as it is used even if no AD declared
-            ad_info = AD.info() or {}
-            module_conf += "\n" + self.ad_template.render(has_active_directory=has_active_directory, **ad_info)
+                        }}
+                '''.format(
+                       id = auth['id'],
+                       inner_case = self.get_group_inner_case(auth) )
 
-            # Quit AD domain if required
-            if not has_active_directory and AD.joined():
-                AD.leave()
+        # Quit AD domain if required
+        if not has_active_directory and AD.joined():
+            AD.leave()
 
-            with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
-                module_file.write( module_conf )
-            with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
-                policy_file.write( self.policy_template.render(inner_switch=inner_switch_server_conf) )
+        with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
+            module_file.write( module_conf )
+        with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
+            policy_file.write( self.policy_template.render(inner_switch=inner_switch_server_conf) )
+        
+        # CAs
+        for provider in self.authentications.values():
+            if provider.get('server_ca', None):
+                with open ("/etc/freeradius/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
+                    server_ca_file.write(provider['server_ca'])
+
+        # unprovide
+        for service_path in self.provided_services - new_provided_services:
+            self.dendrite.unprovide(service_path)
             
-            # CAs
-            for provider in self.authentications.values():
-                if provider.get('server_ca', None):
-                    with open ("/etc/freeradius/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
-                        server_ca_file.write(provider['server_ca'])
-    
-            # unprovide
-            for service_path in self.get_provided_services() - new_provided_services:
-                self.dendrite.unprovide(service_path)
-                
-            # Reload freeradius
-            restart_service('freeradius')
-            
-            # new provides
-            for service_path in new_provided_services:
-                self.dendrite.provide(service_path, cb=self.on_call)
+        # Reload freeradius
+        restart_service('freeradius')
+        
+        # new provides
+        for service_path in new_provided_services:
+            self.dendrite.provide(service_path, cb=self.on_call)
+        
+        self.provided_services = new_provided_services
 
     def on_call(self, data, service):
         # TODO: make this async....
