@@ -1,4 +1,3 @@
-% if has_active_directory:
 ldap ADldap {
   server = "${ldap_server_name}"
   % if ldap_port:
@@ -50,31 +49,4 @@ ldap ADldap {
     lifetime = 86400
     idle_timeout = 600
   }
-}
-% endif
-
-exec ADpap {
-        wait = yes
-        program = "/usr/bin/ntlm_auth --request-nt-key --domain=%{mschap:NT-Domain} --username=%{mschap:User-Name} --password=%{User-Password}"
-}
-
-mschap ADmschap {
-     winbind_username = "%{mschap:User-Name}"
-     winbind_domain = "%{mschap:NT-Domain}"
-    
-     pool {
-        start = 0
-        min = <%text>${thread[pool].min_spare_servers}</%text>
-        max = <%text>${thread[pool].max_servers}</%text>
-        spare = <%text>${thread[pool].max_spare_servers}</%text>
-        uses = 0
-        retry_delay = 5
-        lifetime = 86400
-        cleanup_interval = 300
-        idle_timeout = 600
-    }
-    
-    passchange {
-    }
-    
 }

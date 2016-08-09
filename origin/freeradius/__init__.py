@@ -2,4 +2,4 @@
 # we import them here so only this one can be used to import all functions
 
 from .authentication import AuthenticationGroupFailed, AuthenticationProviderFailedInGroup, AuthenticationProviderFailed
-from .nac import accounting, post_auth
+from .nac import accounting, post_auth, NotAuthorized

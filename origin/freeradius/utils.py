@@ -10,7 +10,7 @@ def request_as_hash_of_values(request):
             
     ret = MultiDict()
     
-    for key, properties in request:
+    for key, properties in request.items():
         values = properties['value']
         ret[key] = values        
 

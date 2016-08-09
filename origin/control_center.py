@@ -39,7 +39,7 @@ class AxonMapper:
     def parse_authentications(self, conf):
         agent_provided_authentications = []
         for auth in conf:
-            if 'agents' in auth and self.agent_id in auth['agents']:
+            if auth['type'] == 'group' or 'agents' in auth and self.agent_id in auth['agents']:
                 agent_provided_authentications.append(auth)
         
         self.dendrite.publish_conf("authentication", agent_provided_authentications)

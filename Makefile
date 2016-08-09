@@ -169,17 +169,13 @@ nac-conf:
 	install -m 755 exec/nac_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/nac-configurator
 
 .PHONY: nac-freeradius
-nac-freeradius:
+nac-freeradius: freeradius.nac.server freeradius.nac.modules
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius
 	install -m 644 freeradius.nac.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
 	install -d ${DESTDIR}/etc/freeradius/mods-available
 	install -d ${DESTDIR}/etc/freeradius/mods-enabled
-	install -m 644 freeradius.elan    ${DESTDIR}/etc/freeradius/mods-available/elan
-	ln -s ../mods-available/elan ${DESTDIR}/etc/freeradius/mods-enabled
-	install -m 644 freeradius.eap ${DESTDIR}/etc/freeradius/mods-available/nac-eap
-	ln -s ../mods-available/nac-eap ${DESTDIR}/etc/freeradius/mods-enabled
-	install -d ${DESTDIR}/etc/freeradius/policy.d
-	install -m 644 freeradius.nac.policy ${DESTDIR}/etc/freeradius/policy.d/nac
+	install -m 644 freeradius.nac.modules ${DESTDIR}/etc/freeradius/mods-available/nac
+	ln -s ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
 
 .PHONY: nac-nginx
 nac-nginx:

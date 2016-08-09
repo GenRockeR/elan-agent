@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-import radiusd
 from .utils import request_as_hash_of_values
 from origin import snmp, session, nac
 from origin.event import Event, InternalEvent, ExceptionEvent
@@ -176,6 +175,9 @@ async def find_port(request):
     return { 'local_id': str(switch[u'local_id']), 'interface': None }
 
 
+class NotAuthorized(Exception):
+    pass
+
 async def get_assignments(request):
     ''' Will create new session for Mac and allow it on VLAN and on the net if authorized'''
     mac = extract_mac(request.get('Calling-Station-Id', None))
@@ -212,9 +214,9 @@ async def get_assignments(request):
             event.add_data('login', login)
         event.notify()
 
-        return radiusd.RLM_MODULE_REJECT
+        raise NotAuthorized
     
-    return radiusd.RLM_MODULE_UPDATED, ( ('Origin-Vlan-Id', str(authz.assign_vlan)), ), ()
+    return {'Origin-Vlan-Id': str(authz.assign_vlan)}
 
 
 async def post_auth(req):
@@ -232,9 +234,9 @@ async def post_auth(req):
 async def accounting(req):
     try:
         request = request_as_hash_of_values(req)
-        if request.get('Acct-Status-Type') == 'Stop':
+        if request.get('Acct-Status-Type') in ('Stop', 2):
             return await end(request)
-        elif request.get('Acct-Status-Type') in ['Start', 'Interim-Update']:
+        elif request.get('Acct-Status-Type') in ('Start', 1, 'Interim-Update', 3):
             return await seen(request)
     except:
         ExceptionEvent(source='radius').notify()

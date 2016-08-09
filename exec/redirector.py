@@ -10,7 +10,7 @@ REDIRECTOR_NFLOG_QUEUE = int(os.environ.get('REDIRECTOR_NFLOG_QUEUE', 20))
 
 class Redirector():
     def __init__(self):
-        self.nft_process = self._nft_process()
+        self.nft_process = self.start_nft_process()
     
     def start_nft_process(self):
         return subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True)

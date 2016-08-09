@@ -1,5 +1,5 @@
-from origin.neuron import Synapse
-from origin import session, nac
+from origin.neuron import Synapse, Dendrite
+from origin import session
 from origin.event import Event
 import datetime
 import asyncio
@@ -75,12 +75,12 @@ class DeviceSnmpManager():
 
     async def _unix_socket_connection(self, path, data):
         reader, writer = await asyncio.open_unix_connection(path)
-        await writer.write(data.encode())
-        await writer.write_eof()
+        writer.write(json.dumps(data).encode())
+        writer.write_eof()
         
         response = await reader.read()
         
-        await writer.close()
+        writer.close()
         
         return json.loads(response.decode())
     
@@ -122,7 +122,7 @@ class DeviceSnmpManager():
         if cached_device != device_snmp:
             if self.switch_has_changed(cached_device, device_snmp):
                 # send update to CC if has changed
-                self.publish('snmp', device_snmp)
+                Dendrite.publish_single('snmp', device_snmp)
             # cache the device, including dynamic fields like fw_mac
             with self.synapse.pipeline() as pipe:
                 pipe.hset( self.DEVICE_SNMP_CACHE_PATH, device_id, device_snmp )

@@ -44,7 +44,7 @@ class AuthenticationProvider():
             dendrite = Dendrite()
         self.dendrite = dendrite
         
-        self.authentications = {} # indexed by id
+        self.authentications = None
         self.provided_services = set()
 
         self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
@@ -150,7 +150,145 @@ class AuthenticationProvider():
                 self.apply_conf()
 
     def apply_conf(self):
-        module_conf = ""
+        module_conf = '''
+rest external-auth {
+        connect_uri = "http://127.0.0.1:8080/authentication/"
+        
+        authorize {
+                uri = "${..connect_uri}authorize?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        authenticate {
+                uri = "${..connect_uri}authenticate?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}"
+                method = 'post'
+                body = 'json'
+                
+        }
+       
+        pool {
+            start = 0
+            min = ${thread[pool].min_spare_servers}
+            max = ${thread[pool].max_servers}
+            spare = ${thread[pool].max_spare_servers}
+            uses = 0
+            retry_delay = 30
+            lifetime = 0
+            idle_timeout = 0
+        }
+}
+
+exec ADpap {
+        wait = yes
+        program = "/usr/bin/ntlm_auth --request-nt-key --domain=%{mschap:NT-Domain} --username=%{mschap:User-Name} --password=%{User-Password}"
+}
+
+mschap ADmschap {
+     winbind_username = "%{mschap:User-Name}"
+     winbind_domain = "%{mschap:NT-Domain}"
+    
+     pool {
+        start = 0
+        min = ${thread[pool].min_spare_servers}
+        max = ${thread[pool].max_servers}
+        spare = ${thread[pool].max_spare_servers}
+        uses = 0
+        retry_delay = 5
+        lifetime = 86400
+        cleanup_interval = 300
+        idle_timeout = 600
+    }
+    
+    passchange {
+    }
+    allow_retry = yes
+    retry_msg = "Enter a valid password"
+    
+}
+
+rest auth_provider_failed {
+        connect_uri = "http://127.0.0.1:8080/authentication/provider/failed"
+        
+        authorize {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        authenticate {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        pool {
+            start = 0
+            min = ${thread[pool].min_spare_servers}
+            max = ${thread[pool].max_servers}
+            spare = ${thread[pool].max_spare_servers}
+            uses = 0
+            retry_delay = 30
+            lifetime = 0
+            idle_timeout = 0
+        }
+}
+rest auth_provider_failed_in_group {
+        connect_uri = "http://127.0.0.1:8080/authentication/provider/failed-in-group"
+        
+        authorize {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        authenticate {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        pool {
+            start = 0
+            min = ${thread[pool].min_spare_servers}
+            max = ${thread[pool].max_servers}
+            spare = ${thread[pool].max_spare_servers}
+            uses = 0
+            retry_delay = 30
+            lifetime = 0
+            idle_timeout = 0
+        }
+}
+
+
+rest auth_all_providers_failed_in_group {
+        connect_uri = "http://127.0.0.1:8080/authentication/group/all-failed"
+        
+        authorize {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        authenticate {
+                uri = "${..connect_uri}"
+                method = 'post'
+                body = 'json'
+                
+        }
+        pool {
+            start = 0
+            min = ${thread[pool].min_spare_servers}
+            max = ${thread[pool].max_servers}
+            spare = ${thread[pool].max_spare_servers}
+            uses = 0
+            retry_delay = 30
+            lifetime = 0
+            idle_timeout = 0
+        }
+}
+
+'''
 
         inner_switch_server_conf = ""
         # Generate the files if we have all the information...
@@ -213,7 +351,7 @@ class AuthenticationProvider():
                         }
                     '''
                     
-                    module_conf += "\n" + self.ad_template.render(has_active_directory=has_active_directory, **AD.info())
+                    module_conf += "\n" + self.ad_template.render(**AD.info())
 
                     # also notify that we provide this auth
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )

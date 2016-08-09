@@ -2,8 +2,8 @@
 
 Description=Captive Portal Conf retriever
 
-After=registered.service
-Wants=registered.service
+After=redis.service
+Wants=redis.service
 
 [Service]
 Restart=always

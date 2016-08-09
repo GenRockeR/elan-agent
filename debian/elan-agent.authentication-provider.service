@@ -1,8 +1,8 @@
 [Unit]
 Description=Authentications
 
-After=axon.service
-Wants=axon.service
+After=redis.service
+Wants=redis.service
 
 [Service]
 Environment="PYTHONPATH=/origin/lib/python"

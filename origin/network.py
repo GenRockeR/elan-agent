@@ -1,6 +1,5 @@
 from origin.neuron import Synapse
 from origin.utils import restart_service, stop_service, start_service
-import subprocess
 from mako.template import Template
 
 

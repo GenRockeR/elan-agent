@@ -120,3 +120,30 @@ eap nac-eap {
     send_error = yes
   }
 }
+
+rest nac {
+        connect_uri = "http://127.0.0.1:8080/nac/"
+        
+        post-auth  {
+                uri = "${..connect_uri}post-auth"
+                method = 'post'
+                body = 'json'
+                
+        }
+        accounting {
+                uri = "${..connect_uri}accounting"
+                method = 'post'
+                body = 'json'
+        }
+       
+        pool {
+            start = 0
+            min = ${thread[pool].min_spare_servers}
+            max = ${thread[pool].max_servers}
+            spare = ${thread[pool].max_spare_servers}
+            uses = 0
+            retry_delay = 30
+            lifetime = 0
+            idle_timeout = 0
+        }
+}

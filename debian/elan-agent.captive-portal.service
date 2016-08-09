@@ -1,8 +1,8 @@
 [Unit]
 Description=Captive Portal
  
-After=axon.service
-Wants=axon.service
+After=redis.service
+Wants=redis.service
 
 [Service]
 Restart=always
