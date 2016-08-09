@@ -72,6 +72,7 @@ table bridge origin {
     jump global_ac
 
     oif @ac_ifs jump access_control_forward
+    iif @ac_ifs jump access_control_forward
 
   }
 
