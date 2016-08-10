@@ -28,10 +28,6 @@ table bridge origin {
     mark 0 ether daddr . oif @mac_on_vlan accept
     mark 0 ether saddr . oif @mac_to_vlan accept
 
-	#TODO: arp/ndp passthrough (implied in dhcp and dns pt), meanwhile, accept all
-    ether type arp accept
-    ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } accept
-
 	arp operation request iif . oif @ndp_pt_ifs accept
     arp operation reply   oif . iif @ndp_pt_ifs accept
     ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit } iif . oif @ndp_pt_ifs accept

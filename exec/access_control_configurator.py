@@ -99,6 +99,16 @@ class AccessControlConfigurator():
                         elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
                             nft('delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
     
+                        # configure ARP/NDP passthrough
+                        if new_vlan['ndp_passthrough_bridge']:
+                            nic_out = new_vlan['ndp_passthrough_interface']
+                            if new_vlan['ndp_passthrough_vlan_id']:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['ndp_passthrough_vlan_id'])
+                            new_vlan['ndp_passthrough_ifname'] = nic_out
+                            nft('add element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                        elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
+                            nft('delete element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
+    
                         if new_vlan['log']:
                             nft('add element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
                         else:
@@ -127,6 +137,9 @@ class AccessControlConfigurator():
                     
                     if old_vlan['dns_passthrough_bridge']:
                         nft('delete element bridge origin dns_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dns_passthrough_ifname']))
+    
+                    if old_vlan['ndp_passthrough_bridge']:
+                        nft('delete element bridge origin ndp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['ndp_passthrough_ifname']))
     
                     for protocol in ['ip', 'ip6']:
                         nft("delete element {protocol} origin captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = old_vlan['local_index']))
