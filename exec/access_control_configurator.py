@@ -69,58 +69,60 @@ class AccessControlConfigurator():
                         new_vlan['local_index'] = local_index
                         mark = local_index
                         nft('add element bridge origin vlan_mark {{ {nic} : {mark} }}'.format(nic=nic_name, mark = mark))
-        
-                        # configure captive portal if access control is enabled
-                        new_vlan['http_port'] = 20000 + local_index * 2
-                        new_vlan['https_port'] = 20000 + local_index * 2 + 1
-                        for protocol in ['ip', 'ip6']:
-                            if new_vlan['web_authentication'] or new_vlan['guest_access']:
-                                nft("add element {protocol} origin captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
-                            else:
-                                nft("delete element {protocol} origin captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = mark))
-        
-                        # configure DHCP passthrough
-                        if new_vlan['dhcp_passthrough_bridge']:
-                            nic_out = new_vlan['dhcp_passthrough_interface']
-                            if new_vlan['dhcp_passthrough_vlan_id']:
-                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
-                            new_vlan['dhcp_passthrough_ifname'] = nic_out
-                            nft('add element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
-                        elif nic_name in self.vlans and 'dhcp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dhcp_passthrough_ifname']:
-                            nft('delete element bridge origin dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
-                            
-                        # configure DNS passthrough
-                        if new_vlan['dns_passthrough_bridge']:
-                            nic_out = new_vlan['dns_passthrough_interface']
-                            if new_vlan['dns_passthrough_vlan_id']:
-                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
-                            new_vlan['dns_passthrough_ifname'] = nic_out
-                            nft('add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
-                        elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
-                            nft('delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
-    
-                        # configure ARP/NDP passthrough
-                        if new_vlan['ndp_passthrough_bridge']:
-                            nic_out = new_vlan['ndp_passthrough_interface']
-                            if new_vlan['ndp_passthrough_vlan_id']:
-                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['ndp_passthrough_vlan_id'])
-                            new_vlan['ndp_passthrough_ifname'] = nic_out
-                            nft('add element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
-                        elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
-                            nft('delete element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
-    
-                        if new_vlan['log']:
-                            nft('add element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
-                        else:
-                            nft('delete element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
-        
-                        if new_vlan['ids']:
-                            nft('add element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
-                        else:
-                            nft('delete element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
-    
                     else:
                         nft('delete element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
+        
+                    # configure captive portal
+                    new_vlan['http_port'] = 20000 + local_index * 2
+                    new_vlan['https_port'] = 20000 + local_index * 2 + 1
+                    for protocol in ['ip', 'ip6']:
+                        if new_vlan['web_authentication'] or new_vlan['guest_access']:
+                            nft("add element {protocol} origin captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
+                        else:
+                            nft("delete element {protocol} origin captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = mark))
+    
+                    # configure DHCP passthrough
+                    if new_vlan['dhcp_passthrough_bridge']:
+                        nic_out = new_vlan['dhcp_passthrough_interface']
+                        if new_vlan['dhcp_passthrough_vlan_id']:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
+                        new_vlan['dhcp_passthrough_ifname'] = nic_out
+                        nft('add element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
+                    elif nic_name in self.vlans and 'dhcp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dhcp_passthrough_ifname']:
+                        nft('delete element bridge origin dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
+                        
+                    # configure DNS passthrough
+                    if new_vlan['dns_passthrough_bridge']:
+                        nic_out = new_vlan['dns_passthrough_interface']
+                        if new_vlan['dns_passthrough_vlan_id']:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
+                        new_vlan['dns_passthrough_ifname'] = nic_out
+                        nft('add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                    elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
+                        nft('delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
+
+                    # configure ARP/NDP passthrough
+                    if new_vlan['ndp_passthrough_bridge']:
+                        nic_out = new_vlan['ndp_passthrough_interface']
+                        if new_vlan['ndp_passthrough_vlan_id']:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['ndp_passthrough_vlan_id'])
+                        new_vlan['ndp_passthrough_ifname'] = nic_out
+                        nft('add element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                    elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
+                        nft('delete element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
+
+                    # Configure connection tracking
+                    if new_vlan['log']:
+                        nft('add element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+                    else:
+                        nft('delete element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+    
+                    # Configure IDS
+                    if new_vlan['ids']:
+                        nft('add element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+                    else:
+                        nft('delete element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+    
                 
             # VLANs to delete
             for nic_name in set(self.vlans.keys()) - set(new_vlans.keys()):
