@@ -74,18 +74,8 @@ async def find_port(request):
                 # if switch not found, nothing we can do
                 return
     
-    found_ports = {} # by method (mac, ssid, nas_port_id, etc....)
+    result = {}
     
-    called_station_id = extract_mac(request.get('Called-Station-Id', None))
-    found_ports['mac'] = set()
-    if called_station_id:
-        for port in switch[u'ports']:
-            if port[u'mac'] == called_station_id:
-                found_ports['mac'].add(port[u'interface'])
-        if len(found_ports['mac']) == 1:
-            port_interface = list(found_ports['mac'])[0]
-            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
-
     # Try to find SSID
     ssid = None
     for k,v in request.items():
@@ -101,6 +91,21 @@ async def find_port(request):
     if not ssid:
         # try from called Station ID
         ssid = extract_ssid(request.get('Called-Station-Id', None))
+    if ssid:
+        result['ssid'] = ssid
+
+    found_ports = {} # by method (mac, ssid, nas_port_id, etc....)
+    
+    called_station_id = extract_mac(request.get('Called-Station-Id', None))
+    found_ports['mac'] = set()
+    if called_station_id:
+        for port in switch[u'ports']:
+            if port[u'mac'] == called_station_id:
+                found_ports['mac'].add(port[u'interface'])
+        if len(found_ports['mac']) == 1:
+            port_interface = list(found_ports['mac'])[0]
+            result.update(local_id=str(switch[u'local_id']), interface=str(port_interface) )
+            return result 
 
     found_ports['ssid'] = set()
     if ssid:
@@ -110,8 +115,8 @@ async def find_port(request):
                     found_ports['ssid'].add(port[u'interface'])
                     break
         if len(found_ports['ssid']) == 1:
-            port_interface = list(found_ports['ssid'])[0]
-            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
+            result.update(local_id=str(switch[u'local_id']), interface=str(port_interface) )
+            return result 
         
 
 
@@ -124,10 +129,11 @@ async def find_port(request):
                 found_ports['nas_port_id'].add(port[u'interface'])
         if len(found_ports['nas_port_id']) == 1:
             port_interface = list(found_ports['nas_port_id'])[0]
-            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) } 
+            result.update(local_id=str(switch[u'local_id']), interface=str(port_interface) )
+            return result 
     
     
-    # If still, try nasport to ifindex
+    # If still not found, try nasport to ifindex
     nas_port = request.get('NAS-Port', None)
     found_ports['nas_port'] = set()
     if nas_port:
@@ -140,7 +146,8 @@ async def find_port(request):
                 found_ports['nas_port'].add(port['interface'])
         if len(found_ports['nas_port']) == 1:
             port_interface = list(found_ports['nas_port'])[0]
-            return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
+            result.update(local_id=str(switch[u'local_id']), interface=str(port_interface) )
+            return result 
         
     # TODO: Try to use forward mac table (fw_mac) to find on what port mac is on... ( save that to cache but do not notify CC at each change....)
 #     if switch_polled:
@@ -160,7 +167,8 @@ async def find_port(request):
             intersection &= found_ports[method]
     if len(intersection) == 1:
         port_interface = intersection[0]
-        return { 'local_id': str(switch[u'local_id']), 'interface': str(port_interface) }
+        result.update(local_id=str(switch[u'local_id']), interface=str(port_interface) )
+        return result 
     
     # port not found...
     InternalEvent(source='radius')\
@@ -172,7 +180,8 @@ async def find_port(request):
         .notify()
         # sets are not JSON serializable
 
-    return { 'local_id': str(switch[u'local_id']), 'interface': None }
+    result.update(local_id=str(switch[u'local_id']), interface=None )
+    return result 
 
 
 class NotAuthorized(Exception):
