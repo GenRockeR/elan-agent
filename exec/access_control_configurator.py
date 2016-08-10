@@ -17,22 +17,8 @@ class AccessControlConfigurator():
         self.agent_path = None
         self.vlans_path = None
         
-        self.active = None
         self.vlans = {} # vlans by Vlan-ID
         
-    def new_agent_conf(self, conf, path):
-        if conf['access_control'] != self.active:
-            self.active = conf['access_control']
-            if conf['access_control']:
-                # enable Access Control
-                cmd = "nft flush chain bridge origin global_ac;"
-            else:
-                # disable Access Control
-                cmd = "nft insert rule bridge origin global_ac accept;"
-
-            subprocess.call(cmd, shell=True)
-
-
     def new_vlan_conf(self, conf):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
         new_vlans = {}
@@ -210,8 +196,7 @@ if __name__ == "__main__":
                 break
     configurator.new_vlan_conf(vlans)
     
-    # wait for changes
-    dendrite.subscribe_conf('agent', cb=configurator.new_agent_conf)
     dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
 
+    # wait for changes
     dendrite.wait_complete()

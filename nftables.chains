@@ -8,10 +8,6 @@ define portal_ip6 = 2001:41d0:2:ba47::1000:1010
 flush table bridge origin
 
 table bridge origin {
-  chain global_ac {
-    accept
-  }
-
   chain access_control_in {
 
     ether saddr . iif @mac_on_vlan accept
@@ -21,8 +17,6 @@ table bridge origin {
 
   chain prerouting { 
     type filter hook prerouting priority -160;
-
-    jump global_ac
 
 	tcp dport { http, https } ip  saddr . tcp sport . ip  daddr . tcp dport @ip_conn2mark  mark set iif map @vlan_mark accept
 	tcp dport { http, https } ip6 saddr . tcp sport . ip6 daddr . tcp dport @ip6_conn2mark mark set iif map @vlan_mark accept
@@ -68,8 +62,6 @@ table bridge origin {
 
   chain forward { 
     type filter hook forward priority -200;
-
-    jump global_ac
 
     oif @ac_ifs jump access_control_forward
     iif @ac_ifs jump access_control_forward
