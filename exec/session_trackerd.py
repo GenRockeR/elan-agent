@@ -49,7 +49,7 @@ def arpPing(mac, vlan, ip):
             packet = packet / Dot1Q(vlan=vlan_id)
 
     src_ip = get_ip4_address('br0')['address']
-    packet = packet / ARP(psrc=src_ip, pdst=ip)
+    packet = packet / ARP(hwsrc=src_mac, psrc=src_ip, hwdst=mac, pdst=ip)
 
     sendp(packet, iface=if_name)
 
