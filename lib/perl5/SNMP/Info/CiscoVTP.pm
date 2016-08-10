@@ -41,7 +41,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION %MIBS %FUNCS %GLOBALS %MUNGE/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 %MIBS = (
     'CISCO-VTP-MIB'                       => 'vtpVlanName',
@@ -246,6 +246,7 @@ sub i_vlan_membership {
     foreach my $port ( keys %$i_voice_vlan ) {
         my $vlan = $i_voice_vlan->{$port};
         next unless defined $vlan;
+        next unless ($vlan =~ m/[[:digit:]]+/ and $vlan < 4095);
         my $dyn = $trunk_dyn->{$port};
         unless ($dyn and (($dyn eq 'on') or ($dyn eq 'onNoNegotiate'))) {
             push( @{ $i_vlan_membership->{$port} }, $vlan );

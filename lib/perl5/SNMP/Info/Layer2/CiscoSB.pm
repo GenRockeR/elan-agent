@@ -50,11 +50,7 @@ use SNMP::Info::CDP;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.26';
-
-# This will be filled in with the device's index into the EntPhysicalEntry
-# table by the serial() function.
-our $index = undef;
+$VERSION = '3.33';
 
 %GLOBALS = (
     %SNMP::Info::Layer2::GLOBALS,
@@ -98,6 +94,10 @@ sub vendor {
     return 'cisco';
 }
 
+sub os {
+    return 'ros';
+}
+
 # Walk the entPhysicalSerialNum table and return the first serial found
 sub serial {
     my $ciscosb  = shift;
@@ -113,20 +113,26 @@ sub serial {
 
 sub os_ver {
     my $ciscosb = shift;
-    my $os_ver  = $ciscosb->e_swver();
+    my $e_swver  = $ciscosb->e_swver();
 
-    return $os_ver->{$index} if defined $index;
+    foreach my $e ( sort keys %$e_swver ) {
+        if (defined $e_swver->{$e} and $e_swver->{$e} !~ /^\s*$/) {
+            return $e_swver->{$e};
+        }
+    }
 }
-  
+
 # Grab e_model from Entity and tag on e_hwver
 sub model {
     my $ciscosb = shift;
-    my $e_model   = $ciscosb->e_model();
+    my $e_model = $ciscosb->e_model();
     my $e_hwver = $ciscosb->e_hwver();
 
-    if (defined ($index)) {
-        my $model = "$e_model->{$index} $e_hwver->{$index}";
-        return $model;
+    foreach my $e ( sort keys %$e_model ) {
+        if (defined $e_model->{$e} and $e_model->{$e} !~ /^\s*$/) {
+            my $model = "$e_model->{$e} $e_hwver->{$e}";
+            return $model;
+        }
     }
     return $ciscosb->description();
 }
@@ -156,14 +162,14 @@ Nic Bernstein (shamelessly stolen from Max Baker's Aironet code)
 
 =head1 SYNOPSIS
 
- # Let SNMP::Info determine the correct subclass for you. 
+ # Let SNMP::Info determine the correct subclass for you.
  my $ciscosb = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
                           DestHost    => 'myswitch',
                           Community   => 'public',
                           Version     => 2
-                        ) 
+                        )
     or die "Can't connect to DestHost.\n";
 
  my $class      = $ciscosb->class();
@@ -209,6 +215,10 @@ These are methods that return scalar value from SNMP
 =item $ciscosb->vendor()
 
 Returns 'cisco'
+
+=item $ciscosb->os()
+
+Returns 'ros'
 
 =item $ciscosb->os_ver()
 

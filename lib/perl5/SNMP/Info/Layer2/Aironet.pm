@@ -49,7 +49,7 @@ use SNMP::Info::IEEE802dot11;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 %GLOBALS = (
     %SNMP::Info::IEEE802dot11::GLOBALS,
@@ -60,7 +60,8 @@ $VERSION = '3.26';
     %SNMP::Info::CiscoConfig::GLOBALS,
     %SNMP::Info::CDP::GLOBALS,
     'serial' => 'entPhysicalSerialNum.1',
-    'descr'  => 'sysDescr'
+    'descr'  => 'sysDescr',
+    'ps1_type' => 'cpoePdCurrentPowerSource'
 );
 
 %FUNCS = (
@@ -97,6 +98,7 @@ $VERSION = '3.26';
     'CISCO-DOT11-ASSOCIATION-MIB'         => 'cDot11ClientSubIfIndex',
     'CISCO-DOT11-SSID-SECURITY-MIB'       => 'cdot11SecVlanNameId',
     'CISCO-VLAN-IFTABLE-RELATIONSHIP-MIB' => 'cviRoutedVlanIfIndex',
+    'CISCO-POE-PD-MIB'                    => 'cpoePdCurrentPowerSource',
 );
 
 %MUNGE = (
@@ -457,6 +459,18 @@ sub i_ssidmac {
     return $i_ssidmac;
 }
 
+###
+# PoE status.  The ps1_type is the PoE injector type, which is just
+# a scalar; the status is a little more complex.
+sub ps1_status {
+    my $aironet = shift;
+    my $idx = $aironet->cpoePdCurrentPowerLevel();
+    my $mw = $aironet->cpoePdSupportedPower( $idx );
+    my $descr = $aironet->cpoePdSupportedPowerMode( $idx );
+
+    return sprintf( "%.2fW (%s)", $mw->{$idx} * 0.001, $descr->{$idx} );
+}
+
 1;
 __END__
 
@@ -540,17 +554,13 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $aironet->discription()
-
-Adds info from method e_descr() from SNMP::Info::Entity
-
 =item $aironet->vendor()
 
 Returns 'cisco'
 
 =item $aironet->description()
 
-System description
+System description. Adds info from method e_descr() from SNMP::Info::Entity
 
 =back
 
@@ -647,6 +657,11 @@ being broadcast.
 
 With the same keys as i_ssidlist, returns the Basic service set
 identification (BSSID), MAC address, the AP is using for the SSID. 
+
+=item $aironet ps1_status()
+
+Returns the PoE injector status based on C<cpoePdSupportedPower> and 
+C<cpoePdSupportedPowerMode>.
 
 =back
 

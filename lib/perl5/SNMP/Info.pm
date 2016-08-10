@@ -24,7 +24,7 @@ use vars
     qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE $AUTOLOAD $INIT $DEBUG %SPEED_MAP
     $NOSUCH $BIGINT $REPEATERS/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 =head1 NAME
 
@@ -32,7 +32,7 @@ SNMP::Info - OO Interface to Network devices and MIBs through SNMP
 
 =head1 VERSION
 
-SNMP::Info - Version 3.26
+SNMP::Info - Version 3.33
 
 =head1 AUTHOR
 
@@ -47,7 +47,9 @@ by Max Baker.
 
 =head1 DEVICES SUPPORTED
 
-See L<http://netdisco.org/doc/DeviceMatrix.html> or L<DeviceMatrix.txt> for more details.
+There are now generic classes for most types of device and so the authors
+recommend loading SNMP::Info with AutoSpecify, and then reporting to the mail
+list any missing functionality (such as neighbor discovery tables).
 
 =head1 SYNOPSIS
 
@@ -168,7 +170,7 @@ install by hand.
 SNMP::Info operates on textual descriptors found in MIBs.
 
 If you are using SNMP::Info separate from Netdisco, 
-download the Netdisco MIB package at L<http://sourceforge.net/project/showfiles.php?group_id=80033&package_id=135517>
+download the Netdisco MIB package at L<http://sourceforge.net/projects/netdisco/files/netdisco-mibs/latest-snapshot/>
 
 Make sure that your snmp.conf is updated to point to your MIB directory
 and that the MIBs are world-readable.
@@ -809,6 +811,12 @@ Original Equipment Manufacturer (OEM) such as the HP ProCurve 9300 and 6300 seri
 
 See documentation in L<SNMP::Info::Layer3::HP9300> for details.
 
+=item SNMP::Info::Layer3::Huawei
+
+SNMP Interface to Huawei Layer 3 switches and routers.
+
+See documentation in L<SNMP::Info::Layer3::Huawei> for details.
+
 =item SNMP::Info::Layer3::IBMGbTor
 
 SNMP Interface to IBM Rackswitch (formerly Blade Network Technologies)
@@ -870,6 +878,12 @@ Subclass for PacketFront DRG series CPE.
 
 See documentation in L<SNMP::Info::Layer3::PacketFront> for details.
 
+=item SNMP::Info::Layer3::PaloAlto
+
+Subclass for Palo Alto firewalls.
+
+See documentation in L<SNMP::Info::Layer3::PaloAlto> for details.
+
 =item SNMP::Info::Layer3::Passport
 
 Subclass for Avaya/Nortel Ethernet Routing Switch/Passport 8000 series,
@@ -916,6 +930,12 @@ See documentation in L<SNMP::Info::Layer3::Tasman> for details.
 Alcatel-Lucent SR Class.
 
 See documentation in L<SNMP::Info::Layer3::Timetra> for details.
+
+=item SNMP::Info::Layer3::VMware
+
+Subclass for VMware ESXi hosts.
+
+See documentation in L<SNMP::Info::Layer3::VMware> for details.
 
 =back
 
@@ -1234,16 +1254,13 @@ sub new {
         return;
     }
 
-    # Table function store
-    my $store = {};
-
     # Save Args for later
-    $new_obj->{store}     = $store;
+    $new_obj->{store}     ||= {};
     $new_obj->{sess}      = $sess;
     $new_obj->{args}      = \%args;
-    $new_obj->{snmp_ver}  = $args{Version} || 2;
-    $new_obj->{snmp_comm} = $args{Community} || 'public';
-    $new_obj->{snmp_user} = $args{SecName} || 'initial';
+    $new_obj->{snmp_ver}  = $sess->{Version}   || $args{Version}   || 2;
+    $new_obj->{snmp_comm} = $sess->{Community} || $args{Community} || 'public';
+    $new_obj->{snmp_user} = $sess->{SecName}   || $args{SecName}   || 'initial';
 
     return $auto_specific ? $new_obj->specify() : $new_obj;
 }
@@ -1307,7 +1324,7 @@ sub update {
 =head2 Data is Cached
 
 Methods and subroutines requesting data from a device will only load the data
-once, and then return cached versions of that data. 
+once, and then return cached versions of that data.
 
 Run $info->load_METHOD() where method is something like 'i_name' to reload
 data from a method.
@@ -1315,7 +1332,7 @@ data from a method.
 Run $info->clear_cache() to clear the cache to allow reload of both globals
 and table methods.
 
-The cache can be retreved or set using the $info->cache() method. This works
+The cache can be retrieved or set using the $info->cache() method. This works
 together with the C<Offline> option.
 
 =head2 Object Scalar Methods
@@ -1460,9 +1477,6 @@ SNMP::Info::Layer3 subclasses.
 If the device still can be connected to via SNMP::Info, then 
 SNMP::Info is returned.  
 
-See L<http://netdisco.org/doc/DeviceMatrix.html> or L<DeviceMatrix.txt> for more details
-about device support, or view C<device_type()> in F<Info.pm>.
-
 =cut
 
 sub device_type {
@@ -1505,6 +1519,7 @@ sub device_type {
         1872 => 'SNMP::Info::Layer3::AlteonAD',
         1916 => 'SNMP::Info::Layer3::Extreme',
         1991 => 'SNMP::Info::Layer3::Foundry',
+        2011 => 'SNMP::Info::Layer3::Huawei',
         2021 => 'SNMP::Info::Layer3::NetSNMP',
         2272 => 'SNMP::Info::Layer3::Passport',
         2636 => 'SNMP::Info::Layer3::Juniper',
@@ -1518,6 +1533,7 @@ sub device_type {
         6027 => 'SNMP::Info::Layer3::Force10',
         6486 => 'SNMP::Info::Layer3::AlcatelLucent',
         6527 => 'SNMP::Info::Layer3::Timetra',
+        6876 => 'SNMP::Info::Layer3::VMware',
         8072 => 'SNMP::Info::Layer3::NetSNMP',
         9303 => 'SNMP::Info::Layer3::PacketFront',
         10002 => 'SNMP::Info::Layer2::Ubiquiti',
@@ -1529,9 +1545,11 @@ sub device_type {
         14988 => 'SNMP::Info::Layer3::Mikrotik',
         17163 => 'SNMP::Info::Layer3::Steelhead',
         25506 => 'SNMP::Info::Layer3::H3C',
+        25461 => 'SNMP::Info::Layer3::PaloAlto',
         26543 => 'SNMP::Info::Layer3::IBMGbTor',
         30065 => 'SNMP::Info::Layer3::Arista',
         35098 => 'SNMP::Info::Layer3::Pica8',
+        41112 => 'SNMP::Info::Layer2::Ubiquiti',
     );
 
     my %l2sysoidmap = (
@@ -1545,6 +1563,7 @@ sub device_type {
         1872  => 'SNMP::Info::Layer3::AlteonAD',
         1916  => 'SNMP::Info::Layer3::Extreme',
         1991  => 'SNMP::Info::Layer3::Foundry',
+        2011  => 'SNMP::Info::Layer3::Huawei',
         2272  => 'SNMP::Info::Layer3::Passport',
         2925  => 'SNMP::Info::Layer1::Cyclades',
         3224  => 'SNMP::Info::Layer3::Netscreen',
@@ -1552,6 +1571,7 @@ sub device_type {
         4526  => 'SNMP::Info::Layer2::Netgear',
         5624  => 'SNMP::Info::Layer3::Enterasys',
         6486  => 'SNMP::Info::Layer3::AlcatelLucent',
+        9303  => 'SNMP::Info::Layer3::PacketFront',
         11898 => 'SNMP::Info::Layer2::Orinoco',
         14179 => 'SNMP::Info::Layer2::Airespace',
         14525 => 'SNMP::Info::Layer2::Trapeze',
@@ -1598,6 +1618,9 @@ sub device_type {
             and $desc =~ /\D(CAP340|AP340|CAP350|350|1200)\D/ );
         $objtype = 'SNMP::Info::Layer3::Aironet'
             if ( $desc =~ /Aironet/ and $desc =~ /\D(AP4800)\D/ );
+
+	# Override voice gateway device (VG350) showing up as Aironet
+        $objtype = 'SNMP::Info::Layer3::Cisco' if $desc =~ /VG350/;
 
         # Cat6k with older SUPs (hybrid CatOS/IOS?)
         $objtype = 'SNMP::Info::Layer3::C6500' if $desc =~ /(c6sup2|c6sup1)/;
@@ -3294,6 +3317,7 @@ Makes human friendly speed ratings using %SPEED_MAP
                 '54000000'   => '54 Mbps',
                 '64000000'   => '64 Mbps',
                 '100000000'  => '100 Mbps',
+                '200000000'  => '200 Mbps',
                 '149760000'  => 'ATM on OC-3',
                 '155000000'  => 'OC-3',
                 '155519000'  => 'OC-3',
@@ -3303,6 +3327,7 @@ Makes human friendly speed ratings using %SPEED_MAP
                 '622000000'  => 'OC-12',
                 '622080000'  => 'OC-12',
                 '1000000000' => '1.0 Gbps',
+                '2000000000' => '2.0 Gbps',
                 '2488000000' => 'OC-48',
              )
 
@@ -3339,6 +3364,7 @@ munge_highspeed(). SNMP::Info can return speeds up to terabit levels this way.
     '54000000'   => '54 Mbps',
     '64000000'   => '64 Mbps',
     '100000000'  => '100 Mbps',
+    '200000000'  => '200 Mbps',
     '149760000'  => 'ATM on OC-3',
     '155000000'  => 'OC-3',
     '155519000'  => 'OC-3',
@@ -3348,6 +3374,7 @@ munge_highspeed(). SNMP::Info can return speeds up to terabit levels this way.
     '622000000'  => 'OC-12',
     '622080000'  => 'OC-12',
     '1000000000' => '1.0 Gbps',
+    '2000000000' => '2.0 Gbps',
     '2488000000' => 'OC-48',
 );
 
@@ -3622,7 +3649,8 @@ sub init {
 
     foreach my $d (@$mibdirs) {
         next unless -d $d;
-        print "SNMP::Info::init() - Adding new mibdir:$d\n" if $self->debug();
+        print "SNMP::Info::init() - Adding new mibdir:$d\n"
+          if $self->debug() > 1;
         SNMP::addMibDirs($d);
     }
 
@@ -3782,6 +3810,7 @@ These methods return data as a scalar.
 sub _global {
     my $method = shift;
     my $oid    = shift;
+    return sub {} if $method eq 'CARP_TRACE';
 
     return sub {
         my $self = shift;
@@ -3799,7 +3828,7 @@ sub _global {
         # Return cached data unless loading
         # We now store in raw format so munge before returning
         # unless expecting raw data
-        if ( defined $self->{"_$attr"} && !$load ) {
+        if ( exists $self->{"_$attr"} && !$load ) {
             my $val = $self->{"_$attr"};
 
             if ( !$raw ) {
@@ -4509,6 +4538,11 @@ sub _validate_autoload_method {
         $leaf_name =~ s/_/-/g;
     }
 
+    # skip if offline
+    if ( $self->{Offline} ) {
+        return [1,(exists $self->{store}->{$method} ? 1: 0)];
+    }
+
     # Translate MIB leaf node name to OID
     my $oid = SNMP::translateObj($leaf_name);
 
@@ -4658,7 +4692,7 @@ sub AUTOLOAD {
     # Typos in function calls in SNMP::Info subclasses turn into
     # AUTOLOAD requests for non-methods.  While this is deprecated,
     # we'll still get called, so report a less confusing error.
-    if ( ref($self) !~ /^SNMP::Info/ ) {
+    if ( ref($self) !~ /SNMP::Info/ ) {
 
         # croak reports one level too high.  die reports here.
         # I would really like to get the place that's likely to

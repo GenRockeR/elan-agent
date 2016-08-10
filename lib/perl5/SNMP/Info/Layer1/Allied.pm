@@ -41,7 +41,7 @@ use SNMP::Info::Layer1;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 # Set for No CDP
 %GLOBALS = ( %SNMP::Info::Layer1::GLOBALS, 'root_ip' => 'actualIPAddr', );
@@ -78,7 +78,7 @@ sub model {
 
     my $desc = $allied->description();
 
-    if ( $desc =~ /(AT-\d{4}\S{1}?)/ ) {
+    if ( $desc =~ /(AT-\d{4}\S{1})/ ) {
         return $1;
     }
     return;

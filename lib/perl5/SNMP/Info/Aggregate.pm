@@ -38,7 +38,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION %MIBS %FUNCS %GLOBALS %MUNGE/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 %MIBS = (); # IF-MIB
 
@@ -61,7 +61,7 @@ sub agg_ports_ifstack {
   foreach my $idx ( keys %$ifStack ) {
       my ( $higher, $lower ) = split /\./, $idx;
       next if ( $higher == 0 or $lower == 0 );
-      if ( $ifType->{ $higher } eq 'ieee8023adLag' ) {
+      if ( $ifType->{ $higher } eq 'ieee8023adLag'  or $ifType->{ $higher } eq 'propMultiplexor') {
           $ret->{ $lower } = $higher;
       }
   }

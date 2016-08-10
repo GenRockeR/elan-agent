@@ -37,7 +37,7 @@ use Exporter;
 use SNMP::Info::Layer3;
 use SNMP::Info::MAU;
 use SNMP::Info::CDP;
-use SNMP::Info::Aggregate;
+use SNMP::Info::Aggregate 'agg_ports_ifstack';
 
 @SNMP::Info::Layer2::HP::ISA = qw/
     SNMP::Info::Aggregate
@@ -50,7 +50,7 @@ use SNMP::Info::Aggregate;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %PORTSTAT %MODEL_MAP %MUNGE/;
 
-$VERSION = '3.26';
+$VERSION = '3.33';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
