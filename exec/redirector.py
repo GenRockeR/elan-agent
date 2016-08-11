@@ -15,14 +15,20 @@ class Redirector():
     def start_nft_process(self):
         return subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True)
     
-    def add_redirect(self, src_ip, src_port, dst_ip, dst_port, is_retry=False):
+    def do_redirect(self, src_ip, src_port, dst_ip, dst_port, action, is_retry=False):
         if ':' in src_ip:
             family = 'ip6'
         else:
             family = 'ip'
+            
+        if action == 'add':
+            cmd = 'add'
+        else:
+            cmd = 'delete'
 
         try:
-            print(  'add element bridge origin {family}_conn2mark {{ {src_ip} . {src_port} . {dst_ip} . {dst_port} }}'.format(
+            print(  '{cmd} element bridge origin {family}_conn2mark {{ {src_ip} . {src_port} . {dst_ip} . {dst_port} }}'.format(
+                                        cmd = cmd,
                                         family = family,
                                         src_ip   = src_ip,
                                         src_port = src_port,
@@ -37,25 +43,25 @@ class Redirector():
                 raise
             # try launching again the nft process
             self.nft_process = self.start_nft_process()
-            self.add_redirect(src_ip, src_port, dst_ip, dst_port, is_retry=True)
+            self.do_redirect(src_ip, src_port, dst_ip, dst_port, action, is_retry=True)
     
     def run(self):
         self.listen_packets()
     
     def listen_packets(self):
-        nflog = origin.libnflog_cffi.NFLOG().generator(REDIRECTOR_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr'], nlbufsiz=2**24, handle_overflows = False)
+        nflog = origin.libnflog_cffi.NFLOG().generator(REDIRECTOR_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
         next(nflog)
         
-        for pkt, hwhdr in nflog:
-            self.process_packet(hwhdr+pkt)
+        for pkt, hwhdr, action in nflog:
+            self.process_packet(hwhdr+pkt, action)
     
-    def process_packet(self, packet):
+    def process_packet(self, packet, action):
         try:
             eth_obj = Ether(packet)
             ip_obj = eth_obj.payload
             tcp_obj = ip_obj.payload
             
-            self.add_redirect(ip_obj.src, tcp_obj.sport, ip_obj.dst, tcp_obj.dport)
+            self.do_redirect(ip_obj.src, tcp_obj.sport, ip_obj.dst, tcp_obj.dport, action)
             
             
             # TODO : reinject the packet instead of waiting for client retry
