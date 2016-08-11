@@ -1,4 +1,4 @@
-Origin Nexus Guest Access Request
+Easy LAN Guest Access Request
 -----------------------------------
 
 {# it is text so it should be safe to disable escaping for input entered by guest: this avoids escaping single quotes #}
