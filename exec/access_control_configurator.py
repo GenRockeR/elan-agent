@@ -76,10 +76,7 @@ class AccessControlConfigurator():
                     new_vlan['http_port'] = 20000 + local_index * 2
                     new_vlan['https_port'] = 20000 + local_index * 2 + 1
                     for protocol in ['ip', 'ip6']:
-                        if new_vlan['web_authentication'] or new_vlan['guest_access']:
-                            nft("add element {protocol} origin captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
-                        else:
-                            nft("delete element {protocol} origin captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = mark))
+                        nft("add element {protocol} origin captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
     
                     # configure DHCP passthrough
                     if new_vlan['dhcp_passthrough_bridge']:

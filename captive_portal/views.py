@@ -18,6 +18,8 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 import time
 
+from origin import session
+
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
 
 
@@ -57,8 +59,10 @@ def redirect2status(request):
 @requirePortalURL
 @never_cache
 def status(request):
-    if 'vlan_id' in request.META:
-        # VlanID present, means it has been redirected, so MAC is not allowed on VLAN
+    clientIP = request.META['REMOTE_ADDR']
+    clientMAC = ip4_to_mac(clientIP)
+    
+    if not is_authenticated(clientMAC):
         return redirect('login')
     
     # if looking for edgeagent, redirect to it... 
@@ -75,6 +79,9 @@ def status(request):
     
     return render(request, 'captive-portal/status.html', context)
 
+def is_authenticated(mac):
+    return bool(session.get_authentication_sessions(mac, source ='captive-portal-web') or session.get_authentication_sessions(mac, source ='captive-portal-guest'))
+
 @requirePortalURL
 def login(request, context=None):
     if context is None:
@@ -83,21 +90,22 @@ def login(request, context=None):
     clientIP = request.META['REMOTE_ADDR']
     clientMAC = ip4_to_mac(clientIP)
     
-    if 'vlan_id' not in request.META:
+    
+    if is_authenticated(clientMAC):
         # VlanID not present, means it has been not been redirected, so MAC is allowed on VLAN (maybe not from web or captive portal)
         return redirect('status')
 
-    
-    web_authentication = request.META['web_authentication']
-    default_context = { 
-              'guest_access_pending': is_authz_pending(clientMAC),
-              'web_authentication': web_authentication,
-    }
-    guest_access_id = request.META['guest_access']
-    if guest_access_id:
-        default_context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(guest_access_id))
+    default_context = {}
+    if 'web_authentication' in request.META: 
+        default_context[ 'web_authentication'] = request.META['web_authentication']
+
+    if 'guest_access' in request.META:
+        default_context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
         if default_context['guest_access']:
-            default_context.update(guest_registration_fields = default_context['guest_access']['registration_fields'])
+            default_context.update(
+                        guest_registration_fields = default_context['guest_access']['registration_fields'],
+                        guest_access_pending = is_authz_pending(clientMAC)
+            )
 
     for key in default_context:
         if key not in context:
@@ -116,18 +124,24 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context )
     
     context['username'] = username
-    if not pwd_authenticate(web_authentication, username, password, source='captive-portal-web'):
+    if 'web_authentication' not in request.META or not pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
         context['error_message'] = _("Invalid username or password.")
         return render(request, 'captive-portal/login.html', context)
 
+    vlan = '{interface}.{id}'.format(interface=request.META['interface'], id=request.META['vlan_id'])
     # start session
     # TODO: use effective auth_provider, this one could be a group
-    authz = nac.newAuthz(clientMAC, source='captive-portal-web', till_disconnect=True, login=username, authentication_provider=web_authentication)
-    if not authz:
+    authz = nac.newAuthz(clientMAC, source='captive-portal-web', till_disconnect=True,
+                         login=username, authentication_provider=request.META['web_authentication'], 
+                         vlan=vlan
+    )
+    # TODO: if vlan incorrect, try to change it
+    if not authz or vlan not in authz.allow_on:
         # log no assignment rule matched....
-        event = Event( event_type='device-not-authorized', source='captive-portal-web')
+        event = Event('device-not-authorized', source='captive-portal-web', level='danger')
         event.add_data('mac', clientMAC, 'mac')
-        event.add_data('authentication_provider', web_authentication, 'authentication')
+        event.add_data('vlan', vlan)
+        event.add_data('authentication_provider', request.META['web_authentication'], 'authentication')
         event.add_data('login', username)
         event.notify()
     
@@ -181,13 +195,14 @@ def get_request_form(guest_registration_fields, guest_access_conf, data=None):
 
 @requirePortalURL
 def guest_access(request):
-    if request.method != 'POST' or 'vlan_id' not in request.META: # No Vlan_id -> not redirected so allowed....
+    clientIP = request.META['REMOTE_ADDR']
+    clientMAC = ip4_to_mac(clientIP)
+
+    if request.method != 'POST' or is_authenticated(clientMAC):
         return redirect('login')
     
     vlan_id = request.META['vlan_id']
     guest_access = int(request.META['guest_access']) 
-    clientIP = request.META['REMOTE_ADDR']
-    clientMAC = ip4_to_mac(clientIP)
     synapse = Synapse()
 
     # Guest access fields
@@ -206,9 +221,8 @@ def guest_access(request):
                                          position=field['position']
             ) )
         
-        guest_request['id'] = submit_guest_request(guest_request)
-
-        if guest_request['id']:
+        try:
+            guest_request['id'] = submit_guest_request(guest_request)
             if guest_access_conf['type'] == 'sponsored':
                 # send mail
                 html_template = loader.get_template('captive-portal/guest-request-email.html')
@@ -235,7 +249,7 @@ def guest_access(request):
             
             
             return redirect('status')
-        else:
+        except:
             # No ID 
             if 'non_field_errors' not in form.errors:
                 form.errors['non_field_errors'] = []

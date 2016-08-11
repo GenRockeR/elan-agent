@@ -217,10 +217,18 @@ def add_authentication_session(mac, **session):
     
     synapse.sadd(MAC_AUTH_SESSION_PATH.format(mac=mac), session)
 
-def get_authentication_sessions(mac):
+def get_authentication_sessions(mac, **filters):
     # cleanup
     remove_expired_authentication_session(mac)
-    return synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
+    authentications = synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac))
+    filtered =[]
+    for auth in authentications:
+        for key in filters:
+            if auth.get(key, None) != filters[key]:
+                break
+        else:
+            filtered.append(auth)
+    return filtered
 
 def source_in_authentication_sessions(mac, source):
     for session in synapse.smembers_as_list(MAC_AUTH_SESSION_PATH.format(mac=mac)):

@@ -9,10 +9,10 @@
     {% trans 'A Guest Access request is pending authorization.' %}
   </div>
   {% endif %}
-  {% if guest_access_forms.errors.non_field_errors %}
+  {% if guest_request_form.errors.non_field_errors %}
   <div class="alert alert-danger">
     <ul>
-      {% for msg in guest_access_forms.errors.non_field_errors %}
+      {% for msg in guest_request_form.errors.non_field_errors %}
       <li>{{ msg }}</li>
       {% endfor %}
     </ul>

@@ -53,10 +53,7 @@ server {
 }
 
 % for index in vlans:
-  % if vlans[index].get('access_control', False):
-
 server {
-
     listen 0.0.0.0:${vlans[index]['http_port']};
     listen 0.0.0.0:${vlans[index]['https_port']} ssl;
     listen [::]:${vlans[index]['http_port']};
@@ -79,10 +76,14 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
-      uwsgi_param "vlan_id" "${vlans[index].get('vlan_id', 0)}";
-      uwsgi_param "web_authentication" "${vlans[index].get('web_authentication', '')}";
-      uwsgi_param "guest_access" "${vlans[index].get('guest_access', '')}";
+      uwsgi_param "vlan_id" "${vlans[index]['vlan_id']}";
+      uwsgi_param "interface" "${vlans[index]['interface']}";
+      % if vlans[index]['web_authentication']:
+      uwsgi_param "web_authentication" "${vlans[index]['web_authentication']}";
+      % endif
+      % if vlans[index]['guest_access']:
+      uwsgi_param "guest_access" "${vlans[index]['guest_access']}";
+      % endif
     }
 }
-  % endif
 % endfor

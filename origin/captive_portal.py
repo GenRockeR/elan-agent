@@ -1,4 +1,4 @@
-from origin.neuron import Synapse
+from origin.neuron import Synapse, Dendrite
 from origin import nac, session
 import datetime
 
@@ -16,30 +16,31 @@ CAPTIVE_PORTAL_FQDN_IP = '8.8.8.9'
 CAPTIVE_PORTAL_FQDN_IP6 = '2001:41d0:2:ba47::1000:1010'
 
 
+dendrite = Dendrite()
+synapse = Synapse()
+
 def submit_guest_request(request):
     ''' submits sponsored guest access request and return ID of request'''
-    d = GuestAccessManager()
-    r = d.call('guest-request', request)
-    if r:
-        request_id = r['id']
-        
-        d.synapse.sadd(PENDING_GUEST_REQUESTS_PATH,request['mac'])
-        
-        return request_id
+    r = dendrite.call('authentication/guest-request', request)
+    request_id = r['id']
+    
+    synapse.sadd(PENDING_GUEST_REQUESTS_PATH,request['mac'])
+    
+    return request_id
 
 def is_authz_pending(mac):
-    return Synapse().sismember(PENDING_GUEST_REQUESTS_PATH, mac)
+    return synapse.sismember(PENDING_GUEST_REQUESTS_PATH, mac)
 
 class Administrator:
     ADMINISTRATOR_CONF_PATH = 'conf:administrator'
-    synapse = Synapse()
+
     @classmethod
     def count(cls):
-        return cls.synapse.hlen(cls.ADMINISTRATOR_CONF_PATH)
+        return synapse.hlen(cls.ADMINISTRATOR_CONF_PATH)
     
     @classmethod
     def get(cls, login):
-        params = cls.synapse.hget(cls.ADMINISTRATOR_CONF_PATH, login)
+        params = synapse.hget(cls.ADMINISTRATOR_CONF_PATH, login)
         if not params:
             return None
         return cls(login=login, **params)
@@ -48,13 +49,13 @@ class Administrator:
     def add(cls, **kwargs):
         if 'login' in kwargs and 'password' in kwargs:
             login = kwargs.pop('login')
-            cls.synapse.hset(cls.ADMINISTRATOR_CONF_PATH, login, kwargs)
+            synapse.hset(cls.ADMINISTRATOR_CONF_PATH, login, kwargs)
             return True
         return False
 
     @classmethod
     def delete_all(cls):
-        cls.synapse.delete(cls.ADMINISTRATOR_CONF_PATH)
+        synapse.delete(cls.ADMINISTRATOR_CONF_PATH)
 
 
     def __init__(self, login, password, **kwargs):
@@ -71,7 +72,7 @@ class GuestAccessManager():
     MAC_AUTHS_PATH = 'guest-access:auth:mac'
     def __init__(self):
 
-        self.synapse = Synapse()
+        self.synapse = synapse
     
     def new_authorizations(self, authorizations):
         # Here we get only valid authz/authentications

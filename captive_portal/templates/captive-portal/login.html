@@ -64,6 +64,18 @@
         </div>
       </div>
       {% endif %}
+
+      {% if not web_authentication and not guest_access %}
+      <div class="col-sm-12">
+        <div class="alert alert-danger" role="alert">
+            <h1 class="clearfix text-center">
+                <span class="fa fa-2x fa-warning pull-left" aria-hidden="true"></span>
+                <span class="fa fa-2x fa-warning pull-right" aria-hidden="true"></span>
+                {% trans "You are not authorized to access this resource" %}
+            </h1>
+        </div>
+      </div>
+      {% endif %}
       
     </div>
   </div>
