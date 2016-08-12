@@ -158,8 +158,11 @@ def physical_ifaces():
     
     return ifaces
 
-def manage_service(action, service, no_block=False):        
-    args = ['systemctl']
+def manage_service(action, service, no_block=False, sudo=False):        
+    args = []
+    if sudo:
+        args.append('sudo')
+    args.append('systemctl')
     if no_block:
         args.append('--no-block')
     args.append(action)
@@ -167,15 +170,15 @@ def manage_service(action, service, no_block=False):
     
     subprocess.run(args)
 
-def start_service(service, no_block=False):
-    manage_service('start', service, no_block)
+def start_service(service, no_block=False, sudo=False):
+    manage_service('start', service, no_block, sudo)
 
-def stop_service(service, no_block=False):
-    manage_service('stop', service, no_block)
+def stop_service(service, no_block=False, sudo=False):
+    manage_service('stop', service, no_block, sudo)
 
-def reload_service(service, no_block=False):
-    manage_service('reload', service, no_block)
+def reload_service(service, no_block=False, sudo=False):
+    manage_service('reload', service, no_block, sudo)
 
-def restart_service(service, no_block=False):
-    manage_service('restart', service, no_block)
+def restart_service(service, no_block=False, sudo=False):
+    manage_service('restart', service, no_block, sudo)
 

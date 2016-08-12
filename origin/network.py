@@ -27,9 +27,9 @@ class NetworkConfiguration:
         self.synapse.set(self.IPv6_CONF_PATH, self.ipv6)
         
     def apply_configuration(self):
-        stop_service('nac-network') # bring down br0 with old config to deconfigure it properly (DHCP release...)
+        stop_service('nac-network', sudo=True) # bring down br0 with old config to deconfigure it properly (DHCP release...)
         self.generate_configuration_files()
-        start_service('nac-network', no_block=True)
+        start_service('nac-network', no_block=True, sudo=True)
     
     def generate_configuration_files(self):
         template = Template(filename=self.configuration_template)
@@ -50,5 +50,5 @@ class NetworkConfiguration:
     
     @classmethod
     def reload(cls):
-        restart_service('nac-network', no_block=True)
+        restart_service('nac-network', no_block=True, sudo=True)
         
