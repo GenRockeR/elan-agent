@@ -356,6 +356,9 @@ rest auth_all_providers_failed_in_group {
                     # also notify that we provide this auth
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
                     new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
+                else:
+                    auth['join_failed'] = True 
+                    
             elif auth['type'] == 'group':
                 # Take care of groups, that can be nested:
                 inner_switch_server_conf +=  '''

@@ -1,0 +1,2 @@
+freerad ALL = NOPASSWD: /usr/bin/ntlm_auth
+

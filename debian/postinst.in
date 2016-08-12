@@ -49,6 +49,13 @@ update-rc.d -f nftables remove
 ifdown -a --ignore-errors --exclude=lo
 cat /origin/network/interface.lo > /etc/network/interfaces
 chown www-data /etc/network/interfaces.d/ea-network
+
+
+if ! grep -q 'SASL_NOCANON on' /etc/ldap/ldap.conf
+then
+    echo 'SASL_NOCANON on' >> /etc/ldap/ldap.conf
+fi
+
 #DEBHELPER#
 
 exit 0

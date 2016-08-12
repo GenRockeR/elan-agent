@@ -59,6 +59,8 @@ authentication-freeradius:
 authentication-samba:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication
 	install -m 644 smb.conf ${DESTDIR}${ORIGIN_PREFIX}/authentication/smb.conf
+	install -d ${DESTDIR}/etc/sudoers.d
+	install -m 440 authentication.sudoers ${DESTDIR}/etc/sudoers.d/authentication
 
 .PHONY: captive-portal-install
 captive-portal-install: captive-portal-conf captive-portal-www captive-portal-python
