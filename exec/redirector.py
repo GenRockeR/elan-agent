@@ -53,7 +53,7 @@ class Redirector():
         next(nflog)
         
         for pkt, hwhdr, action in nflog:
-            self.process_packet(hwhdr+pkt, action)
+            self.process_packet(hwhdr+pkt, action.decode())
     
     def process_packet(self, packet, action):
         try:
