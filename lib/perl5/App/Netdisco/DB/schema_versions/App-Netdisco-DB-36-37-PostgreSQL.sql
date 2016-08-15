@@ -1,5 +1,0 @@
-BEGIN;
-
-ALTER TABLE oui ADD COLUMN abbrev text;
-
-COMMIT;

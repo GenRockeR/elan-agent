@@ -1,5 +1,0 @@
-BEGIN;
-
-ALTER TABLE node_ip ADD COLUMN dns text;
-
-COMMIT;

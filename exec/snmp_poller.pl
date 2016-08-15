@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Switch;
-use App::Netdisco::Util::SNMP;
+use Origin::SNMP;
 use Encode;
 use Redis;
 use JSON;
@@ -120,7 +120,7 @@ sub _snmp_poll {
   
   my $device = new Origin::NetdiscoDevice($device_ip);
   
-  my $s = App::Netdisco::Util::SNMP::_try_connect($device, $params->{class}, $params->{credentials}, 'read', \%snmp_args, 1);
+  my $s = Origin::SNMP::try_connect($device, $params->{class}, $params->{credentials}, 'read', \%snmp_args, 1);
   
   return unless $s;
   
