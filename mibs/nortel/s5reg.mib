@@ -1,4 +1,3 @@
-
 S5-REG-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
@@ -8,13 +7,13 @@ IMPORTS
         FROM S5-ROOT-MIB;
 
 s5RegMib MODULE-IDENTITY
-       LAST-UPDATED    "201104280000Z"
+       LAST-UPDATED    "201505050000Z"
        ORGANIZATION    "Avaya"
        CONTACT-INFO    "Avaya"
        DESCRIPTION
            "S5000 Registration MIB
 
-            Copyright 1996 - 2011 Avaya, Inc.
+            Copyright 1996 - 2014 Avaya, Inc.
             All rights reserved.
             This Avaya SNMP Management Information Base Specification
             (Specification) embodies Avaya' confidential and
@@ -25,6 +24,30 @@ s5RegMib MODULE-IDENTITY
             This Specification is supplied 'AS IS,' and Avaya makes
             no warranty, either express or implied, as to the use,
             operation, condition, or performance of the Specification."
+
+       REVISION "201505050000Z" -- 5 May 2015	
+       DESCRIPTION "Version 246:  Added registrations for ERS 3550T and ERS 3550T-PWR+ models."
+
+       REVISION "201407290000Z" -- 29 July 2014	
+       DESCRIPTION "Version 245:  Added registrations for ERS 5900 and ERS 4900 product families.
+                                  They replace former X710 and X610."
+
+       REVISION "201403210000Z" -- 21 March 2014	
+       DESCRIPTION "Version 244:  Added registrations for ERS X710 and ERS X610 product families."
+
+       REVISION "201402130000Z" -- 13 February 2014	
+       DESCRIPTION "Version 243:  Added s5ChasComBrdGbic-DIRECT, s5ChasComBrdGbic-40G-SR4,
+                                  s5ChasComBrdGbic-40G-LR, s5ChasComBrdGbic-40G-ER;
+                                  added support for VSP7024XT and VSP7000 MDAs"
+
+       REVISION "201308260000Z" -- 26 August 2013	
+       DESCRIPTION "Version 242:  Added registrations for ERS3549GTS and ERS3549GTS-PWR+ models."
+
+       REVISION "201301240000Z" -- 24 January 2013	
+       DESCRIPTION "Version 241:  Added registrations for 3526T and 3526T-PWR+ models."
+
+       REVISION "201110100000Z" -- 10 Oct 2011	
+       DESCRIPTION "Version 240:  Added additional registrations for 35xx"
 
        REVISION "201107290000Z" -- 29 July 2011	
        DESCRIPTION "Version 239:  Added s5ChasComBrdVSP7024XLS-7008XLS and
@@ -736,6 +759,64 @@ s5ChasTypeVSP7xxx
     OBJECT IDENTIFIER ::= { s5ChasTypeVal 109 }
 s5ChasTypeVSP7024XLS
     OBJECT IDENTIFIER ::= { s5ChasTypeVSP7xxx 1 }
+
+-- The chassis types for ERS 35xx
+s5ChasTypeERS35xx
+    OBJECT IDENTIFIER ::= { s5ChasTypeVal 110 }
+s5ChasTypeERS3510GT
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 1 }
+s5ChasTypeERS3510GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 2 }
+s5ChasTypeERS3524GT
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 3 }
+s5ChasTypeERS3524GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 4 }
+s5ChasTypeERS3526GT
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 5 }
+s5ChasTypeERS3526GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 6 }
+s5ChasTypeERS3526T
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 7 }
+s5ChasTypeERS3526T-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 8 }
+s5ChasTypeERS3549GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 9 }
+s5ChasTypeERS3549GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 10 }
+s5ChasTypeERS3550T
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 11 }
+s5ChasTypeERS3550T-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS35xx 12 }
+
+-- The chassis types for ERS 5900
+s5ChasTypeERS59xx
+    OBJECT IDENTIFIER ::= { s5ChasTypeVal 111 }
+s5ChasTypeERS5928GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 1 }
+s5ChasTypeERS5928GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 2 }
+s5ChasTypeERS5952GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 3 }
+s5ChasTypeERS5952GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 4 }
+s5ChasTypeERS5928GTS-UPWR
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 5 }
+s5ChasTypeERS59100GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 6 }
+s5ChasTypeERS59100GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS59xx 7 }
+
+-- The chassis types for ERS 4900
+s5ChasTypeERS49xx
+    OBJECT IDENTIFIER ::= { s5ChasTypeVal 112 }
+s5ChasTypeERS4926GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS49xx 1 }
+s5ChasTypeERS4926GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS49xx 2 }
+s5ChasTypeERS4950GTS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS49xx 3 }
+s5ChasTypeERS4950GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasTypeERS49xx 4 }
 
 -- Registrations for Chassis Group Types
 -- (values for object s5ChasGrpType)
@@ -1820,6 +1901,193 @@ s5ChasComVSP7024XLSPwr-Main -- Unit Power Supply
 s5ChasComVSP7024XLSPwr-RedundFeed -- Redundant Power Supply Feed
     OBJECT IDENTIFIER ::= { s5ChasComVSP7024XLSPwr 2 }
 
+-- ERS 3510GT Power Supply
+s5ChasComERS3510GTPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 125 }
+s5ChasComERS3510GTPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GTPwr 1 }
+s5ChasComERS3510GTPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GTPwr 2 }
+
+-- ERS 3510GT-PWR+ Power Supply
+s5ChasComERS3510GT-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 126 }
+s5ChasComERS3510GT-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GT-PWR-PLUSPwr 1 }
+s5ChasComERS3510GT-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GT-PWR-PLUSPwr 2 }
+
+-- ERS 3524GT Power Supply
+s5ChasComERS3524GTPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 127 }
+s5ChasComERS3524GTPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GTPwr 1 }
+s5ChasComERS3524GTPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GTPwr 2 }
+
+-- ERS 3524GT-PWR+ Power Supply
+s5ChasComERS3524GT-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 128 }
+s5ChasComERS3524GT-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GT-PWR-PLUSPwr 1 }
+s5ChasComERS3524GT-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GT-PWR-PLUSPwr 2 }
+
+-- ERS 3526GT Power Supply
+s5ChasComERS3526GTPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 129 }
+s5ChasComERS3526GTPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GTPwr 1 }
+s5ChasComERS3526GTPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GTPwr 2 }
+
+-- ERS 3526GT-PWR+ Power Supply
+s5ChasComERS3526GT-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 130 }
+s5ChasComERS3526GT-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GT-PWR-PLUSPwr 1 }
+s5ChasComERS3526GT-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GT-PWR-PLUSPwr 2 }
+
+-- ERS 3526T Power Supply
+s5ChasComERS3526TPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 131 }
+s5ChasComERS3526TPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526TPwr 1 }
+s5ChasComERS3526TPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526TPwr 2 }
+
+-- ERS 3526T-PWR+ Power Supply
+s5ChasComERS3526T-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 132 }
+s5ChasComERS3526T-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526T-PWR-PLUSPwr 1 }
+s5ChasComERS3526T-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526T-PWR-PLUSPwr 2 }
+
+-- ERS 3549GTS Power Supply
+s5ChasComERS3549GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 133 }
+s5ChasComERS3549GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTSPwr 1 }
+
+-- ERS 3549GTS-PWR+ Power Supply
+s5ChasComERS3549GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 134 }
+s5ChasComERS3549GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTS-PWR-PLUSPwr 1 }
+
+-- VSP 7024XT Power Supply
+s5ChasComVSP7024XTPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 135 }
+s5ChasComVSP7024XTPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComVSP7024XTPwr 1 }
+s5ChasComVSP7024XTPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComVSP7024XTPwr 2 }
+
+-- ERS 5900 Power Supply
+
+-- ERS 5928GTS Power Supply
+s5ChasComERS5928GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 136 }
+s5ChasComERS5928GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTSPwr 1 }
+s5ChasComERS5928GTSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTSPwr 2 }
+
+-- ERS 5928GTS-PWR+ Power Supply
+s5ChasComERS5928GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 137 }
+s5ChasComERS5928GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-PWR-PLUSPwr 1 }
+s5ChasComERS5928GTS-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-PWR-PLUSPwr 2 }
+
+-- ERS 5952GTS Power Supply
+s5ChasComERS5952GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 138 }
+s5ChasComERS5952GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTSPwr 1 }
+s5ChasComERS5952GTSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTSPwr 2 }
+
+-- ERS 5952GTS-PWR+ Power Supply
+s5ChasComERS5952GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 139 }
+s5ChasComERS5952GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTS-PWR-PLUSPwr 1 }
+s5ChasComERS5952GTS-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTS-PWR-PLUSPwr 2 }
+
+-- ERS 5928GTS-uPWR Power Supply
+s5ChasComERS5928GTS-UPWRPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 140 }
+s5ChasComERS5928GTS-UPWRPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-UPWRPwr 1 }
+s5ChasComERS5928GTS-UPWRPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-UPWRPwr 2 }
+
+-- ERS 59100GTS Power Supply
+s5ChasComERS59100GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 141 }
+s5ChasComERS59100GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTSPwr 1 }
+s5ChasComERS59100GTSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTSPwr 2 }
+
+-- ERS 59100GTS-PWR+ Power Supply
+s5ChasComERS59100GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 142 }
+s5ChasComERS59100GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTS-PWR-PLUSPwr 1 }
+s5ChasComERS59100GTS-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTS-PWR-PLUSPwr 2 }
+
+-- ERS 4900 Power Supply
+
+-- ERS 4926GTS Power Supply
+s5ChasComERS4926GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 143 }
+s5ChasComERS4926GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTSPwr 1 }
+s5ChasComERS4926GTSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTSPwr 2 }
+
+-- ERS 4926GTS-PWR+ Power Supply
+s5ChasComERS4926GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 144 }
+s5ChasComERS4926GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTS-PWR-PLUSPwr 1 }
+s5ChasComERS4926GTS-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTS-PWR-PLUSPwr 2 }
+
+-- ERS 4950GTS Power Supply
+s5ChasComERS4950GTSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 145 }
+s5ChasComERS4950GTSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTSPwr 1 }
+s5ChasComERS4950GTSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTSPwr 2 }
+
+-- ERS 4950GTS-PWR+ Power Supply
+s5ChasComERS4950GTS-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 146 }
+s5ChasComERS4950GTS-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTS-PWR-PLUSPwr 1 }
+s5ChasComERS4950GTS-PWR-PLUSPwr-RedundFeed -- Redundant Power Supply Feed
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTS-PWR-PLUSPwr 2 }
+
+-- ERS 3550T Power Supply
+s5ChasComERS3550TPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 147 }
+s5ChasComERS3550TPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550TPwr 1 }
+
+-- ERS 3550T-PWR+ Power Supply
+s5ChasComERS3550T-PWR-PLUSPwr
+    OBJECT IDENTIFIER ::= { s5ChasComMPwr 148 }
+s5ChasComERS3550T-PWR-PLUSPwr-Main -- Unit Power Supply
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550T-PWR-PLUSPwr 1 }
 
 -- Model 5000 (721-018) 950 Watt AC Chassis Power Supply with
 -- internal fan and temperature sensor (but returning a differnt ID)
@@ -2606,6 +2874,165 @@ s5ChasComVSP7024XLSFan
 s5ChasComVSP7024XLSUnitFan
     OBJECT IDENTIFIER ::= { s5ChasComVSP7024XLSFan 1 }
 
+-- ERS3510GT Switch Fan
+s5ChasComERS3510GTFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 125 }
+s5ChasComERS3510GTUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GTFan 1 }
+
+-- ERS3510GT-PWR+ Switch Fan
+s5ChasComERS3510GT-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 126 }
+s5ChasComERS3510GT-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3510GT-PWR-PLUSFan 1 }
+
+-- ERS3524GT Switch Fan
+s5ChasComERS3524GTFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 127 }
+s5ChasComERS3524GTUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GTFan 1 }
+
+-- ERS3524GT-PWR+ Switch Fan
+s5ChasComERS3524GT-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 128 }
+s5ChasComERS3524GT-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3524GT-PWR-PLUSFan 1 }
+
+-- ERS3526GT Switch Fan
+s5ChasComERS3526GTFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 129 }
+s5ChasComERS3526GTUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GTFan 1 }
+
+-- ERS3526GT-PWR+ Switch Fan
+s5ChasComERS3526GT-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 130 }
+s5ChasComERS3526GT-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526GT-PWR-PLUSFan 1 }
+
+-- ERS3526T Switch Fan
+s5ChasComERS3526TFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 131 }
+s5ChasComERS3526TUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526TFan 1 }
+
+-- ERS3526T-PWR+ Switch Fan
+s5ChasComERS3526T-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 132 }
+s5ChasComERS3526T-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS3526T-PWR-PLUSFan 1 }
+
+-- ERS3549GTS Switch Fan
+s5ChasComERS3549GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 133 }
+s5ChasComERS3549GTSUnitFan1
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTSFan 1 }
+s5ChasComERS3549GTSUnitFan2
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTSFan 2 }
+
+-- ERS3549GTS-PWR+ Switch Fan
+s5ChasComERS3549GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 134 }
+s5ChasComERS3549GTS-PWR-PLUSUnitFan1
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTS-PWR-PLUSFan 1 }
+s5ChasComERS3549GTS-PWR-PLUSUnitFan2
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTS-PWR-PLUSFan 2 }
+s5ChasComERS3549GTS-PWR-PLUSUnitFan3
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTS-PWR-PLUSFan 3 }
+s5ChasComERS3549GTS-PWR-PLUSUnitFan4
+    OBJECT IDENTIFIER ::= { s5ChasComERS3549GTS-PWR-PLUSFan 4 }
+
+-- VSP7024XT Switch Fan
+s5ChasComVSP7024XTFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 135 }
+s5ChasComVSP7024XTUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComVSP7024XTFan 1 }
+
+-- ERS 5928GTS Switch Fan
+s5ChasComERS5928GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 136 }
+s5ChasComERS5928GTSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTSFan 1 }
+
+-- ERS 5928GTS-PWR+ Switch Fan
+s5ChasComERS5928GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 137 }
+s5ChasComERS5928GTS-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-PWR-PLUSFan 1 }
+
+-- ERS 5952GTS Switch Fan
+s5ChasComERS5952GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 138 }
+s5ChasComERS5952GTSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTSFan 1 }
+
+-- ERS 5952GTS-PWR+ Switch Fan
+s5ChasComERS5952GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 139 }
+s5ChasComERS5952GTS-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS5952GTS-PWR-PLUSFan 1 }
+
+-- ERS 5928GTS-uPWR Switch Fan
+s5ChasComERS5928GTS-UPWRFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 140 }
+s5ChasComERS5928GTS-UPWRUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS5928GTS-UPWRFan 1 }
+
+-- ERS 59100GTS Switch Fan
+s5ChasComERS59100GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 141 }
+s5ChasComERS59100GTSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTSFan 1 }
+
+-- ERS 59100GTS-PWR+ Switch Fan
+s5ChasComERS59100GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 142 }
+s5ChasComERS59100GTS-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS59100GTS-PWR-PLUSFan 1 }
+
+-- ERS 4926GTS Switch Fan
+s5ChasComERS4926GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 143 }
+s5ChasComERS4926GTSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTSFan 1 }
+
+-- ERS 4926GTS-PWR+ Switch Fan
+s5ChasComERS4926GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 144 }
+s5ChasComERS4926GTS-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS4926GTS-PWR-PLUSFan 1 }
+
+-- ERS 4950GTS Switch Fan
+s5ChasComERS4950GTSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 145 }
+s5ChasComERS4950GTSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTSFan 1 }
+
+-- ERS 4950GTS-PWR+ Switch Fan
+s5ChasComERS4950GTS-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 146 }
+s5ChasComERS4950GTS-PWR-PLUSUnitFan
+    OBJECT IDENTIFIER ::= { s5ChasComERS4950GTS-PWR-PLUSFan 1 }
+
+-- ERS3550T Switch Fan
+s5ChasComERS3550TFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 147 }
+s5ChasComERS3550TUnitFan1
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550TFan 1 }
+s5ChasComERS3550TUnitFan2
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550TFan 2 }
+
+-- ERS3550T-PWR+ Switch Fan
+s5ChasComERS3550T-PWR-PLUSFan
+    OBJECT IDENTIFIER ::= { s5ChasComMFan 148 }
+s5ChasComERS3550T-PWR-PLUSUnitFan1
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550T-PWR-PLUSFan 1 }
+s5ChasComERS3550T-PWR-PLUSUnitFan2
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550T-PWR-PLUSFan 2 }
+s5ChasComERS3550T-PWR-PLUSUnitFan3
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550T-PWR-PLUSFan 3 }
+s5ChasComERS3550T-PWR-PLUSUnitFan4
+    OBJECT IDENTIFIER ::= { s5ChasComERS3550T-PWR-PLUSFan 4 }
 
 -- Model 5000 (900-003) Chassis fan
 s5ChasComM5000FanA
@@ -5036,6 +5463,10 @@ s5ChasComBrdGbic-10G-ZR      OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 14 }
 s5ChasComBrdGbic-10G-LRM     OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 15 }
 s5ChasComBrdGbic-T1          OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 16 }
 s5ChasComBrdGbic-EX          OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 17 }
+s5ChasComBrdGbic-DIRECT      OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 18 }
+s5ChasComBrdGbic-40G-SR4     OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 19 }
+s5ChasComBrdGbic-40G-LR      OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 20 }
+s5ChasComBrdGbic-40G-ER      OBJECT IDENTIFIER ::= { s5ChasComBrdGbic 21 }
 
 -- OPTera Metro 1450 Ethernet Service Module
 s5ChasComBrdMetro1450ESM-12T2GBIC
@@ -6383,10 +6814,581 @@ s5ChasComBrdVSP7024XLS-7008XLS
 s5ChasComBrdVSP7024XLS-7008XLT
     OBJECT IDENTIFIER ::= { s5ChasComMod 807 }
 
+-- ERS3510GT
+s5ChasComBrdERS3510GT
+    OBJECT IDENTIFIER ::= { s5ChasComMod 808 }
+s5ChasComBrdERS3510GTStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT 0 }
+s5ChasComBrdERS3510GTStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GTStore 1 }
+s5ChasComBrdERS3510GTStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GTStore 2 }
+s5ChasComBrdERS3510GTStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GTStore 3 }
+s5ChasComBrdERS3510GTStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GTStore 4 }
+
+-- ERS3510GT-PWR+
+s5ChasComBrdERS3510GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 809 }
+s5ChasComBrdERS3510GT-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT-PWR-PLUS 0 }
+s5ChasComBrdERS3510GT-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT-PWR-PLUSStore 1 }
+s5ChasComBrdERS3510GT-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT-PWR-PLUSStore 2 }
+s5ChasComBrdERS3510GT-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT-PWR-PLUSStore 3 }
+s5ChasComBrdERS3510GT-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3510GT-PWR-PLUSStore 4 }
+
+-- ERS3524GT
+s5ChasComBrdERS3524GT
+    OBJECT IDENTIFIER ::= { s5ChasComMod 810 }
+s5ChasComBrdERS3524GTStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT 0 }
+s5ChasComBrdERS3524GTStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GTStore 1 }
+s5ChasComBrdERS3524GTStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GTStore 2 }
+s5ChasComBrdERS3524GTStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GTStore 3 }
+s5ChasComBrdERS3524GTStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GTStore 4 }
+
+-- ERS3524GT-PWR+
+s5ChasComBrdERS3524GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 811 }
+s5ChasComBrdERS3524GT-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT-PWR-PLUS 0 }
+s5ChasComBrdERS3524GT-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT-PWR-PLUSStore 1 }
+s5ChasComBrdERS3524GT-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT-PWR-PLUSStore 2 }
+s5ChasComBrdERS3524GT-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT-PWR-PLUSStore 3 }
+s5ChasComBrdERS3524GT-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3524GT-PWR-PLUSStore 4 }
+
+-- ERS3526GT
+s5ChasComBrdERS3526GT
+    OBJECT IDENTIFIER ::= { s5ChasComMod 812 }
+s5ChasComBrdERS3526GTStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT 0 }
+s5ChasComBrdERS3526GTStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GTStore 1 }
+s5ChasComBrdERS3526GTStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GTStore 2 }
+s5ChasComBrdERS3526GTStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GTStore 3 }
+s5ChasComBrdERS3526GTStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GTStore 4 }
+
+-- ERS3526GT-PWR+
+s5ChasComBrdERS3526GT-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 813 }
+s5ChasComBrdERS3526GT-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT-PWR-PLUS 0 }
+s5ChasComBrdERS3526GT-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT-PWR-PLUSStore 1 }
+s5ChasComBrdERS3526GT-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT-PWR-PLUSStore 2 }
+s5ChasComBrdERS3526GT-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT-PWR-PLUSStore 3 }
+s5ChasComBrdERS3526GT-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526GT-PWR-PLUSStore 4 }
+
+-- ERS3526T
+s5ChasComBrdERS3526T
+    OBJECT IDENTIFIER ::= { s5ChasComMod 814 }
+s5ChasComBrdERS3526TStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T 0 }
+s5ChasComBrdERS3526TStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526TStore 1 }
+s5ChasComBrdERS3526TStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526TStore 2 }
+s5ChasComBrdERS3526TStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526TStore 3 }
+s5ChasComBrdERS3526TStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526TStore 4 }
+
+-- ERS3526T-PWR+
+s5ChasComBrdERS3526T-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 815 }
+s5ChasComBrdERS3526T-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T-PWR-PLUS 0 }
+s5ChasComBrdERS3526T-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T-PWR-PLUSStore 1 }
+s5ChasComBrdERS3526T-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T-PWR-PLUSStore 2 }
+s5ChasComBrdERS3526T-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T-PWR-PLUSStore 3 }
+s5ChasComBrdERS3526T-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3526T-PWR-PLUSStore 4 }
+
+-- ERS3549GTS
+s5ChasComBrdERS3549GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 816 }
+s5ChasComBrdERS3549GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS 0 }
+s5ChasComBrdERS3549GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTSStore 1 }
+s5ChasComBrdERS3549GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTSStore 2 }
+s5ChasComBrdERS3549GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTSStore 3 }
+s5ChasComBrdERS3549GTSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTSStore 4 }
+
+-- ERS3549GTS-PWR+
+s5ChasComBrdERS3549GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 817 }
+s5ChasComBrdERS3549GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS-PWR-PLUS 0 }
+s5ChasComBrdERS3549GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS3549GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS3549GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS3549GTS-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3549GTS-PWR-PLUSStore 4 }
+
+-- VSP7000 series MDAs
+s5ChasComBrdVSP7000MDA
+    OBJECT IDENTIFIER ::= { s5ChasComMod 818 }
+-- This value is not used, use s5ChasComBrdVSP7024XLS-7008XLS instead
+s5ChasComBrdVSP7000MDA-7008XLS
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7000MDA 1 }
+-- This value is not used, use s5ChasComBrdVSP7024XLS-7008XLT instead
+s5ChasComBrdVSP7000MDA-7008XT
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7000MDA 2 }
+s5ChasComBrdVSP7000MDA-7002QQ
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7000MDA 3 }
+
+-- VSP7024XT
+s5ChasComBrdVSP7024XT
+    OBJECT IDENTIFIER ::= { s5ChasComMod 819 }
+s5ChasComBrdVSP7024XTStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XT 0 }
+s5ChasComBrdVSP7024XTStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 1 }
+s5ChasComBrdVSP7024XTStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 2 }
+s5ChasComBrdVSP7024XTStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 3 }
+s5ChasComBrdVSP7024XTStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 4 }
+s5ChasComBrdVSP7024XTStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 5 }
+s5ChasComBrdVSP7024XTStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 6 }
+s5ChasComBrdVSP7024XTStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 7 }
+s5ChasComBrdVSP7024XTStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 8 }
+s5ChasComBrdVSP7024XTStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 9 }
+s5ChasComBrdVSP7024XTStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 10 }
+s5ChasComBrdVSP7024XTStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 11 }
+s5ChasComBrdVSP7024XTStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 12 }
+s5ChasComBrdVSP7024XTStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 13 }
+s5ChasComBrdVSP7024XTStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdVSP7024XTStore 14 }
+
+-- ERS 5928GTS
+s5ChasComBrdERS5928GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 820 }
+s5ChasComBrdERS5928GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS 0 }
+s5ChasComBrdERS5928GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 1 }
+s5ChasComBrdERS5928GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 2 }
+s5ChasComBrdERS5928GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 3 }
+s5ChasComBrdERS5928GTSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 5 }
+s5ChasComBrdERS5928GTSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 6 }
+s5ChasComBrdERS5928GTSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 7 }
+s5ChasComBrdERS5928GTSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 8 }
+s5ChasComBrdERS5928GTSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 9 }
+s5ChasComBrdERS5928GTSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 10 }
+s5ChasComBrdERS5928GTSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 11 }
+s5ChasComBrdERS5928GTSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 12 }
+s5ChasComBrdERS5928GTSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 13 }
+s5ChasComBrdERS5928GTSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTSStore 14 }
+
+-- ERS 5928GTS-PWR+
+s5ChasComBrdERS5928GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 821 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUS 0 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 5 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 6 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 7 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 8 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 9 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 10 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 11 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 12 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 13 }
+s5ChasComBrdERS5928GTS-PWR-PLUSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-PWR-PLUSStore 14 }
+
+-- ERS 5952GTS
+s5ChasComBrdERS5952GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 822 }
+s5ChasComBrdERS5952GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS 0 }
+s5ChasComBrdERS5952GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 1 }
+s5ChasComBrdERS5952GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 2 }
+s5ChasComBrdERS5952GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 3 }
+s5ChasComBrdERS5952GTSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 5 }
+s5ChasComBrdERS5952GTSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 6 }
+s5ChasComBrdERS5952GTSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 7 }
+s5ChasComBrdERS5952GTSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 8 }
+s5ChasComBrdERS5952GTSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 9 }
+s5ChasComBrdERS5952GTSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 10 }
+s5ChasComBrdERS5952GTSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 11 }
+s5ChasComBrdERS5952GTSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 12 }
+s5ChasComBrdERS5952GTSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 13 }
+s5ChasComBrdERS5952GTSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTSStore 14 }
+
+-- ERS 5952GTS-PWR+
+s5ChasComBrdERS5952GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 823 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUS 0 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 5 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 6 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 7 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 8 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 9 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 10 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 11 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 12 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 13 }
+s5ChasComBrdERS5952GTS-PWR-PLUSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5952GTS-PWR-PLUSStore 14 }
+
+-- ERS 5928GTS-uPWR
+s5ChasComBrdERS5928GTS-UPWR
+    OBJECT IDENTIFIER ::= { s5ChasComMod 824 }
+s5ChasComBrdERS5928GTS-UPWRStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWR 0 }
+s5ChasComBrdERS5928GTS-UPWRStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 1 }
+s5ChasComBrdERS5928GTS-UPWRStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 2 }
+s5ChasComBrdERS5928GTS-UPWRStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 3 }
+s5ChasComBrdERS5928GTS-UPWRStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 5 }
+s5ChasComBrdERS5928GTS-UPWRStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 6 }
+s5ChasComBrdERS5928GTS-UPWRStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 7 }
+s5ChasComBrdERS5928GTS-UPWRStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 8 }
+s5ChasComBrdERS5928GTS-UPWRStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 9 }
+s5ChasComBrdERS5928GTS-UPWRStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 10 }
+s5ChasComBrdERS5928GTS-UPWRStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 11 }
+s5ChasComBrdERS5928GTS-UPWRStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 12 }
+s5ChasComBrdERS5928GTS-UPWRStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 13 }
+s5ChasComBrdERS5928GTS-UPWRStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS5928GTS-UPWRStore 14 }
+
+-- ERS 59100GTS
+s5ChasComBrdERS59100GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 825 }
+s5ChasComBrdERS59100GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS 0 }
+s5ChasComBrdERS59100GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 1 }
+s5ChasComBrdERS59100GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 2 }
+s5ChasComBrdERS59100GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 3 }
+s5ChasComBrdERS59100GTSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 5 }
+s5ChasComBrdERS59100GTSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 6 }
+s5ChasComBrdERS59100GTSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 7 }
+s5ChasComBrdERS59100GTSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 8 }
+s5ChasComBrdERS59100GTSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 9 }
+s5ChasComBrdERS59100GTSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 10 }
+s5ChasComBrdERS59100GTSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 11 }
+s5ChasComBrdERS59100GTSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 12 }
+s5ChasComBrdERS59100GTSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 13 }
+s5ChasComBrdERS59100GTSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTSStore 14 }
+
+-- ERS 59100GTS-PWR+
+s5ChasComBrdERS59100GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 826 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUS 0 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 5 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 6 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 7 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 8 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 9 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 10 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 11 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 12 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 13 }
+s5ChasComBrdERS59100GTS-PWR-PLUSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS59100GTS-PWR-PLUSStore 14 }
+
+-- ERS 4900 GTS
+s5ChasComBrdERS4926GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 827 }
+s5ChasComBrdERS4926GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS 0 }
+s5ChasComBrdERS4926GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 1 }
+s5ChasComBrdERS4926GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 2 }
+s5ChasComBrdERS4926GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 3 }
+s5ChasComBrdERS4926GTSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 5 }
+s5ChasComBrdERS4926GTSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 6 }
+s5ChasComBrdERS4926GTSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 7 }
+s5ChasComBrdERS4926GTSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 8 }
+s5ChasComBrdERS4926GTSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 9 }
+s5ChasComBrdERS4926GTSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 10 }
+s5ChasComBrdERS4926GTSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 11 }
+s5ChasComBrdERS4926GTSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 12 }
+s5ChasComBrdERS4926GTSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 13 }
+s5ChasComBrdERS4926GTSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTSStore 14 }
+
+-- ERS 4926GTS-PWR+
+s5ChasComBrdERS4926GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 828 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUS 0 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 5 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 6 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 7 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 8 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 9 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 10 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 11 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 12 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 13 }
+s5ChasComBrdERS4926GTS-PWR-PLUSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4926GTS-PWR-PLUSStore 14 }
+
+-- ERS 4900 50GTS
+s5ChasComBrdERS4950GTS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 829 }
+s5ChasComBrdERS4950GTSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS 0 }
+s5ChasComBrdERS4950GTSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 1 }
+s5ChasComBrdERS4950GTSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 2 }
+s5ChasComBrdERS4950GTSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 3 }
+s5ChasComBrdERS4950GTSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 4 }
+s5ChasComBrdERS4950GTSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 5 }
+s5ChasComBrdERS4950GTSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 6 }
+s5ChasComBrdERS4950GTSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 7 }
+s5ChasComBrdERS4950GTSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 8 }
+s5ChasComBrdERS4950GTSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 9 }
+s5ChasComBrdERS4950GTSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 10 }
+s5ChasComBrdERS4950GTSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 11 }
+s5ChasComBrdERS4950GTSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 12 }
+s5ChasComBrdERS4950GTSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 13 }
+s5ChasComBrdERS4950GTSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTSStore 14 }
+
+-- ERS 4900 50GTS-PWR+
+s5ChasComBrdERS4950GTS-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 830 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUS 0 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 1 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 2 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 3 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 4 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreSecondaryFlash -- Secondary FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 5 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreCPLD -- CPLD
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 6 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreInstalledFW -- Installed FW Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 7 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreOperSW -- Operational Software Version
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 8 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreTotal -- Total FLASH storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 9 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreBootLoader -- Boot Loader storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 10 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreConfig -- Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 11 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreSecondaryConfig -- Secondary Binary Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 12 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreAutoBakupConfig -- Automatic Backup Configuration storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 13 }
+s5ChasComBrdERS4950GTS-PWR-PLUSStoreReserved -- Portion of total FLASH storage that is reserved
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS4950GTS-PWR-PLUSStore 14 }
+
+-- ERS3550T
+s5ChasComBrdERS3550T
+    OBJECT IDENTIFIER ::= { s5ChasComMod 831 }
+s5ChasComBrdERS3550TStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T 0 }
+s5ChasComBrdERS3550TStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550TStore 1 }
+s5ChasComBrdERS3550TStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550TStore 2 }
+s5ChasComBrdERS3550TStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550TStore 3 }
+s5ChasComBrdERS3550TStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550TStore 4 }
+
+-- ERS3550T-PWR+
+s5ChasComBrdERS3550T-PWR-PLUS
+    OBJECT IDENTIFIER ::= { s5ChasComMod 832 }
+s5ChasComBrdERS3550T-PWR-PLUSStore -- storage areas
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T-PWR-PLUS 0 }
+s5ChasComBrdERS3550T-PWR-PLUSStoreFlash -- FLASH image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T-PWR-PLUSStore 1 }
+s5ChasComBrdERS3550T-PWR-PLUSStoreBootFW -- Boot Firmware storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T-PWR-PLUSStore 2 }
+s5ChasComBrdERS3550T-PWR-PLUSStoreDram -- DRAM storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T-PWR-PLUSStore 3 }
+s5ChasComBrdERS3550T-PWR-PLUSStorePoLFlash -- PoL Flash image storage
+    OBJECT IDENTIFIER ::= { s5ChasComBrdERS3550T-PWR-PLUSStore 4 }
+
 -- ============================================================================
 -- General s5ChasStoreTable types
 -- ============================================================================
 s5ChasStoreTypeReg OBJECT IDENTIFIER ::= { s5ChasComTypeVal 12 }
 
 END
+
 

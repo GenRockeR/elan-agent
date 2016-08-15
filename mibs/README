@@ -1,7 +1,7 @@
 Netdisco - MIB Repository
 Max Baker
 ---------------------------------------------------------------------------
-Version 1.5
+Version 2.4
 ---------------------------------------------------------------------------
     I maintain a workable set of MIBS to use with Netdisco 
     and other network managment tools. 
@@ -19,21 +19,24 @@ Version 1.5
 ---------------------------------------------------------------------------
 MIB Versions
 ---------------------------------------------------------------------------
-    3Com:      MIBs for HP, H3C and 3Com products v4.0
-    Aruba:     ArubaOS 6.2.0.2_36732
-    APC:       4.0.5
-    Cisco:     10/14/2013 (last v2.tar.gz is dated 10/2013)
-    Enterasys: 08/2011
-    Extreme:   v762b3 01/09/06
-    Foundry:   FGL04000 11/07
-    HP:        May 2012 update
-    Juniper:   11.4R3.7
-    Net-SNMP:  5.7.1
-    Nortel:    Various - Last update 07/2012
-    RFC:       ianalist updated 2010-04-21 and rfclist updated 2011-03-14
-    Ruckus:    9.4
-    Trapeze:   8.0
-    Xirrus:    6.1.2
+    3Com:           MIBs for HP, H3C and 3Com products v4.0
+    Aerohive        6.1r6a
+    Aruba:          ArubaOS 6.4.2.3
+    APC:            4.0.5
+    Cisco:          01/16/2016 (last v2.tar.gz is dated 01/14/2016)
+    Enterasys:      08/2011
+    Extreme:        v762b3 01/09/06
+    Foundry:        SPR08040 (01/2016) and foundry.mib (12/2015)
+    HP:             May 2012 update
+    Juniper:        15.1F4.15
+    Net-SNMP:       5.7.3
+    Nortel (Avaya): Various - Last update 01/2016
+    Palo Alto:      PAN-OS 7.0
+    RFC:            ianalist updated 2015-10-26 and rfclist updated 2015-10-28
+    Ruckus:         9.4
+    Trapeze:        8.0
+    VMWare:         6.0.0
+    Xirrus:         7.1.3
 
 ---------------------------------------------------------------------------
 
