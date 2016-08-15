@@ -2,7 +2,7 @@
 
 from .utils import request_as_hash_of_values
 from origin import snmp, session, nac
-from origin.event import Event, InternalEvent, ExceptionEvent
+from origin.event import Event, DebugEvent, ExceptionEvent
 import re
 import asyncio
 import functools
@@ -171,7 +171,7 @@ async def find_port(request):
         return result 
     
     # port not found...
-    InternalEvent(source='radius')\
+    DebugEvent(source='radius')\
         .add_data('module', 'origin.freeradius.mac')\
         .add_data('details', 'Port not found')\
         .add_data('request', request)\

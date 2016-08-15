@@ -1,6 +1,6 @@
 from origin.neuron import Synapse, Dendrite
 from origin import session
-from origin.event import Event
+from origin.event import Event, DebugEvent
 import datetime
 import asyncio
 import json
@@ -225,6 +225,12 @@ class DeviceSnmpManager():
                     port = await self.getPortFromIndex(device_ip, trap.get('trapIfIndex', None))
                     vlan=trap.get('vlan', None)
                     session.seen(trap['trapMac'], vlan=vlan, port=port, time=trap_time)
+                    if port is None:
+                        DebugEvent(source='snmp-notification')\
+                            .add_data('details', 'Port not found')\
+                            .add_data('trap', trap)\
+                            .add_data('trap_str', trap_str)\
+                            .notify()
                 elif trap['trapType'] == 'dot11Deauthentication'or \
                     (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
                     session.end(mac=trap['trapMac'], time=trap_time)

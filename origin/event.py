@@ -38,13 +38,15 @@ class Event(object):
         else: 
             return self.dendrite.publish(self.EVENT_TOPIC, data)
     
-class InternalEvent(Event):
+class DebugEvent(Event):
+    EVENT_TOPIC = 'debug'
     def __init__(self, source, event_type='runtime', **kwargs):
-        super(InternalEvent, self).__init__(event_type, source, level='internal', **kwargs)
+        super().__init__(event_type, source, level='internal', **kwargs)
 
-class ExceptionEvent(InternalEvent):
+class ExceptionEvent(DebugEvent):
+    EVENT_TOPIC = 'exception'
     def __init__(self, *args, **kwargs):
-        super(ExceptionEvent, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.add_data('script', __file__)
         self.add_data('details', 'Exception occured')
         self.add_data('Exception', traceback.format_exc())
