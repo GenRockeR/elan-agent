@@ -91,7 +91,7 @@ class GuestAccessManager():
         for mac in current_mac_with_authz - set(authz_by_mac.keys()):
             revoker_kwargs = {}
             currentAuthz = nac.getAuthz(mac)
-            if currentAuthz.source == 'captive-portal-guest':
+            if getattr(currentAuthz, 'source', None) == 'captive-portal-guest':
                 # find guest authz that granted authz
                 for authz in authz_by_mac[mac]:
                     if authz['guest_authorization'] == currentAuthz.guest_authorization:
