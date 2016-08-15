@@ -70,8 +70,10 @@ class DeviceSnmpManager():
             except:
                 return False
         
-        return not almost_equal_dicts(device1, device2, ['fw_mac'])
-
+        return not almost_equal_dicts( device1, device2, [
+                'fw_mac', 'fw_port', 'fw_status', 'qb_fdb_index', 'v_index', 'bp_index', 'bp_port' , 'i_vlan', 'i_untagged', 'i_vlan_membership',
+                'i_vlan_membership_untagged', 'qb_i_vlan_t', 'qb_fw_mac', 'qb_fw_port', 'qb_fw_vlan', 'qb_fw_status']
+        )
 
     async def _unix_socket_connection(self, path, data):
         reader, writer = await asyncio.open_unix_connection(path)

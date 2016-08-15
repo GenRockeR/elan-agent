@@ -139,6 +139,23 @@ sub _snmp_poll {
   $data->{model}         = Encode::decode('UTF-8', $s->model || "");
   $data->{serial}        = Encode::decode('UTF-8', $s->serial || "");
 
+  $data->{fw_mac}        = $s->fw_mac || "";
+  $data->{fw_port}       = $s->fw_port || "";
+  $data->{fw_status}     = $s->fw_status || "";
+  $data->{qb_fdb_index}  = $s->qb_fdb_index || "";
+  $data->{v_index}       = $s->v_index || "";
+  $data->{bp_index}      = $s->bp_index || "";
+  $data->{bp_port}       = $s->bp_port || "";
+  $data->{qb_i_vlan_t}   = $s->qb_i_vlan_t || "";
+  $data->{qb_fw_mac}     = $s->qb_fw_mac || "";
+  $data->{qb_fw_port}    = $s->qb_fw_port || "";
+  $data->{qb_fw_vlan}    = $s->qb_fw_vlan || "";
+  $data->{qb_fw_status}  = $s->qb_fw_status || "";
+  $data->{i_vlan}        = $s->i_vlan || "";
+  $data->{i_untagged}    = $s->i_untagged || "";
+  $data->{i_vlan_membership}          = $s->i_vlan_membership || "";
+  $data->{i_vlan_membership_untagged} = $s->i_vlan_membership_untagged || "";
+
   my %portByIndex;
   foreach my $index (keys %{$s->interfaces || {}}) {
     next if $s->if_ignore->{$index};
