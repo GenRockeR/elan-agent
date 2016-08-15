@@ -146,6 +146,7 @@ class AuthenticationProvider():
                 new_authentications[auth['id']] = auth
             
             if new_authentications != self.authentications:
+                # TODO: be more relevant, ie when AD join failed and conf sent again to retry
                 self.authentications = new_authentications
                 self.apply_conf()
 
@@ -357,7 +358,7 @@ rest auth_all_providers_failed_in_group {
                     new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
                     new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
                 else:
-                    auth['join_failed'] = True 
+                    auth['join_failed'] = True  # so that if we receive again same conf, we try to join again (new condf!= old)
                     
             elif auth['type'] == 'group':
                 # Take care of groups, that can be nested:
