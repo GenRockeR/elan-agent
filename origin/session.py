@@ -132,7 +132,8 @@ def end(mac, vlan=None, ip=None, time=None):
 
     pipe = synapse.pipeline()
     
-    if ip is not None and vlan is None: raise 'Error: when ending IP, VLAN should be specified...' 
+    if ip is not None and vlan is None:
+        raise Exception('Error: when ending IP, VLAN should be specified...') 
     
     data = dict(mac=mac)
     pipe.hget(SESSION_IDS_PATH, data)
