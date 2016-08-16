@@ -201,6 +201,7 @@ def guest_access(request):
     if request.method != 'POST' or is_authenticated(clientMAC):
         return redirect('login')
     
+    interface = request.META['interface']
     vlan_id = request.META['vlan_id']
     guest_access = int(request.META['guest_access']) 
     synapse = Synapse()
@@ -212,7 +213,7 @@ def guest_access(request):
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
 
     if form.is_valid():
-        guest_request = dict(mac=clientMAC, vlan_id=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
+        guest_request = dict(mac=clientMAC, interface = interface, vlan_id=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
         for field in guest_registration_fields:
             guest_request['fields'].append( dict( 
                                          display_name=field['display_name'],
