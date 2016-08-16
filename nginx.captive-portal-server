@@ -76,12 +76,12 @@ server {
     location / {
       uwsgi_pass portal;
       include uwsgi_params;
-      uwsgi_param "vlan_id" "${vlans[index]['vlan_id']}";
+      uwsgi_param "vlan_id" "${vlans[index].get('vlan_id', 0)}";
       uwsgi_param "interface" "${vlans[index]['interface']}";
-      % if vlans[index]['web_authentication']:
+      % if vlans[index].get('web_authentication', None):
       uwsgi_param "web_authentication" "${vlans[index]['web_authentication']}";
       % endif
-      % if vlans[index]['guest_access']:
+      % if vlans[index].get('guest_access', None):
       uwsgi_param "guest_access" "${vlans[index]['guest_access']}";
       % endif
     }
