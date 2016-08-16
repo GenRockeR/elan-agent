@@ -87,23 +87,23 @@ async def authenticate(request):
 async def provider_failed(request):
     radius_request = await get_radius_request(request)
     
-    response = freeradius.AuthenticationProviderFailed(radius_request)
+    freeradius.AuthenticationProviderFailed(radius_request)
 
-    return web.json_response(response)
+    return web.json_response({})
 
 async def provider_failed_in_group(request):
     radius_request = await get_radius_request(request)
     
-    response = freeradius.AuthenticationProviderFailedInGroup(radius_request)
+    freeradius.AuthenticationProviderFailedInGroup(radius_request)
 
-    return web.json_response(response)
+    return web.json_response({})
  
 async def group_all_failed(request):
     radius_request = await get_radius_request(request)
     
-    response = freeradius.AuthenticationGroupFailed(radius_request)
+    freeradius.AuthenticationGroupFailed(radius_request)
 
-    return web.json_response(response)
+    return web.json_response({})
 
 
 
