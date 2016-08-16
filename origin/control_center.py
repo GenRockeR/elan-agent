@@ -3,6 +3,7 @@ from origin import utils
 from mako.template import Template
 from uuid import uuid4
 
+import threading
 from django.conf import settings
 settings.configure()
 from django.contrib.auth.hashers  import make_password
@@ -73,7 +74,9 @@ class AxonMapper:
         synapse.set(AGENT_ID_PATH, result['id'])
         synapse.set(AGENT_UUID_PATH, result['uuid'])
         
-        configure_axon()
+        # delay configuration so that caller has time to receive response....
+        t = threading.Timer(3.0, configure_axon)
+        t.start()
         
         return {'status': 'registered'}
 
