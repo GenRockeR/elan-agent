@@ -69,7 +69,12 @@ class DeviceSnmpManager():
                 return ka == kb and all(a[k] == b[k] for k in ka)
             except:
                 return False
+
         
+        # Order ports so that comparison of those lists work
+        device1['ports'] = sorted(device1['ports'], key=lambda x: x.get('index', 0))
+        device2['ports'] = sorted(device2['ports'], key=lambda x: x.get('index', 0))
+
         return not almost_equal_dicts( device1, device2, [
                 'fw_mac', 'fw_port', 'fw_status', 'qb_fdb_index', 'v_index', 'bp_index', 'bp_port' , 'i_vlan', 'i_untagged', 'i_vlan_membership',
                 'i_vlan_membership_untagged', 'qb_i_vlan_t', 'qb_fw_mac', 'qb_fw_port', 'qb_fw_vlan', 'qb_fw_status']
