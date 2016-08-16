@@ -2,28 +2,8 @@
 export DH_VERBOSE=1
 
 
-override_dh_installinit:
-	dh_installinit --name=access-control-configurator
-	dh_installinit --name=authentication-provider
-	dh_installinit --name=axon
-	dh_installinit --name=axon-websocket-proxy
-	dh_installinit --name=captive-portal
-	dh_installinit --name=captive-portal-configuration-cacher
-	dh_installinit --name=connection-trackerd
-	dh_installinit --name=device-trackerd
-	dh_installinit --name=guest-access-manager
-	dh_installinit --name=ids-logger
-	dh_installinit --name=ids-monitor
-	dh_installinit --name=mac-authz-manager
-	dh_installinit --name=nac-network
-	dh_installinit --name=nac-configurator
-	dh_installinit --name=redirector
-	dh_installinit --name=rest-elan-proxy
-	dh_installinit --name=session-trackerd
-	dh_installinit --name=snmp-notification-receiver
-	dh_installinit --name=snmp-poller
-	dh_installinit --name=snmptrapd
-	dh_installinit --name=suricata
+override_dh_systemd_start:
+	dh_systemd_start --restart-after-upgrade
 
 override_dh_systemd_enable:
 	dh_systemd_enable --name=access-control-configurator
