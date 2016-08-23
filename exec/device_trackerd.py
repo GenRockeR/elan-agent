@@ -47,7 +47,7 @@ class DeviceTracker():
             
             if packet.highest_layer == 'ARP' \
                 or \
-               packet.highest_layer == 'ICMPV6' and packet.icmpv6.type in (136, 135): # ('Neighbor Advertisement', 'Neighbor Solicitation') 
+               packet.highest_layer == 'ICMPV6' and str(packet.icmpv6.type) in ('136', '135'): # ('Neighbor Advertisement', 'Neighbor Solicitation') 
                 
                 if packet.highest_layer == 'ARP':
                     ip = packet.arp.src_proto_ipv4
