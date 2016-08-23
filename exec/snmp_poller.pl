@@ -346,7 +346,7 @@ sub handle_connection {
     elsif($channel == $parse_trap_server ) {
         $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection});
     }
-    elsif($channel eq SNMP_NASPORT_TO_IFINDEX_SOCK) {
+    elsif($channel == $nasport2ifindex_server) {
         $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection});
     }
   
