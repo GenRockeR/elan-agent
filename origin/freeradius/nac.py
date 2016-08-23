@@ -137,7 +137,7 @@ async def find_port(request):
     nas_port = request.get('NAS-Port', None)
     found_ports['nas_port'] = set()
     if nas_port:
-        ifIndexes = await snmp_manager.nasPort2IfIndexes(switch_ip, nas_port)
+        ifIndexes = await snmp_manager.nasPort2IfIndexes(switch_ip, nas_port) or [str(nas_port)]
         for if_index in ifIndexes:
             force_poll = not switch_polled # force poll if not already polled
             port = await snmp_manager.getPortFromIndex(switch_ip, if_index, force_poll=force_poll, no_poll=(not force_poll))
