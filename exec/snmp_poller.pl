@@ -86,13 +86,28 @@ sub snmp_poll {
       
       # Try conf
       my $connection_params = { version => $version, class => 'SNMP::Info', credentials => $credentials };
-      my $data = _snmp_poll($ip, $connection_params);
-      if($data) {
-        # Store connection params for that swicth for next poll
-        $connection_params->{class} = delete($data->{snmp_info_class});
-        $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip), $json->encode($connection_params));
-        
-        return $data;
+      # fork to try conf because if a attempt fails and we retry by just modifying  the AuthProto, it fails the same when it should succeed. seems like SNMP::Session caches the result some way...
+      my $pid = open(CHILD, "-|");
+      if($pid){
+          # Parent
+          my $result = <CHILD>;
+          close CHILD;
+          if($result) {
+              # Store connection params for that swicth for next poll
+              my $data = $json->decode($result);
+              $connection_params->{class} = delete($data->{snmp_info_class});
+              $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip), $json->encode($connection_params));
+            
+              return $data;
+          }
+      }
+      else {
+          # Child
+          my $data = _snmp_poll($ip, $connection_params);
+          if($data) {
+            print($json->encode($data))
+          }
+          exit 0;
       }
     }
   }
