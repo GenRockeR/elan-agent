@@ -29,7 +29,7 @@ async def post_auth(request):
 
         return web.json_response(response)
     except freeradius.NotAuthorized:
-        raise errors.HttpProcessingError(code=403)
+        return web.json_response({'status': 'Not Authorized'}, 403)
 
 async def accounting(request):
     radius_request = await get_radius_request(request)
