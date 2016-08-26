@@ -59,7 +59,7 @@ class AccessControlConfigurator():
             # TODO: use nft from pyroute2 when ready
             with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
                 def nft(*cmds):
-                    print(*cmds, file=nft_process.stdin)
+                    print(*cmds, file=nft_process.stdin, flush=True)
                         
                 for nic_name, new_vlan in new_vlans.items():
                     # configure Access Contol
@@ -130,7 +130,7 @@ class AccessControlConfigurator():
                 # TODO: use nft from pyroute2 when ready
                 with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
                     def nft(*cmds):
-                        print(*cmds, file=nft_process.stdin)
+                        print(*cmds, file=nft_process.stdin, flush=True)
                             
                     if old_vlan.get('dhcp_passthrough_bridge', None):
                         nft('delete element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dhcp_passthrough_ifname']))

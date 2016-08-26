@@ -91,7 +91,7 @@ class MacAuthorizationManager():
         # TODO: use nft from pyroute2 when ready
         with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
             def nft(cmd):
-                print(cmd, file=nft_process.stdin)
+                print(cmd, file=nft_process.stdin, flush=True)
             
             for vlan in self.fw_allowed_vlans(mac) - set(on):
                 self._fw_cache_allow_on_del(mac, vlan)
