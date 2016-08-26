@@ -36,6 +36,13 @@ server nac {
   
   authorize {
       preprocess
+
+      if(&session-state:Cached-Session-Policy){
+          update reply {
+              Cached-Session-Policy := &session-state:Cached-Session-Policy
+          }
+      }
+      
       nac-eap {
         ok = return
       }
@@ -137,6 +144,12 @@ server nac {
       }
     }
     else {
+      if (reply:Cached-Session-Policy =~ /provider=(.+),login=(.+)/) {
+         update session-state {
+            Origin-Auth-Provider := "%{1}"
+            Origin-Login         := "%{2}"
+         }
+      }
       update request {
           &Origin-Auth-Provider := "%{%{session-state:Origin-Auth-Provider}:-${dot1x_authentication}}"
           &Origin-Login         := &session-state:Origin-Login
@@ -180,6 +193,15 @@ server nac {
   
     remove_reply_message_if_eap
   
+    Post-Auth-Type Challenge {
+      if (reply:Cached-Session-Policy =~ /provider=(.+),login=(.+)/) {
+         update session-state {
+            Origin-Auth-Provider := "%{1}"
+            Origin-Login         := "%{2}"
+         }
+      }
+    }
+
     Post-Auth-Type REJECT {
       attr_filter.access_reject
   
@@ -289,6 +311,9 @@ server inner-eap-tunnel {
   post-auth {
     update outer.session-state {
         &Origin-Login := User-Name
+    }
+    update outer.reply {
+        Cached-Session-Policy := "provider=%{outer.session-state:Origin-Auth-Provider},login=%{outer.session-state:Origin-Login}"
     }
 
 

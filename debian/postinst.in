@@ -16,6 +16,9 @@ rm -f /etc/nginx/sites-enabled/default
 rm -f /etc/freeradius/sites-enabled/default
 rm -f /etc/freeradius/sites-enabled/inner-tunnel
 
+mkdir -p /var/log/freeradius/tlscache
+chown freerad: /var/log/freeradius/tlscache
+
 
 mkdir -p /var/log/suricata
 mkdir -p /etc/suricata/rules
