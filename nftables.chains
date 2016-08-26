@@ -32,7 +32,7 @@ table bridge origin {
     }
 
     chain access_control_forward {
-        mark 0 ether daddr . oif @mac_on_vlan accept
+        mark 0 ether daddr . oif @mac_on_vlan ether daddr . iif @mac_to_vlan accept 
         mark 0 ether saddr . oif @mac_to_vlan accept
         
         ether type arp iif . oif @ndp_pt_ifs accept
