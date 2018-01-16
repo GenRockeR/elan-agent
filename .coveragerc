@@ -1,0 +1,14 @@
+[run]
+branch = True
+source = .
+omit =
+    lib/*
+    manage.py
+    get-pip.py
+    */wsgi.py
+
+[html]
+directory = cover/py
+
+[xml]
+output = cover/py.xml

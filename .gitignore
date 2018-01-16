@@ -1,3 +1,5 @@
+.coverage
+cover/
 .project
 .pydevproject
 .settings/
