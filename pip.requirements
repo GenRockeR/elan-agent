@@ -4,8 +4,13 @@ idstools==0.5.3
 paho-mqtt==1.2
 passlib==1.6.5
 pkg-resources==0.0.0
+pkginfo==1.4.1
 pyshark==0.3.6.1
 PyYAML==3.11
+requests-toolbelt==0.8.0
 scapy-python3==0.18
+serialized-redis-interface==0.2.1
+tqdm==4.19.5
 trollius==1.0.4
+twine==1.9.1
 websockets==3.1

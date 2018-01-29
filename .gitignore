@@ -21,3 +21,4 @@ pip-selfcheck.json
 debian/*.debhelper
 .cache
 share/
+man/

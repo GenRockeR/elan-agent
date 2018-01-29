@@ -2,12 +2,12 @@ import concurrent.futures
 import inspect
 import json
 import re
-import redis
 import threading
 import time
 import uuid
 
 from paho.mqtt import publish
+import serialized_redis
 
 import paho.mqtt.client as mqtt
 
@@ -34,11 +34,11 @@ def wait_for_synapse_ready():
             time.sleep(1)
 
 
-class Synapse(redis.StrictRedis):
+class Synapse(serialized_redis.JSONSerializedRedis):
     '''
         Wrapper to Redis that JSON en/decodes all values
     '''
-    pool = redis.ConnectionPool(decode_responses=True)
+    pool = serialized_redis.redis.ConnectionPool(decode_responses=True)
 
     def get_unique_id(self, path='synapse:unique_id'):
         '''
@@ -47,216 +47,8 @@ class Synapse(redis.StrictRedis):
         '''
         return self.incr(path)
 
-    def pipeline(self, transaction=True, shard_hint=None):
-        return SynapsePipeline(
-            self.connection_pool,
-            self.response_callbacks,
-            transaction,
-            shard_hint
-        )
-
     def __init__(self):
         super(Synapse, self).__init__(connection_pool=self.pool)
-
-        # Decorate response_callbacks to parse Json output
-        FROM_JSON_CALLBACKS = {
-                'GET':           self.parse_single_object,
-                'HGETALL':       self.parse_hgetall,
-                'HGET':          self.parse_single_object,
-                'HKEYS':         self.parse_list,
-                'HVALS':         self.parse_list,
-                'SMEMBERS':      self.parse_smembers,
-                'ZRANGE':        self.parse_zrange,
-                'ZRANGEBYSCORE': self.parse_zrange,
-                'LRANGE':        self.parse_list,
-                'LPOP':          self.parse_single_object,
-                'BLPOP':         self.parse_bpop,
-                'BRPOP':         self.parse_bpop,
-        }
-
-        def decorate_callback(decoratedFn, otherFn):
-
-            def newFn(response, **options):
-                new_response = decoratedFn(response, **options)
-                return otherFn(new_response, **options)
-
-            return newFn
-
-        for cmd in FROM_JSON_CALLBACKS:
-            if cmd in self.response_callbacks:
-                self.response_callbacks[cmd] = decorate_callback(self.response_callbacks[cmd], FROM_JSON_CALLBACKS[cmd])
-            else:
-                self.response_callbacks[cmd] = FROM_JSON_CALLBACKS[cmd]
-
-        self.pipe = self.pipeline()
-
-    def parse_single_object(self, response, **options):
-        if response == None:
-            return None
-        return json.loads(response)
-
-    def set(self, key, value, *args, **kwargs):
-        ''' JSON encodes object and stores it '''
-        return super(Synapse, self).set(key, json.dumps(value, sort_keys=True), *args, **kwargs)
-
-    def sget(self, key):
-        '''
-        Smart get: like get but smarter, returns good type:
-            if redis hash, returns python dict
-            if redis array, returns python array
-            if redis set, return python set
-            if redis string, returns python string
-        '''
-        if not self.exists(key):
-            return None
-        return {
-                   'set': self.smembers,
-                   'hash': self.hgetall,
-                   'string': self.get,
-                   'list': self.lmembers,
-               }[self.type(key)](key)
-
-#   NOT TESTED AT ALL !!! TODO: test this !
-    def sset(self, key, value):
-        '''
-        Smart set: like set but smarter, sets good type:
-            if python dict, uses redis hash
-            if python array, uses redis array
-            if python set, uses redis set
-            otherwise uses redis string
-        '''
-        with self.pipeline() as pipe:
-            pipe.delete(key)
-
-            value_type = type(value).__name__
-            if value_type == 'set':
-                pipe.sadd(key, *list(json.dumps(v, sort_keys=True) for v in value))
-            elif value_type == 'list':
-                pipe.rpush(key, *list(json.dumps(v, sort_keys=True) for v in value))
-            elif value_type == 'dict':
-                pipe.hmset(key, {k: json.dumps(v, sort_keys=True) for k, v in value.items()})
-            else:
-                pipe.set(key, json.dumps(value, sort_keys=True))
-
-            pipe.execute()
-
-    # Hashes: fields can be objects
-    def parse_hgetall(self, response, **options):
-        return { json.loads(k): json.loads(v) for k, v in response.items() }
-
-    def hget(self, key, field):
-        return super(Synapse, self).hget(key, json.dumps(field, sort_keys=True))
-
-    def hmget(self, key, *fields):
-        return super(Synapse, self).hmget(key, *list(json.dumps(field, sort_keys=True) for field in fields))
-
-    def hexists(self, key, field):
-        return super(Synapse, self).hexists(key, json.dumps(field, sort_keys=True))
-
-    def hincrby(self, key, field, increment):
-        return super(Synapse, self).hincrby(key, json.dumps(field, sort_keys=True), increment)
-
-    def hincrbyfloat(self, key, field, increment):
-        return super(Synapse, self).hincrbyfloat(key, json.dumps(field, sort_keys=True), increment)
-
-    def hdel(self, key, *fields):
-        return super(Synapse, self).hdel(key, *list(json.dumps(field, sort_keys=True) for field in fields))
-
-    def hset(self, key, field, value):
-        return super(Synapse, self).hset(key, json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True))
-
-    def hsetnx(self, key, field, value):
-        return super(Synapse, self).hsetnx(key, json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True))
-
-    def hmset(self, key, mapping):
-        return super(Synapse, self).hset(key, ([ json.dumps(field, sort_keys=True), json.dumps(value, sort_keys=True)] for field, value in mapping))
-
-    # Sets
-    def sismember(self, key, value):
-        return super(Synapse, self).sismember(key, json.dumps(value, sort_keys=True))
-
-    def sadd(self, key, *args):
-        return super(Synapse, self).sadd(key, *list(json.dumps(v, sort_keys=True) for v in args))
-
-    def srem(self, key, *args):
-        return super(Synapse, self).srem(key, *list(json.dumps(v, sort_keys=True) for v in args))
-
-    def smembers(self, *args, **kwargs):
-        return set(super(Synapse, self).smembers(*args, **kwargs))
-
-    def smembers_as_list(self, *args, **kwargs):
-        return super(Synapse, self).smembers(*args, **kwargs)
-
-    def parse_smembers(self, response, **options):
-        '''
-        returns list as members may not be hashable, smember fct will turn in into set.
-        caller should call smembers_as_list if it is known that members may be unhashable and deal with a list instead of a set
-        '''
-        return [json.loads(v) for v in response]
-
-    # oredered sets
-    def zadd(self, key, *args):
-        json_args = []
-
-        a = iter(args)
-        for score, value in zip(a, a):
-            json_args.append(score)
-            json_args.append(json.dumps(value, sort_keys=True))
-
-        return super(Synapse, self).zadd(key, *json_args)
-
-    def zrem(self, key, *args):
-        return super(Synapse, self).zrem(key, *list(json.dumps(v, sort_keys=True) for v in args))
-
-    def zmembers(self, key):
-        return self.zrange(key, 0, -1)
-
-    def zscore(self, key, value):
-        return super(Synapse, self).zscore(key, json.dumps(value, sort_keys=True))
-
-    def parse_zrange(self, response, **options):
-        if options.get('withscores', False):
-            return [(json.loads(v[0]), v[1]) for v in response]
-        else:
-            return [json.loads(v) for v in response]
-
-    # Lists
-    def lmembers(self, key):
-        return self.lrange(key, 0, -1)
-
-    def parse_list(self, response, **options):
-        return [json.loads(v) for v in response]
-
-    def lpush(self, key, *args):
-        return super(Synapse, self).lpush(key, *list(json.dumps(v, sort_keys=True) for v in args))
-
-    def parse_bpop(self, response, **options):
-        if response == None:
-            return None
-        return (response[0], json.loads(response[1]))
-
-    def rpush(self, key, *args):
-        return super(Synapse, self).rpush(key, *list(json.dumps(v, sort_keys=True) for v in args))
-
-    def rpop(self, key):
-        data = super(Synapse, self).rpop(key)
-        if data == None:
-            return None
-        return json.loads(data)
-
-    def publish(self, channel, msg):
-        return super(Synapse, self).publish(channel, json.dumps(msg, sort_keys=True))
-
-    def type(self, key):
-        return super(Synapse, self).type(key)
-
-    def pubsub(self):
-        return super(Synapse, self).pubsub()
-
-
-class SynapsePipeline(redis.client.BasePipeline, Synapse):
-    "Pipeline for the Synapse class"
-    pass
 
 
 class RequestTimeout(Exception):
