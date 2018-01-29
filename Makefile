@@ -23,7 +23,7 @@ install: core-install authentication-install captive-portal-install connection-t
 
 .PHONY: test
 test:
-	coverage run -m unittest
+	coverage run -m unittest && coverage report; coverage html
 
 authentication-install: authentication-freeradius authentication-python authentication-samba
 

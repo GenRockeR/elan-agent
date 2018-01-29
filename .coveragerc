@@ -1,6 +1,8 @@
 [run]
 branch = True
-source = .
+source =
+    .
+    exec
 omit =
     lib/*
     manage.py
