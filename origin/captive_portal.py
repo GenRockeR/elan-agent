@@ -6,7 +6,7 @@ CONF_PATH = 'conf:captive-portal'
 GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
 PENDING_GUEST_REQUESTS_PATH = 'captive-portal:guest-request:pending'
 
-EDGE_AGENT_FQDN = 'edge-agent.origin-nexus.com'
+EDGE_AGENT_FQDN = 'elan-agent.origin-nexus.com'
 # TODO: get these from FQDN
 EDGE_AGENT_FQDN_IP = '8.8.8.8'
 EDGE_AGENT_FQDN_IP6 = '2001:41d0:2:ba47::1000:1000'

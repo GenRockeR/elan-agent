@@ -70,4 +70,4 @@ PACKAGE-VERSION = $(shell head -1 debian/changelog | cut -f 2 -d \( | cut -f 1 -
 .PHONY: deploy-dev
 deploy-dev:
 	@scp ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb itadmin@192.168.20.10:/home/itadmin/
-	@ssh itadmin@192.168.20.10 "cd repositories; reprepro --ask-passphrase includedeb edge-agent ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb; rm ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb"
+	@ssh itadmin@192.168.20.10 "cd repositories; reprepro --ask-passphrase includedeb elan-agent ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb; rm ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb"

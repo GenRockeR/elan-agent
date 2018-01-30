@@ -37,7 +37,7 @@ rm -f /etc/nginx/sites-enabled/default
 
 # Create certs
 mkdir -p /origin/network/certs/
-for domain in edge-agent.origin-nexus.com captive-portal.origin-nexus.com
+for domain in elan-agent.origin-nexus.com captive-portal.origin-nexus.com
 do
   if [ ! -e /origin/network/certs/$domain.crt ]
   then 

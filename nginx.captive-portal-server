@@ -10,8 +10,8 @@ server {
     listen [::]:443 ssl;
     server_name dashboard;
 
-    ssl_certificate     /origin/network/certs/edge-agent.origin-nexus.com.crt;
-    ssl_certificate_key /origin/network/certs/edge-agent.origin-nexus.com.key;
+    ssl_certificate     /origin/network/certs/elan-agent.origin-nexus.com.crt;
+    ssl_certificate_key /origin/network/certs/elan-agent.origin-nexus.com.key;
 
     # no need for logs
     access_log off;
