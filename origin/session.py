@@ -161,10 +161,9 @@ def session_ids_field(mac, vlan=None, ip=None):
 
 def end(mac, vlan=None, ip=None, time=None):
     '''
-    Ends a Mac, Vlan or IP session. If ip no specified, will delete all ip session for the vlan. If vlan not specified, will delete all vlan and ip sessions associated with that mac.
-    Note that it will not delete mac session if this was the last vlan session that is being deleted (same with vlan and ips). This is the responsibility of the caller that should check that.
+    Ends a Mac, Vlan or IP session. If ip no specified, will delete all ip sessions for the vlan. If vlan not specified, will delete all vlan and ip sessions associated with that mac.
+    Note that it will not delete mac session if this was the last vlan session that is being deleted (same with vlan for ips). This is the responsibility of the caller to check that.
     '''
-    # TODO: should be in redis transaction ?
     if time is None:
         time = (datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds()  # Epoch
 

@@ -30,7 +30,7 @@ def wait_for_synapse_ready():
     while not started:
         try:
             started = s.ping()
-        except redis.exceptions.ConnectionError:
+        except serialized_redis.redis.ConnectionError:
             time.sleep(1)
 
 
@@ -49,6 +49,7 @@ class Synapse(serialized_redis.JSONSerializedRedis):
 
     def __init__(self):
         super(Synapse, self).__init__(connection_pool=self.pool)
+        self.pipe = self.pipeline()
 
 
 class RequestTimeout(Exception):
