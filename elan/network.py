@@ -1,12 +1,12 @@
-from origin.neuron import Synapse
-from origin.utils import restart_service, stop_service, start_service
+from elan.neuron import Synapse
+from elan.utils import restart_service, stop_service, start_service
 from mako.template import Template
 
 
 class NetworkConfiguration:
     IPv4_CONF_PATH = 'conf:network:ipv4'
     IPv6_CONF_PATH = 'conf:network:ipv6'
-    configuration_template = '/origin/network/interfaces' 
+    configuration_template = '/elan-agent/network/interfaces' 
     configuration_file = '/etc/network/interfaces.d/ea-network' 
     synapse = Synapse()
     

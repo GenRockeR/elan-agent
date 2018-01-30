@@ -1,6 +1,6 @@
 import unittest
 
-from origin.freeradius import utils
+from elan.freeradius import utils
 
 
 class UtilsTest(unittest.TestCase):

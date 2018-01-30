@@ -28,10 +28,10 @@ test:
 authentication-install: authentication-freeradius authentication-python authentication-samba
 
 .PHONY: authentication-python
-authentication-python: origin/authentication.py origin/freeradius/*.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/authentication.py
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/*.py
+authentication-python: elan/authentication.py elan/freeradius/*.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/freeradius
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/authentication.py
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/freeradius elan/freeradius/*.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install exec/rest_elan_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rest-elan-proxy
   
@@ -65,9 +65,9 @@ authentication-samba:
 .PHONY: captive-portal-install
 captive-portal-install: captive-portal-conf captive-portal-www captive-portal-python
 
-captive-portal-python: origin/captive_portal.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/captive_portal.py
+captive-portal-python: elan/captive_portal.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/captive_portal.py
 
 .PHONY: captive-portal-conf
 captive-portal-conf: exec/captive_portal_configuration_cacher.py exec/guest_access_manager.py
@@ -89,10 +89,10 @@ captive-portal-www:
   
 
 .PHONY: connection-tracker-install
-connection-tracker-install: origin/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-pyshark
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
-	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/__init__.py
+connection-tracker-install: elan/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-pyshark
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/*.py
+	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/__init__.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install exec/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
 	install exec/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
@@ -108,14 +108,14 @@ connection-tracker-pyshark:
 install: core-python control-center
 
 .PHONY: core-python
-core-python: origin/*.py origin/nac/*.py core-pylib
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+core-python: elan/*.py elan/nac/*.py core-pylib
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/*.py
 
 .PHONY: core-pylib
 core-pylib: idstools paho scapy
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
-	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /origin/lib/python
+	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /elan-agent/lib/python
 	( cd lib/python3.5/site-packages; \
 		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
@@ -159,8 +159,8 @@ ids-install-suricata:
 ids-install-logger:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install exec/ids_loggerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/*.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/*.py
 
 PHONY: nac-install
 nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
@@ -185,12 +185,12 @@ nac-nginx:
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
 
 .PHONY: nac-python
-nac-python: origin/nac/*.py origin/snmp.py
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/nac
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/nac origin/nac/*.py
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/snmp.py
-	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin/freeradius origin/freeradius/nac.py
+nac-python: elan/nac/*.py elan/snmp.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/freeradius
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/nac
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/nac elan/nac/*.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/snmp.py
+	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent/freeradius elan/freeradius/nac.py
   
 .PHONY: nac-authz
 nac-authz:
@@ -228,7 +228,7 @@ network-install:
 	install -m 644 interfaces ${DESTDIR}${ORIGIN_PREFIX}/network/interface.lo
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network/nginx
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ORIGIN_PREFIX}/network/nginx/server
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin
-	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/origin origin/network.py
+	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent
+	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan-agent elan/network.py
 
 

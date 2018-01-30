@@ -1,6 +1,6 @@
-from origin.neuron import Synapse, Dendrite
-from origin import session
-from origin.event import Event, DebugEvent
+from elan.neuron import Synapse, Dendrite
+from elan import session
+from elan.event import Event, DebugEvent
 import datetime
 import asyncio
 import json

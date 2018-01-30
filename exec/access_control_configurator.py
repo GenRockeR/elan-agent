@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import subprocess, traceback
-from origin.neuron import Dendrite, Synapse, RequestTimeout
-from origin.utils import reload_service, physical_ifaces
-from origin import network
-from origin.event import ExceptionEvent
+from elan.neuron import Dendrite, Synapse, RequestTimeout
+from elan.utils import reload_service, physical_ifaces
+from elan import network
+from elan.event import ExceptionEvent
 from mako.template import Template
 from pyroute2 import IPDB
-from origin import nac
+from elan import nac
 
 class AccessControlConfigurator():
     bridge = 'br0'
@@ -64,20 +64,20 @@ class AccessControlConfigurator():
                 for nic_name, new_vlan in new_vlans.items():
                     # configure Access Contol
                     if new_vlan.get('access_control', False):
-                        nft('add element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
+                        nft('add element bridge elan ac_ifs {{{nic}}}'.format(nic=nic_name))
                     else:
-                        nft('delete element bridge origin ac_ifs {{{nic}}}'.format(nic=nic_name))
+                        nft('delete element bridge elan ac_ifs {{{nic}}}'.format(nic=nic_name))
         
                     local_index = self.get_vlan_local_index(nic_name)
                     new_vlan['local_index'] = local_index
                     mark = local_index
-                    nft('add element bridge origin vlan_mark {{ {nic} : {mark} }}'.format(nic=nic_name, mark = mark))
+                    nft('add element bridge elan vlan_mark {{ {nic} : {mark} }}'.format(nic=nic_name, mark = mark))
 
                     # configure captive portal
                     new_vlan['http_port'] = 20000 + local_index * 2
                     new_vlan['https_port'] = 20000 + local_index * 2 + 1
                     for protocol in ['ip', 'ip6']:
-                        nft("add element {protocol} origin captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
+                        nft("add element {protocol} elan captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol = protocol, mark = mark, http_port = new_vlan['http_port'], https_port = new_vlan['https_port']))
     
                     # configure DHCP passthrough
                     if new_vlan.get('dhcp_passthrough_bridge', None):
@@ -85,9 +85,9 @@ class AccessControlConfigurator():
                         if new_vlan['dhcp_passthrough_vlan_id']:
                             nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
                         new_vlan['dhcp_passthrough_ifname'] = nic_out
-                        nft('add element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
+                        nft('add element bridge elan dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
                     elif nic_name in self.vlans and 'dhcp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dhcp_passthrough_ifname']:
-                        nft('delete element bridge origin dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
+                        nft('delete element bridge elan dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
                         
                     # configure DNS passthrough
                     if new_vlan.get('dns_passthrough_bridge', None):
@@ -95,9 +95,9 @@ class AccessControlConfigurator():
                         if new_vlan['dns_passthrough_vlan_id']:
                             nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
                         new_vlan['dns_passthrough_ifname'] = nic_out
-                        nft('add element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                        nft('add element bridge elan dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
                     elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
-                        nft('delete element bridge origin dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
+                        nft('delete element bridge elan dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
 
                     # configure ARP/NDP passthrough
                     if new_vlan.get('ndp_passthrough_bridge', None):
@@ -105,21 +105,21 @@ class AccessControlConfigurator():
                         if new_vlan['ndp_passthrough_vlan_id']:
                             nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['ndp_passthrough_vlan_id'])
                         new_vlan['ndp_passthrough_ifname'] = nic_out
-                        nft('add element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                        nft('add element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
                     elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
-                        nft('delete element bridge origin ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
+                        nft('delete element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
 
                     # Configure connection tracking
                     if new_vlan.get('log', False):
-                        nft('add element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+                        nft('add element bridge elan log_ifs {{ {nic} }}'.format(nic=nic_name))
                     else:
-                        nft('delete element bridge origin log_ifs {{ {nic} }}'.format(nic=nic_name))
+                        nft('delete element bridge elan log_ifs {{ {nic} }}'.format(nic=nic_name))
     
                     # Configure IDS
                     if new_vlan.get('ids', False):
-                        nft('add element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+                        nft('add element bridge elan ids_ifs {{ {nic} }}'.format(nic=nic_name))
                     else:
-                        nft('delete element bridge origin ids_ifs {{ {nic} }}'.format(nic=nic_name))
+                        nft('delete element bridge elan ids_ifs {{ {nic} }}'.format(nic=nic_name))
     
                 
             # VLANs to delete
@@ -133,16 +133,16 @@ class AccessControlConfigurator():
                         print(*cmds, file=nft_process.stdin, flush=True)
                             
                     if old_vlan.get('dhcp_passthrough_bridge', None):
-                        nft('delete element bridge origin dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dhcp_passthrough_ifname']))
+                        nft('delete element bridge elan dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dhcp_passthrough_ifname']))
                     
                     if old_vlan.get('dns_passthrough_bridge', None):
-                        nft('delete element bridge origin dns_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dns_passthrough_ifname']))
+                        nft('delete element bridge elan dns_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['dns_passthrough_ifname']))
     
                     if old_vlan.get('ndp_passthrough_bridge', None):
-                        nft('delete element bridge origin ndp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['ndp_passthrough_ifname']))
+                        nft('delete element bridge elan ndp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['ndp_passthrough_ifname']))
     
                     for protocol in ['ip', 'ip6']:
-                        nft("delete element {protocol} origin captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = old_vlan['local_index']))
+                        nft("delete element {protocol} elan captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol = protocol, mark = old_vlan['local_index']))
                 
                 try:
                     nic = ip.interfaces[nic_name]
@@ -156,7 +156,7 @@ class AccessControlConfigurator():
 
                 
             # Set captive portals
-            nginx_captive_portals = Template(filename = '/origin/network/nginx/server')
+            nginx_captive_portals = Template(filename = '/elan-agent/network/nginx/server')
             with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
                 nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from origin.neuron import Dendrite, Synapse
-from origin.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH, Administrator
+from elan.neuron import Dendrite, Synapse
+from elan.captive_portal import CONF_PATH, GUEST_ACCESS_CONF_PATH, Administrator
 
 class ConfigurationCacher():
     def __init__(self):

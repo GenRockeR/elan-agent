@@ -4,8 +4,8 @@ import asyncio
 import functools
 import re
 
-from origin import snmp, session, nac
-from origin.event import Event, DebugEvent, ExceptionEvent
+from elan import snmp, session, nac
+from elan.event import Event, DebugEvent, ExceptionEvent
 
 from .utils import request_as_hash_of_values
 
@@ -173,7 +173,7 @@ async def find_port(request):
 
     # port not found...
     DebugEvent(source='radius')\
-        .add_data('module', 'origin.freeradius.mac')\
+        .add_data('module', 'elan.freeradius.mac')\
         .add_data('details', 'Port not found')\
         .add_data('request', request)\
         .add_data('switch', switch)\

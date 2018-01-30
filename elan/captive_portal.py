@@ -1,5 +1,5 @@
-from origin.neuron import Synapse, Dendrite
-from origin import nac, session
+from elan.neuron import Synapse, Dendrite
+from elan import nac, session
 import datetime
 
 CONF_PATH = 'conf:captive-portal'

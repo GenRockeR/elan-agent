@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from origin.authentication import AuthenticationProvider
-from origin.neuron import Dendrite
+from elan.authentication import AuthenticationProvider
+from elan.neuron import Dendrite
 
 if __name__ == "__main__":
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import os
-from origin.event import ExceptionEvent
-from origin import session, neuron
+from elan.event import ExceptionEvent
+from elan import session, neuron
 import pyshark
 import time
 import struct
-from origin.utils  import if_indextoname
+from elan.utils  import if_indextoname
 
 
 CONNECTION_NFLOG_QUEUE = int(os.environ.get('CONNECTION_NFLOG_QUEUE', 5))

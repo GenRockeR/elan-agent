@@ -1,6 +1,6 @@
 import datetime
 
-from origin.neuron import Synapse, Dendrite
+from elan.neuron import Synapse, Dendrite
 
 MAC_SESSION_TOPIC = 'session/mac'
 VLAN_SESSION_TOPIC = 'session/vlan'

@@ -22,7 +22,7 @@ chown freerad: /var/log/freeradius/tlscache
 
 mkdir -p /var/log/suricata
 mkdir -p /etc/suricata/rules
-PYTHONPATH=/origin/lib/python /origin/bin/rule-fetcher --no-rule-reload || true
+PYTHONPATH=/elan-agent/lib/python /elan-agent/bin/rule-fetcher --no-rule-reload || true
 
 perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
 
@@ -30,18 +30,18 @@ perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | hea
 update-rc.d -f nginx remove
 update-rc.d -f redis-server remove
 
-cat /origin/authentication/smb.conf > /etc/samba/smb.conf
+cat /elan-agent/authentication/smb.conf > /etc/samba/smb.conf
 
 # deconfigure default site
 rm -f /etc/nginx/sites-enabled/default
 
 # Create certs
-mkdir -p /origin/network/certs/
+mkdir -p /elan-agent/network/certs/
 for domain in elan-agent.origin-nexus.com captive-portal.origin-nexus.com
 do
-  if [ ! -e /origin/network/certs/$domain.crt ]
+  if [ ! -e /elan-agent/network/certs/$domain.crt ]
   then 
-    openssl req  -x509 -newkey rsa:2048 -keyout /origin/network/certs/$domain.key -out /origin/network/certs/$domain.crt -nodes -subj /CN=$domain
+    openssl req  -x509 -newkey rsa:2048 -keyout /elan-agent/network/certs/$domain.key -out /elan-agent/network/certs/$domain.crt -nodes -subj /CN=$domain
   fi
 done
 
@@ -50,7 +50,7 @@ update-rc.d -f nftables remove
 
 # disable all interfaces
 ifdown -a --ignore-errors --exclude=lo
-cat /origin/network/interface.lo > /etc/network/interfaces
+cat /elan-agent/network/interface.lo > /etc/network/interfaces
 chown www-data /etc/network/interfaces.d/ea-network
 
 

@@ -1,6 +1,6 @@
-from origin.neuron import Synapse, Dendrite
+from elan.neuron import Synapse, Dendrite
 import subprocess, datetime, re
-from origin import session
+from elan import session
 import threading
 
 AUTHORIZATION_CHANGE_TOPIC = 'nac/authz/change' # notify that authz changed for mac

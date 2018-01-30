@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 import unittest
 
-from origin.freeradius import nac
-from origin.neuron import Dendrite
+from elan.freeradius import nac
+from elan.neuron import Dendrite
 
 
 class UtilsTest(unittest.TestCase):

@@ -1,5 +1,5 @@
 from mako.template import Template
-from origin import utils, neuron
+from elan import utils, neuron
 
 NETWORKS_CACHE_PATH = 'ids:cache:networks'
 
@@ -25,7 +25,7 @@ def generate_suricata_conf(force=False):
     
     if changed or force:
         # generate conf
-        conf_template = Template(filename="/origin/ids/suricata/conf")
+        conf_template = Template(filename="/elan-agent/ids/suricata/conf")
         with open ("/etc/suricata/suricata.yaml", "w") as conf_file:
             conf_file.write( conf_template.render( networks = networks ) )
 

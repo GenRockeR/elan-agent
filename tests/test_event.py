@@ -2,8 +2,8 @@ from datetime import timedelta, datetime
 from unittest.mock import MagicMock
 import unittest
 
-from origin.event import Event, ExceptionEvent, DebugEvent
-from origin.neuron import Dendrite
+from elan.event import Event, ExceptionEvent, DebugEvent
+from elan.neuron import Dendrite
 
 
 class EventTest(unittest.TestCase):

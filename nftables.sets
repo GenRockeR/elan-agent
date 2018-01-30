@@ -1,6 +1,6 @@
 #!/usr/sbin/nft -f
 
-table bridge origin {
+table bridge elan {
   set ndp_pt_ifs {
     type iface_index . iface_index ;
   }
@@ -37,13 +37,13 @@ table bridge origin {
   }
 }
 
-table ip origin {
+table ip elan {
   map captive_portals {
     type mark . inet_service : inet_service ;
   }
 }
 
-table ip6 origin {
+table ip6 elan {
   map captive_portals {
     type mark . inet_service : inet_service ;
   }

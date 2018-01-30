@@ -19,7 +19,7 @@ use constant SNMP_NASPORT_TO_IFINDEX_SOCK => '/tmp/snmp-nasport2ifindex.sock';
 
 use constant SNMP_READ_PARAMS_CACHE_PATH => 'snmp:read:params'; # Per IP
 use constant SNMP_DEFAULT_CREDENTIALS_PATH => 'snmp:default_credentials';
-use constant MIB_BASE_PATH => '/origin/nac/mibs';
+use constant MIB_BASE_PATH => '/elan-agent/nac/mibs';
 
 
 $SIG{CHLD} = 'IGNORE'; # Avoid Zombies...

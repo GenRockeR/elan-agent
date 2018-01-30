@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 from .utils import request_as_hash_of_values
-from origin.event import Event, ExceptionEvent
+from elan.event import Event, ExceptionEvent
 
 
 def AuthenticationProviderFailed(req, level='danger'):

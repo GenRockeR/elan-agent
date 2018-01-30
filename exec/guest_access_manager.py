@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from origin.captive_portal import GuestAccessManager
-from origin.neuron import Dendrite
+from elan.captive_portal import GuestAccessManager
+from elan.neuron import Dendrite
 
 if __name__ == "__main__":
     dendrite = Dendrite()

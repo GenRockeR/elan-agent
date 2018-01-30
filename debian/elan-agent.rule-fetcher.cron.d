@@ -1,1 +1,1 @@
-24 *	* * *	root	PYTHONPATH=/origin/lib/python /origin/bin/rule-fetcher
+24 *	* * *	root	PYTHONPATH=/elan-agent/lib/python /elan-agent/bin/rule-fetcher

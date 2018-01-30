@@ -4,8 +4,8 @@ import asyncio
 import subprocess
 from idstools import unified2
 from scapy.all import Ether
-from origin.neuron import Dendrite
-from origin.event import Event, ExceptionEvent
+from elan.neuron import Dendrite
+from elan.event import Event, ExceptionEvent
 
 
 async def get_bridge_port(mac):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from origin.nac.manager import MacAuthorizationManager
-from origin.nac import AUTHORIZATION_CHANGE_TOPIC, CHECK_AUTHZ_PATH
-from origin.session import MAC_SESSION_TOPIC
-from origin.neuron import Dendrite
+from elan.nac.manager import MacAuthorizationManager
+from elan.nac import AUTHORIZATION_CHANGE_TOPIC, CHECK_AUTHZ_PATH
+from elan.session import MAC_SESSION_TOPIC
+from elan.neuron import Dendrite
 
 if __name__ == "__main__":
     dendrite = Dendrite()

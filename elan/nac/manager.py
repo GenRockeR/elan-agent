@@ -1,4 +1,4 @@
-from origin.neuron import Synapse, Dendrite
+from elan.neuron import Synapse, Dendrite
 import subprocess, threading
 import datetime
 from .. import session
@@ -95,17 +95,17 @@ class MacAuthorizationManager():
             
             for vlan in self.fw_allowed_vlans(mac) - set(on):
                 self._fw_cache_allow_on_del(mac, vlan)
-                nft('delete element bridge origin mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
+                nft('delete element bridge elan mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
             for vlan in set(on) - self.fw_allowed_vlans(mac):
                 self._fw_cache_allow_on_add(mac, vlan)
-                nft('add element bridge origin mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
+                nft('add element bridge elan mac_on_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
 
             for vlan in self.fw_bridged_vlans(mac) - set(to):
                 self._fw_cache_bridge_to_del(mac, vlan)
-                nft('delete element bridge origin mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
+                nft('delete element bridge elan mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac))
             for vlan in set(to) - self.fw_bridged_vlans(mac):
                 self._fw_cache_bridge_to_add(mac, vlan)
-                nft('add element bridge origin mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
+                nft('add element bridge elan mac_to_vlan {{ {mac} . {vlan} }}'.format(vlan=vlan, mac=mac)) 
 
     def fw_disallow_mac(self, mac):
         ''' 

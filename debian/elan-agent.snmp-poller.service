@@ -6,9 +6,9 @@ Description=Poll Switches
 Restart=always
 RestartSec=10
 
-Environment=PERL5LIB=/origin/lib/perl5
+Environment=PERL5LIB=/elan-agent/lib/perl5
 
-ExecStart=/origin/bin/snmp-poller
+ExecStart=/elan-agent/bin/snmp-poller
 
 [Install]
 WantedBy=multi-user.target

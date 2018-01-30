@@ -1,6 +1,6 @@
 import datetime, traceback
 
-from origin.neuron import Dendrite
+from elan.neuron import Dendrite
 
 
 class Event(object):

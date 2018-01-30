@@ -7,10 +7,10 @@ Description=Connection Tracker
 Restart=always
 RestartSec=10
 
-Environment=PYTHONPATH=/origin/lib/python
+Environment=PYTHONPATH=/elan-agent/lib/python
 
 ExecStartPre=/sbin/modprobe br_netfilter
-ExecStart=/origin/bin/connection-trackerd
+ExecStart=/elan-agent/bin/connection-trackerd
 
 
 [Install]

@@ -2,7 +2,7 @@
 
 import subprocess, os, sys
 import yaml, re
-from origin.utils import reload_service
+from elan.utils import reload_service
 
 file_h = open('/etc/suricata/suricata.yaml', 'r')
 

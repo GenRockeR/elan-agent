@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
  
 import asyncio
-from origin.snmp import DeviceSnmpManager
+from elan.snmp import DeviceSnmpManager
 
 snmp_manager = DeviceSnmpManager()
 

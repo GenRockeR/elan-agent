@@ -2,15 +2,15 @@ import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import subprocess, re, socket
-from origin.neuron import Synapse, Dendrite
-from origin.utils import restart_service
+from elan.neuron import Synapse, Dendrite
+from elan.utils import restart_service
 from mako.template import Template
 
 
 
 def pwd_authenticate(authenticator_id, login, password, source):
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
-                 dict=Dictionary("/origin/authentication/pyradius/dictionary"))
+                 dict=Dictionary("/elan-agent/authentication/pyradius/dictionary"))
     
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
               User_Name=login, Connect_Info='authenticator={},source={},command=authenticate'.format(authenticator_id, source) )
@@ -22,7 +22,7 @@ def pwd_authenticate(authenticator_id, login, password, source):
 
 def get_authorization(authenticator_id, login, source):
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
-                 dict=Dictionary("/origin/authentication/pyradius/dictionary"))
+                 dict=Dictionary("/elan-agent/authentication/pyradius/dictionary"))
     
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
               User_Name=login, Connect_Info='authenticator={},source={},command=authorize'.format(authenticator_id, source) )
@@ -47,9 +47,9 @@ class AuthenticationProvider():
         self.authentications = None
         self.provided_services = set()
 
-        self.policy_template = Template(filename="/origin/authentication/freeradius/policy")
-        self.ldap_template = Template(filename="/origin/authentication/freeradius/ldap-module")
-        self.ad_template = Template(filename="/origin/authentication/freeradius/ad-module")
+        self.policy_template = Template(filename="/elan-agent/authentication/freeradius/policy")
+        self.ldap_template = Template(filename="/elan-agent/authentication/freeradius/ldap-module")
+        self.ad_template = Template(filename="/elan-agent/authentication/freeradius/ad-module")
         self.external_auth_template = Template('''
             update session-state {
                 &Origin-Auth-Provider := ${id}

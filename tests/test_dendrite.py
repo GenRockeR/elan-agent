@@ -7,7 +7,7 @@ import unittest
 
 from paho.mqtt import client
 
-from origin.neuron import Dendrite, RequestTimeout, RequestError
+from elan.neuron import Dendrite, RequestTimeout, RequestError
 
 
 class DendriteTest(unittest.TestCase):
@@ -196,7 +196,7 @@ class DendriteTest(unittest.TestCase):
 
     def test_subscribe_cb_exception_catch(self):
         event_instance = Mock()
-        with patch('origin.event.ExceptionEvent', return_value=event_instance) as ExceptionEventMock:
+        with patch('elan.event.ExceptionEvent', return_value=event_instance) as ExceptionEventMock:
             topic1 = 'test/topic1'
             msg1 = dict(test='OK', msg=1)
 

@@ -1,8 +1,8 @@
 from unittest import mock
 import unittest
 
-from origin import session
-from origin.session import notify_new_VLAN_session
+from elan import session
+from elan.session import notify_new_VLAN_session
 
 
 class SessionTest(unittest.TestCase):
@@ -17,10 +17,10 @@ class SessionTest(unittest.TestCase):
         for path in paths:
             session.synapse.delete(path)
 
-    @mock.patch('origin.session.notify_MAC_port', wraps=session.notify_MAC_port)
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_MAC_port', wraps=session.notify_MAC_port)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_new_mac(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session, notify_MAC_port):
         response = session.seen(mac='aa:bb:cc:dd:ee:01')
 
@@ -31,9 +31,9 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(notify_MAC_port.call_count, 0)
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01'))
 
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_known_mac(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session):
         session.seen(mac='aa:bb:cc:dd:ee:01')
         notify_new_MAC_session.reset_mock()
@@ -46,9 +46,9 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(notify_new_IP_session.call_count, 0)
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01'))
 
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_new_mac_new_vlan(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session):
         response = session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1')
 
@@ -65,9 +65,9 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(notify_new_VLAN_session.call_count, 1)  # Not changed
         self.assertEqual(notify_new_IP_session.call_count, 0)
 
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_known_mac_new_vlan(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session):
         session.seen(mac='aa:bb:cc:dd:ee:01')
         notify_new_MAC_session.reset_mock()
@@ -81,9 +81,9 @@ class SessionTest(unittest.TestCase):
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01'))
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1'))
 
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_new_mac_new_vlan_new_ip(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session):
         response = session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.4')
 
@@ -102,9 +102,9 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(notify_new_VLAN_session.call_count, 0)
         self.assertEqual(notify_new_IP_session.call_count, 1)  # Not changed
 
-    @mock.patch('origin.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
-    @mock.patch('origin.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
-    @mock.patch('origin.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
+    @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
+    @mock.patch('elan.session.notify_new_VLAN_session', wraps=session.notify_new_VLAN_session)
+    @mock.patch('elan.session.notify_new_MAC_session', wraps=session.notify_new_MAC_session)
     def test_seen_known_mac_known_vlan_new_ip(self, notify_new_MAC_session, notify_new_VLAN_session, notify_new_IP_session):
         session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1')
         notify_new_VLAN_session.reset_mock()
@@ -118,8 +118,8 @@ class SessionTest(unittest.TestCase):
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01'))
         self.assertTrue(session.is_online(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1'))
 
-    @mock.patch('origin.session.notify_end_MAC_session', wraps=session.notify_end_MAC_session)
-    @mock.patch('origin.session.notify_MAC_port', wraps=session.notify_MAC_port)
+    @mock.patch('elan.session.notify_end_MAC_session', wraps=session.notify_end_MAC_session)
+    @mock.patch('elan.session.notify_MAC_port', wraps=session.notify_MAC_port)
     def test_seen_with_port(self, notify_MAC_port, notify_end_MAC_session):
         self.assertIsNone(session.mac_port('aa:bb:cc:dd:ee:01'))
 
@@ -154,9 +154,9 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(notify_MAC_port.call_count, 1)
         self.assertEqual(notify_end_MAC_session.call_count, 2, 'No session end on same port')
 
-    @mock.patch('origin.session.notify_end_MAC_session', wraps=session.notify_end_MAC_session)
-    @mock.patch('origin.session.notify_end_VLAN_session', wraps=session.notify_end_VLAN_session)
-    @mock.patch('origin.session.notify_end_IP_session', wraps=session.notify_end_IP_session)
+    @mock.patch('elan.session.notify_end_MAC_session', wraps=session.notify_end_MAC_session)
+    @mock.patch('elan.session.notify_end_VLAN_session', wraps=session.notify_end_VLAN_session)
+    @mock.patch('elan.session.notify_end_IP_session', wraps=session.notify_end_IP_session)
     def test_end(self, notify_end_IP_session, notify_end_VLAN_session, notify_end_MAC_session):
         session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.1')
         session.seen(mac='aa:bb:cc:dd:ee:02', vlan='eth0.2', ip='1.2.3.2')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from origin import session, nac, neuron, utils
-from origin.event import Event, ExceptionEvent
+from elan import session, nac, neuron, utils
+from elan.event import Event, ExceptionEvent
 import re
 import pyshark
 import threading

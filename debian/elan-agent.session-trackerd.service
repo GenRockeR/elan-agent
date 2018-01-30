@@ -8,9 +8,9 @@ Wants=redis.service
 Restart=always
 RestartSec=10
 
-Environment=PYTHONPATH=/origin/lib/python
+Environment=PYTHONPATH=/elan-agent/lib/python
 
-ExecStart=/origin/bin/session-trackerd
+ExecStart=/elan-agent/bin/session-trackerd
 
 [Install]
 WantedBy=multi-user.target

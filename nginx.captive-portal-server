@@ -10,14 +10,14 @@ server {
     listen [::]:443 ssl;
     server_name dashboard;
 
-    ssl_certificate     /origin/network/certs/elan-agent.origin-nexus.com.crt;
-    ssl_certificate_key /origin/network/certs/elan-agent.origin-nexus.com.key;
+    ssl_certificate     /elan-agent/network/certs/elan-agent.origin-nexus.com.crt;
+    ssl_certificate_key /elan-agent/network/certs/elan-agent.origin-nexus.com.key;
 
     # no need for logs
     access_log off;
     
     location /static/captive-portal {
-      alias /origin/captive-portal/captive_portal/static/captive-portal;
+      alias /elan-agent/captive-portal/captive_portal/static/captive-portal;
     }
     location / {
       uwsgi_pass portal;
@@ -34,8 +34,8 @@ server {
     listen [::]:20001 ssl;
     server_name allowed_macs;
 
-    ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
-    ssl_certificate_key /origin/network/certs/captive-portal.origin-nexus.com.key;
+    ssl_certificate     /elan-agent/network/certs/captive-portal.origin-nexus.com.crt;
+    ssl_certificate_key /elan-agent/network/certs/captive-portal.origin-nexus.com.key;
 
     # no need for logs
     access_log off;
@@ -44,7 +44,7 @@ server {
     keepalive_timeout 0;
         
     location /static/captive-portal {
-      alias /origin/captive-portal/captive_portal/static/captive-portal;
+      alias /elan-agent/captive-portal/captive_portal/static/captive-portal;
     }
     location / {
       uwsgi_pass portal;
@@ -60,8 +60,8 @@ server {
     listen [::]:${vlans[index]['https_port']} ssl;
     server_name captive-portal;
 
-    ssl_certificate     /origin/network/certs/captive-portal.origin-nexus.com.crt;
-    ssl_certificate_key /origin/network/certs/captive-portal.origin-nexus.com.key;
+    ssl_certificate     /elan-agent/network/certs/captive-portal.origin-nexus.com.crt;
+    ssl_certificate_key /elan-agent/network/certs/captive-portal.origin-nexus.com.key;
 
     # Disable keep-alives: once authenticated the browser may reuse the connection when going to the initial site.
     keepalive_timeout 0;
@@ -70,7 +70,7 @@ server {
     access_log off;
     
     location /static/captive-portal {
-      alias /origin/captive-portal/captive_portal/static/captive-portal;
+      alias /elan-agent/captive-portal/captive_portal/static/captive-portal;
     }
     
     location / {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from origin.neuron import Dendrite, Synapse
-from origin.utils import restart_service
+from elan.neuron import Dendrite, Synapse
+from elan.utils import restart_service
 from mako.template import Template
 
 SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
@@ -38,7 +38,7 @@ class NacConfigurator():
 
         if freeradius_conf_changed:
             # Grab template
-            server_template = Template(filename="/origin/nac/freeradius/server")
+            server_template = Template(filename="/elan-agent/nac/freeradius/server")
             
             with open ("/etc/freeradius/sites-enabled/nac", "w") as server_file:
                 server_file.write( server_template.render(**self.conf) )
@@ -54,7 +54,7 @@ class NacConfigurator():
 
         if snmptrapd_conf_changed:
             # Grab template
-            snmp_template = Template(filename="/origin/nac/snmp/snmptrapd.conf")
+            snmp_template = Template(filename="/elan-agent/nac/snmp/snmptrapd.conf")
             
             with open ("/etc/snmp/snmptrapd.conf", "w") as server_file:
                 server_file.write( snmp_template.render(**self.conf) )

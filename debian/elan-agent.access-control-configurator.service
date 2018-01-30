@@ -9,18 +9,18 @@ Wants=redis.service
 Restart=always
 RestartSec=10
 
-Environment=PYTHONPATH=/origin/lib/python
+Environment=PYTHONPATH=/elan-agent/lib/python
 
 ExecStartPre=-/sbin/brctl addbr br0
 ExecStartPre=-/sbin/modprobe br_netfilter
-ExecStartPre=-/usr/sbin/nft add table bridge origin
-ExecStartPre=-/usr/sbin/nft add table ip origin
-ExecStartPre=-/usr/sbin/nft add table ip6 origin
-ExecStartPre=-/usr/sbin/nft add table inet origin
-ExecStartPre=-/usr/sbin/nft -f /origin/network/nftables.sets
-ExecStartPre=-/usr/sbin/nft -f /origin/network/nftables.chains
+ExecStartPre=-/usr/sbin/nft add table bridge elan
+ExecStartPre=-/usr/sbin/nft add table ip elan
+ExecStartPre=-/usr/sbin/nft add table ip6 elan
+ExecStartPre=-/usr/sbin/nft add table inet elan
+ExecStartPre=-/usr/sbin/nft -f /elan-agent/network/nftables.sets
+ExecStartPre=-/usr/sbin/nft -f /elan-agent/network/nftables.chains
 
-ExecStart=/origin/bin/access-control-configurator
+ExecStart=/elan-agent/bin/access-control-configurator
 
 [Install]
 WantedBy=multi-user.target

@@ -5,9 +5,9 @@ define agent_ip6 = 2001:41d0:2:ba47::1000:1000
 define portal_ip = 8.8.8.9
 define portal_ip6 = 2001:41d0:2:ba47::1000:1010
 
-flush table bridge origin
+flush table bridge elan
 
-table bridge origin {
+table bridge elan {
     chain access_control_in {
 
         ether saddr . iif @mac_on_vlan accept
@@ -89,9 +89,9 @@ table bridge origin {
     }
 }
 
-flush table inet origin
+flush table inet elan
 
-table inet origin {
+table inet elan {
   
     chain connections  {
         type filter hook forward priority 0;
@@ -101,9 +101,9 @@ table inet origin {
     }
 }
 
-flush table ip origin
+flush table ip elan
 
-table ip origin {
+table ip elan {
   
     chain prerouting  { 
         type nat hook prerouting priority -150;
@@ -119,9 +119,9 @@ table ip origin {
     } 
 }
 
-flush table ip6 origin
+flush table ip6 elan
 
-table ip6 origin {
+table ip6 elan {
   
     chain prerouting  { 
         type nat hook prerouting priority -150;

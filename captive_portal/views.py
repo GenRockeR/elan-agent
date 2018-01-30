@@ -4,21 +4,21 @@ from django.template import RequestContext, loader
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
-from origin.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
-from origin.neuron import Synapse, Dendrite, RequestTimeout, RequestError
-from origin.authentication import pwd_authenticate
-from origin.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
-from origin import nac, utils
+from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
+from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
+from elan.authentication import pwd_authenticate
+from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
+from elan import nac, utils
 from django import forms
 from django.core.validators import validate_ipv4_address, validate_ipv6_address 
-from origin.network import NetworkConfiguration
-from origin.mail import send_mail
-from origin.event import Event
+from elan.network import NetworkConfiguration
+from elan.mail import send_mail
+from elan.event import Event
 from django.core.urlresolvers import reverse
 from django.conf import settings
 import time
 
-from origin import session
+from elan import session
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300 #seconds
 

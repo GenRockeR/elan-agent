@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from scapy.all import sendp, Ether, ARP, Dot1Q, IPv6, ICMPv6ND_NS
-from origin.utils import get_ip4_address, get_ip6_address, get_ether_address
-from origin import session
-from origin.neuron import Synapse
+from elan.utils import get_ip4_address, get_ip6_address, get_ether_address
+from elan import session
+from elan.neuron import Synapse
 import datetime
 import time
 

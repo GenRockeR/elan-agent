@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
-from origin.event import ExceptionEvent
-import origin.libnflog_cffi
+from elan.event import ExceptionEvent
+import elan.libnflog_cffi
 from scapy.all import Ether, sendp
 import subprocess
 import datetime
@@ -37,7 +37,7 @@ class Redirector():
 
         if cmd is not None:
             try:
-                print(  '{cmd} element bridge origin {family}_conn2mark {{ {src_ip} . {src_port} . {dst_ip} . {dst_port} }}'.format(
+                print(  '{cmd} element bridge elan {family}_conn2mark {{ {src_ip} . {src_port} . {dst_ip} . {dst_port} }}'.format(
                                             cmd = cmd,
                                             family = family,
                                             src_ip   = src_ip,
@@ -70,7 +70,7 @@ class Redirector():
         self.listen_packets()
     
     def listen_packets(self):
-        nflog = origin.libnflog_cffi.NFLOG().generator(REDIRECTOR_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
+        nflog = elan.libnflog_cffi.NFLOG().generator(REDIRECTOR_NFLOG_QUEUE, extra_attrs=['msg_packet_hwhdr', 'prefix'], nlbufsiz=2**24, handle_overflows = False)
         next(nflog)
         
         for pkt, hwhdr, action in nflog:
