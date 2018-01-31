@@ -117,7 +117,7 @@ core-python: elan/*.py elan/nac/*.py core-pylib
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/*.py
 
 .PHONY: core-pylib
-core-pylib: idstools paho scapy
+core-pylib: idstools paho scapy serialized_redis
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
 	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /elan-agent/lib/python
 	( cd lib/python3.5/site-packages; \
@@ -129,6 +129,7 @@ core-pylib: idstools paho scapy
 .PHONY: idstools
 .PHONY: paho
 .PHONY: scapy
+.PHONY: serialized_redis
 
 core-redis:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
