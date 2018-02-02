@@ -214,6 +214,8 @@ class DendriteTest(unittest.TestCase):
 
             result = future.result(2)
 
-        ExceptionEventMock.assert_called_with(source='dendrite-subscribe-cb')
+            time.sleep(1)
+            ExceptionEventMock.assert_called_with(source='dendrite-subscribe-cb')
+
         event_instance.notify.assert_called_once_with()
 

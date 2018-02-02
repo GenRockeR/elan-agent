@@ -46,7 +46,7 @@ def get_current_session_ids():
     '''
     return current existing sessions as hash: tuples of mac, vlan, ip (vlan and ip may be None) as keys and id as value.
     '''
-    return {field_to_mac_vlan_ip(field): value for field, value in synapse.hgetall(SESSION_IDS_PATH).items()}
+    return {field_to_mac_vlan_ip(field): value for field, value in synapse.hscan_iter(SESSION_IDS_PATH)}
 
 
 def notify_current_sessions():
@@ -411,4 +411,35 @@ def notify_end_IP_session(mac, mac_local_id, vlan, vlan_local_id, ip, ip_local_i
             IP_SESSION_TOPIC,
             {'end': format_date(end), 'local_id': ip_local_id, 'mac': mac, 'vlan': vlan, 'ip': ip, 'mac_local_id': mac_local_id, 'vlan_local_id': vlan_local_id}
     )
+
+
+def ignore_MAC(mac):
+    # Ignore broadcast packets
+    if mac in ['ff:ff:ff:ff:ff:ff', '00:00:00:00:00:00']:
+        return True
+
+    # Ignore IANA Reserved MACs: http://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xml
+    # name is IANA_{integer}, integer being the number of prefixed bytes.
+    IANA_6_prefix = ['00:00:5e', '01:00:5e', '02:00:5e', '03:00:5e']
+    if mac[0:8] in IANA_6_prefix:
+        return True
+    IANA_4_prefix = ['33:33']
+    if mac[0:5] in IANA_4_prefix:
+        return True
+
+    return False
+
+
+def ignore_IP(ip):
+    # Ignore broadcast
+    if ip[:6] == '0.0.0.' or ip in ('255.255.255.255', '::'):
+        return True
+    # Ignore multicast
+    if ip[:4] in [str(v) + '.' for v in range(224, 239)]:  # 224. to 239.
+        return True
+
+    if ip == '::':
+        return True
+
+    return False
 

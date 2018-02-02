@@ -148,8 +148,9 @@ class  Dendrite(mqtt.Client):
                 data = json.loads(message.payload.decode())
             else:
                 data = None
-            # start in a Thread so we can call again some function like call and get from callbacks (or else thay are all run in same thread (paho mqtt impementation), so any other callback is not called until cb finished)
-            # TODO: catch exceptions in those threads and send event....
+            # start in a Thread so we can call again some function like call and get from callbacks
+            # (or else they are all run in same thread (paho mqtt impementation),
+            # so any other callback is not called until cb finished)
             task = threading.Thread(target=self._run_and_notifify_exceptions, args=(fn, data, message.topic), kwargs={'source': 'dendrite-subscribe-cb'})
             task.start()
 
