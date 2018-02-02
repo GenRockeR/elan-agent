@@ -2,20 +2,23 @@ from unittest import mock
 import unittest
 
 from elan import session
-from elan.session import notify_new_VLAN_session
+
+
+def clear_redis_session_info():
+    paths = [
+        session.LAST_SEEN_PATH, session.SESSION_IDS_PATH, session.MAC_PORT_PATH, session.MAC_LAST_PORT_PATH,
+        *session.synapse.keys(session.MAC_VLANS_PATH.format(mac='*', vlan='*', ip='*')),
+        *session.synapse.keys(session.MAC_VLAN_IPS_PATH.format(mac='*', vlan='*')),
+        *session.synapse.keys(session.MAC_AUTH_SESSION_PATH.format(mac='*'))
+    ]
+    for path in paths:
+        session.synapse.delete(path)
 
 
 class SessionTest(unittest.TestCase):
 
     def setUp(self):
-        paths = [
-            session.LAST_SEEN_PATH, session.SESSION_IDS_PATH, session.MAC_PORT_PATH, session.MAC_LAST_PORT_PATH,
-            *session.synapse.keys(session.MAC_VLANS_PATH.format(mac='*', vlan='*', ip='*')),
-            *session.synapse.keys(session.MAC_VLAN_IPS_PATH.format(mac='*', vlan='*')),
-            *session.synapse.keys(session.MAC_AUTH_SESSION_PATH.format(mac='*'))
-        ]
-        for path in paths:
-            session.synapse.delete(path)
+        clear_redis_session_info()
 
     @mock.patch('elan.session.notify_MAC_port', wraps=session.notify_MAC_port)
     @mock.patch('elan.session.notify_new_IP_session', wraps=session.notify_new_IP_session)
@@ -197,3 +200,49 @@ class SessionTest(unittest.TestCase):
 
         self.assertFalse(session.source_in_authentication_sessions(mac, 'test'))
         self.assertEqual(session.get_authentication_sessions(mac), [])
+
+
+class SessionInternalsTest(unittest.TestCase):
+
+    def setUp(self):
+        clear_redis_session_info()
+
+    def test_session_ids_field(self):
+        self.assertEqual(session.session_ids_field('aa:bb:cc:dd:ee:01'), 'mac=aa:bb:cc:dd:ee:01')
+        self.assertEqual(session.session_ids_field('aa:bb:cc:dd:ee:01', 'eth0.1'), 'mac=aa:bb:cc:dd:ee:01,vlan=eth0.1')
+        self.assertEqual(session.session_ids_field('aa:bb:cc:dd:ee:01', 'eth0.1', '1.2.3.4'), 'mac=aa:bb:cc:dd:ee:01,vlan=eth0.1,ip=1.2.3.4')
+
+    def test_field_to_mac_vlan_ip(self):
+        self.assertEqual(session.field_to_mac_vlan_ip('mac=aa:bb:cc:dd:ee:01'), ('aa:bb:cc:dd:ee:01', None, None))
+        self.assertEqual(session.field_to_mac_vlan_ip('mac=aa:bb:cc:dd:ee:01,vlan=eth0.1'), ('aa:bb:cc:dd:ee:01', 'eth0.1', None))
+        self.assertEqual(session.field_to_mac_vlan_ip('mac=aa:bb:cc:dd:ee:01,vlan=eth0.1,ip=1.2.3.4') , ('aa:bb:cc:dd:ee:01', 'eth0.1', '1.2.3.4'))
+
+    def test_get_current_session_ids(self):
+        session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.4')
+        session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.5')
+        session.seen(mac='aa:bb:cc:dd:ee:02', vlan='eth0.1')
+        session.seen(mac='aa:bb:cc:dd:ee:02', vlan='eth0.2')
+        session.seen(mac='aa:bb:cc:dd:ee:03')
+
+        session_ids = session.get_current_session_ids()
+
+        self.assertEqual(set(session_ids.keys()), {
+            ('aa:bb:cc:dd:ee:01', 'eth0.1', '1.2.3.4'),
+            ('aa:bb:cc:dd:ee:01', 'eth0.1', '1.2.3.5'),
+            ('aa:bb:cc:dd:ee:01', 'eth0.1', None),
+            ('aa:bb:cc:dd:ee:02', 'eth0.1', None),
+            ('aa:bb:cc:dd:ee:02', 'eth0.2', None),
+            ('aa:bb:cc:dd:ee:01', None, None),
+            ('aa:bb:cc:dd:ee:02', None, None),
+            ('aa:bb:cc:dd:ee:03', None, None),
+        })
+
+    def test_notify_current_sessions(self):
+        session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.4')
+        session.seen(mac='aa:bb:cc:dd:ee:01', vlan='eth0.1', ip='1.2.3.5')
+        session.seen(mac='aa:bb:cc:dd:ee:02', vlan='eth0.1')
+        session.seen(mac='aa:bb:cc:dd:ee:02', vlan='eth0.2')
+        session.seen(mac='aa:bb:cc:dd:ee:02')
+        session.seen(mac='aa:bb:cc:dd:ee:03')
+
+        self.assertEqual(session.notify_current_sessions(), 5)

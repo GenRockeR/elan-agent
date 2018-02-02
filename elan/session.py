@@ -1,4 +1,5 @@
 import datetime
+import re
 
 from elan.neuron import Synapse, Dendrite
 
@@ -39,6 +40,58 @@ def is_online(mac, vlan=None, ip=None):
         data['ip'] = ip
 
     return bool(synapse.zscore(LAST_SEEN_PATH, data))
+
+
+def get_current_session_ids():
+    '''
+    return current existing sessions as hash: tuples of mac, vlan, ip (vlan and ip may be None) as keys and id as value.
+    '''
+    return {field_to_mac_vlan_ip(field): value for field, value in synapse.hgetall(SESSION_IDS_PATH).items()}
+
+
+def notify_current_sessions():
+    '''
+    resends all notifications of current sessions, including port.
+    returns number notifications sent
+    '''
+    ip_sessions, vlan_sessions, mac_sessions = set(), set(), set()
+    current_sessions = get_current_session_ids()
+
+    count = 0
+
+    for mac, vlan, ip in current_sessions:
+        if ip is not None:
+            ip_sessions.add((mac, vlan, ip))
+        elif vlan is not None:
+            vlan_sessions.add((mac, vlan))
+        else:
+            mac_sessions.add(mac)
+
+    for mac, vlan, ip in ip_sessions:
+        notify_new_IP_session(mac, mac_local_id=current_sessions[(mac, None, None)],
+                              vlan=vlan, vlan_local_id=current_sessions[(mac, vlan, None)],
+                              ip=ip, ip_local_id=current_sessions[(mac, vlan, ip)],
+                              port=mac_port(mac)
+        )
+        vlan_sessions.discard((mac, vlan))
+        mac_sessions.discard(mac)
+        count += 1
+
+    for mac, vlan in vlan_sessions:
+        notify_new_VLAN_session(mac, mac_local_id=current_sessions[(mac, None, None)],
+                                vlan=vlan, vlan_local_id=current_sessions[(mac, vlan, None)],
+                                port=mac_port(mac)
+        )
+        mac_sessions.discard(mac)
+        count += 1
+
+    for mac in mac_sessions:
+        notify_new_MAC_session(mac, mac_local_id=current_sessions[(mac, None, None)],
+                               port=mac_port(mac)
+        )
+        count += 1
+
+    return count
 
 
 def mac_has_ip_on_vlan(mac, ip, vlan):
@@ -156,7 +209,19 @@ def seen(mac, vlan=None, port=None, ip=None, time=None):
 
 
 def session_ids_field(mac, vlan=None, ip=None):
-    return '{mac},{vlan},{ip}'.format(mac=mac, vlan=vlan, ip=ip)
+    'formats mac vlan and ip to be stored in redis hash field'
+
+    if ip is not None:
+        return 'mac={mac},vlan={vlan},ip={ip}'.format(mac=mac, vlan=vlan, ip=ip)
+    if vlan is not None:
+        return 'mac={mac},vlan={vlan}'.format(mac=mac, vlan=vlan)
+    return 'mac={mac}'.format(mac=mac)
+
+
+def field_to_mac_vlan_ip(field):
+    'return tuple of mac, vlan and ip from Session IDs redis hash field.'
+    m = re.match('mac=(?P<mac>.+?)($|,vlan=(?P<vlan>.+?)($|,ip=(?P<ip>.+?)$))', field)
+    return  m.group('mac'), m.group('vlan'), m.group('ip')
 
 
 def end(mac, vlan=None, ip=None, time=None):
