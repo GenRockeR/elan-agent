@@ -109,7 +109,7 @@ connection-tracker-pyshark:
 	cp -rp lib/python3.5/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
-install: core-python control-center
+install: core-python
 
 .PHONY: core-python
 core-python: elan/*.py elan/nac/*.py core-pylib
@@ -134,18 +134,6 @@ core-pylib: idstools paho scapy serialized_redis
 core-redis:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/core/redis
 	install redis.conf ${DESTDIR}${ORIGIN_PREFIX}/core/redis/conf
-
-.PHONY: control-center 
-control-center: exec/axon_websocket_proxy.py axon.nginx control-center-ca.crt axon.mosquitto
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/axon_websocket_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon-websocket-proxy
-	install exec/axon.py ${DESTDIR}${ORIGIN_PREFIX}/bin/axon
-	install -d ${DESTDIR}/etc/nginx/sites-enabled
-	ln -s ../sites-available/axon ${DESTDIR}/etc/nginx/sites-enabled/
-	install -d ${DESTDIR}${ORIGIN_PREFIX}/control-center
-	install -m 644 axon.nginx ${DESTDIR}${ORIGIN_PREFIX}/control-center/
-	install -m 644 control-center-ca.crt ${DESTDIR}${ORIGIN_PREFIX}/control-center/ca.crt
-	install -m 644 axon.mosquitto ${DESTDIR}${ORIGIN_PREFIX}/control-center/
 
 .PHONY: ids-install
 ids-install: ids-install-suricata ids-install-logger
