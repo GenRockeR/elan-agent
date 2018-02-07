@@ -83,7 +83,6 @@ captive-portal-conf: exec/captive_portal_configuration_cacher.py exec/guest_acce
 .PHONY: captive-portal-www
 captive-portal-www:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal
-	cp -p manage.py ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/
 	find captive_portal -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
 	find captive_portal -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
 	install -d ${DESTDIR}/etc/uwsgi
@@ -104,9 +103,9 @@ connection-tracker-install: elan/*.py exec/connection_trackerd.py exec/device_tr
 
 connection-tracker-pyshark:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
-	cp -rp lib/python3.5/site-packages/pyshark/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
+	cp -rp ${VIRTUAL_ENV}/lib/python3.5/site-packages/pyshark/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
-	cp -rp lib/python3.5/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
+	cp -rp ${VIRTUAL_ENV}/lib/python3.5/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
 install: core-python
@@ -120,7 +119,7 @@ core-python: elan/*.py elan/nac/*.py core-pylib
 core-pylib: idstools paho scapy serialized_redis
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
 	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /elan-agent/lib/python
-	( cd lib/python3.5/site-packages; \
+	( cd ${VIRTUAL_ENV}/lib/python3.5/site-packages; \
 		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \

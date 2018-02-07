@@ -21,7 +21,7 @@ deb-stable: deb
 .PHONY: deb
 deb: gpgkey debian/changelog debian/control
 	rm -f ../$(PACKAGE-NAME)_*
-	debuild -b -mdebian@origin-nexus.com --lintian-opts --suppress-tags=file-in-unusual-dir
+	debuild --preserve-envvar VIRTUAL_ENV -b -mdebian@origin-nexus.com --lintian-opts --suppress-tags=file-in-unusual-dir
 
 ifneq ($(wildcard debian/preinst.in),)
 deb: debian/preinst
