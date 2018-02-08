@@ -37,7 +37,7 @@ authentication-python: elan/authentication.py elan/freeradius/*.py
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/authentication.py
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan/freeradius elan/freeradius/*.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/rest_elan_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rest-elan-proxy
+	install bin/rest_elan_proxy.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rest-elan-proxy
   
    
 .PHONY: authentication-freeradius
@@ -49,7 +49,7 @@ authentication-freeradius:
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
 	install -m 644 freeradius.ad-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ad-module
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/authentication_provider.py ${DESTDIR}${ORIGIN_PREFIX}/bin/authentication-provider
+	install -m 755 bin/authentication_provider.py ${DESTDIR}${ORIGIN_PREFIX}/bin/authentication-provider
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
 	install -m 644 pyrad.dictionary            ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
 	install -d ${DESTDIR}/etc/freeradius/sites-available
@@ -74,11 +74,11 @@ captive-portal-python: elan/captive_portal.py
 	install -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/captive_portal.py
 
 .PHONY: captive-portal-conf
-captive-portal-conf: exec/captive_portal_configuration_cacher.py exec/guest_access_manager.py
+captive-portal-conf: bin/captive_portal_configuration_cacher.py bin/guest_access_manager.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/captive_portal_configuration_cacher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal-configuration-cacher
-	install -m 755 exec/guest_access_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/guest-access-manager
-	install -m 755 exec/redirector.py ${DESTDIR}${ORIGIN_PREFIX}/bin/redirector
+	install -m 755 bin/captive_portal_configuration_cacher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/captive-portal-configuration-cacher
+	install -m 755 bin/guest_access_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/guest-access-manager
+	install -m 755 bin/redirector.py ${DESTDIR}${ORIGIN_PREFIX}/bin/redirector
     
 .PHONY: captive-portal-www
 captive-portal-www:
@@ -92,14 +92,14 @@ captive-portal-www:
   
 
 .PHONY: connection-tracker-install
-connection-tracker-install: elan/*.py exec/connection_trackerd.py exec/device_trackerd.py exec/session_trackerd.py connection-tracker-pyshark
+connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trackerd.py bin/session_trackerd.py connection-tracker-pyshark
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/*.py
 	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan/__init__.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
-	install exec/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
-	install exec/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
+	install bin/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
+	install bin/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
+	install bin/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
 
 connection-tracker-pyshark:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
@@ -144,13 +144,13 @@ ids-install-suricata:
 	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
 	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/rule_fetcher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
-	install exec/ids_monitor.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
+	install bin/rule_fetcher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
+	install bin/ids_monitor.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
 
 .PHONY: ids-install-logger
 ids-install-logger:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install exec/ids_loggerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
+	install bin/ids_loggerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-loggerd
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/*.py
 
@@ -160,7 +160,7 @@ nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
 .PHONY: nac-conf
 nac-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/nac_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/nac-configurator
+	install -m 755 bin/nac_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/nac-configurator
 
 .PHONY: nac-freeradius
 nac-freeradius: freeradius.nac.server freeradius.nac.modules
@@ -187,13 +187,13 @@ nac-python: elan/nac/*.py elan/snmp.py
 .PHONY: nac-authz
 nac-authz:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/mac_authz_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/mac-authz-manager
+	install -m 755 bin/mac_authz_manager.py ${DESTDIR}${ORIGIN_PREFIX}/bin/mac-authz-manager
 
 .PHONY: nac-snmp
 nac-snmp: nac-perl-lib nac-mibs
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/snmp_poller.pl ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-poller
-	install -m 755 exec/snmp_notification_receiver.py ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-notification-receiver
+	install -m 755 bin/snmp_poller.pl ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-poller
+	install -m 755 bin/snmp_notification_receiver.py ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-notification-receiver
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp
 	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
 
@@ -212,7 +212,7 @@ nac-mibs:
 .PHONY: network-install
 network-install:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 exec/access_control_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
+	install -m 755 bin/access_control_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
 	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/
