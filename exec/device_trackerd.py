@@ -3,9 +3,8 @@
 import re
 import threading
 
-import pyshark
-
 from elan import session, nac, neuron, utils, device
+from elan.capture import Capture
 from elan.event import Event, ExceptionEvent
 
 
@@ -20,11 +19,15 @@ class DeviceTracker():
         self.interfaces = list(utils.physical_ifaces())
 
     def capture(self):
-        for packet in pyshark.LiveCapture(
-                        interface=self.interfaces,
-                        bpf_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
-                    )\
-                    .sniff_continuously():
+        capture = Capture(
+                name='device-tracker',
+                interface=self.interfaces,
+                capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
+        )
+
+        capture.remove_files()
+
+        for packet in capture:
             self.process_packet(packet)
 
         raise RuntimeError('Capture Stopped ! if it ever started...')
