@@ -79,7 +79,7 @@ class DeviceTracker():
             if source == 'DHCPV4':
                 try:
                     fingerprint = {
-                                'fingerprint': ','.join(str(option.int_value) for option in packet.bootp.option_request_list_item.fields),
+                                'fingerprint': ','.join(str(option.hex_value) for option in packet.bootp.option_request_list_item.fields),
                                 'vendor_id': str(getattr(packet.bootp, 'option_vendor_class_id', ''))
                     }
                 except AttributeError:
