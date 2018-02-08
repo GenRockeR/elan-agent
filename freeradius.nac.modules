@@ -50,7 +50,7 @@ eap nac-eap {
           lifetime = 24 # hours
           max_entries = 4096
 
-          name = "Origin Nexus EAP"
+          name = "ELAN EAP"
 
           #  The server will need write perms, and the directory
           #  should be secured from anyone else. You might want

@@ -34,20 +34,20 @@ server authentication {
         # TODO: use custom AVPs
         if(Connect-Info =~ /authenticator=([0-9]+) *, *source=([^, ]+) *, *command=([^, ]+)/){
             update request {
-                &Origin-Auth-Provider := "%{1}"
-                &Origin-Auth-Type := "%{2}"
-                &Origin-Command := "%{3}"
+                &ELAN-Auth-Provider := "%{1}"
+                &ELAN-Auth-Type := "%{2}"
+                &ELAN-Command := "%{3}"
             }
 
             authentications
 
         }
-        if( &Origin-Command == "authenticate" ){
+        if( &ELAN-Command == "authenticate" ){
             update control {
                 Auth-Type := PAP
             }
         } 
-        elsif( &Origin-Command == "authorize" ){
+        elsif( &ELAN-Command == "authorize" ){
             if( control:Cleartext-Password ) {
                 update reply {
                    Reply-Message += "Cleartext-Password=%{control:Cleartext-Password}"

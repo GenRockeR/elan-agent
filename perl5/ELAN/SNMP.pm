@@ -1,4 +1,4 @@
-package Origin::SNMP;
+package ELAN::SNMP;
 
 use Dancer qw/:syntax :script/;
 
@@ -10,7 +10,7 @@ use Path::Class 'dir';
 
 =head1 NAME
 
-Origin::SNMP
+ELAN::SNMP
 
 =head1 DESCRIPTION
 

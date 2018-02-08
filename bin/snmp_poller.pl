@@ -4,12 +4,12 @@ use strict;
 use warnings;
 
 use Switch;
-use Origin::SNMP;
+use ELAN::SNMP;
 use Encode;
 use Redis;
 use JSON;
 use File::Find;
-use Origin::NetdiscoDevice;
+use ELAN::NetdiscoDevice;
 use IO::Select;
 use IO::Socket::UNIX;
 
@@ -133,9 +133,9 @@ sub _snmp_poll {
     Version => $params->{version},
   );
   
-  my $device = new Origin::NetdiscoDevice($device_ip);
+  my $device = new ELAN::NetdiscoDevice($device_ip);
   
-  my $s = Origin::SNMP::try_connect($device, $params->{class}, $params->{credentials}, 'read', \%snmp_args, 1);
+  my $s = ELAN::SNMP::try_connect($device, $params->{class}, $params->{credentials}, 'read', \%snmp_args, 1);
   
   return unless $s;
   
@@ -258,7 +258,7 @@ sub snmp_parse_trap {
         }
         1;
       } or do {
-          # TODO: raise up alert... to Origin Nexus
+          # TODO: raise up alert... to center
           print("snmp_parse_trap: $sc: ", $@);
       };
     }
@@ -314,7 +314,7 @@ sub NasPortToIfIndex {
             }
             1;
         } or do {
-              # TODO: raise up alert... to Origin Nexus
+              # TODO: raise up alert...
               print("NasPortToIfIndex: $sc: ", $@);
         };
     }

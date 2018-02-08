@@ -4,7 +4,7 @@ from django.template import RequestContext, loader
 from django.views.decorators.cache import never_cache
 from django.contrib.sites.models import get_current_site
 from django.utils.translation import ugettext as _
-from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, EDGE_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
+from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
 from elan.authentication import pwd_authenticate
 from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
@@ -32,7 +32,7 @@ def requirePortalURL(fn):
     
     def wrapper(request, *args, **kwargs):
         agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
-        allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
+        allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
         if str(get_current_site(request)).replace('[','').replace(']','').lower() not in allowed_sites:
             return redirect2status(request)
         return fn(request, *args, **kwargs)
@@ -42,13 +42,13 @@ def requirePortalURL(fn):
 
 def redirect2status(request):
     if 'dashboard' in request.META or settings.DEBUG and 'dashboard' in request.GET:
-        host = request.META.get('HTTP_HOST', EDGE_AGENT_FQDN)
+        host = request.META.get('HTTP_HOST', ELAN_AGENT_FQDN)
         agent_ips = [ip['address'] for ip in utils.get_ip4_addresses() + utils.get_ip6_addresses()]
         if host in agent_ips:
             # if trying to get to agent with ip, redirect to IP
             redirect_fqdn = host
         else:
-            redirect_fqdn = EDGE_AGENT_FQDN
+            redirect_fqdn = ELAN_AGENT_FQDN
             
         if settings.DEBUG:
             redirect_fqdn = host
@@ -66,8 +66,8 @@ def status(request):
         return redirect('login')
     
     # if looking for edgeagent, redirect to it... 
-    if str(get_current_site(request)) in [EDGE_AGENT_FQDN, EDGE_AGENT_FQDN_IP, EDGE_AGENT_FQDN_IP6]:
-        return HttpResponseRedirect( 'http://' + EDGE_AGENT_FQDN + reverse('dashboard'))
+    if str(get_current_site(request)) in [ELAN_AGENT_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6]:
+        return HttpResponseRedirect( 'http://' + ELAN_AGENT_FQDN + reverse('dashboard'))
     
     context = {}
     

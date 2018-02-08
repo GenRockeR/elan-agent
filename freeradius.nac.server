@@ -57,7 +57,7 @@ server nac {
                   ClearText-Password := "%{User-Name}"
               }
               update session-state {
-                  Origin-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
+                  ELAN-MAC := "%{tolower:%{1}:%{2}:%{3}:%{4}:%{5}:%{6}}"
               }
               # TODO: can we use NAS-Port-Type info ? : if( NAS-Port-Type == Wireless-802.11 || NAS-Port-Type == Wireless-Other ) {}
           }
@@ -68,11 +68,11 @@ server nac {
       }
       elsif( EAP-TYPE == MD5 ) {
           update request {
-              &Origin-Auth-Provider := "${dot1x_authentication}"
+              &ELAN-Auth-Provider := "${dot1x_authentication}"
           }
           # TODO: Send alert when dot1x_authentication is None
           update request {
-              Origin-Auth-Type := "radius-dot1x"
+              ELAN-Auth-Type := "radius-dot1x"
           }
           authentications
       }
@@ -137,24 +137,24 @@ server nac {
   
   post-auth {
   
-    if( &session-state:Origin-MAC ) {
+    if( &session-state:ELAN-MAC ) {
       update request {
-          &Origin-Auth-Type := "radius-mac"
-          &Origin-MAC := &session-state:Origin-MAC
+          &ELAN-Auth-Type := "radius-mac"
+          &ELAN-MAC := &session-state:ELAN-MAC
       }
     }
     else {
       if (reply:Cached-Session-Policy =~ /provider=(.+),login=(.+)/) {
          update session-state {
-            Origin-Auth-Provider := "%{1}"
-            Origin-Login         := "%{2}"
+            ELAN-Auth-Provider := "%{1}"
+            ELAN-Login         := "%{2}"
          }
       }
       update request {
-          &Origin-Auth-Provider := "%{%{session-state:Origin-Auth-Provider}:-${dot1x_authentication}}"
-          &Origin-Login         := &session-state:Origin-Login
-          &Origin-Auth-Type     := "radius-dot1x"
-          &Origin-MAC           := &Calling-Station-ID
+          &ELAN-Auth-Provider := "%{%{session-state:ELAN-Auth-Provider}:-${dot1x_authentication}}"
+          &ELAN-Login         := &session-state:ELAN-Login
+          &ELAN-Auth-Type     := "radius-dot1x"
+          &ELAN-MAC           := &Calling-Station-ID
       }
     }
 
@@ -165,12 +165,12 @@ server nac {
     
     nac
     
-    if( &reply:Origin-VLAN-ID && &reply:Origin-VLAN-ID != "0" ) {
+    if( &reply:ELAN-VLAN-ID && &reply:ELAN-VLAN-ID != "0" ) {
       update reply {
         Tunnel-Type := VLAN
         Tunnel-Medium-Type := IEEE-802
-        Tunnel-Private-Group-Id := &reply:Origin-VLAN-ID
-        Extreme-Netlogin-Vlan   := &reply:Origin-VLAN-ID
+        Tunnel-Private-Group-Id := &reply:ELAN-VLAN-ID
+        Extreme-Netlogin-Vlan   := &reply:ELAN-VLAN-ID
       }
     }
     
@@ -196,8 +196,8 @@ server nac {
     Post-Auth-Type Challenge {
       if (reply:Cached-Session-Policy =~ /provider=(.+),login=(.+)/) {
          update session-state {
-            Origin-Auth-Provider := "%{1}"
-            Origin-Login         := "%{2}"
+            ELAN-Auth-Provider := "%{1}"
+            ELAN-Login         := "%{2}"
          }
       }
     }
@@ -212,7 +212,7 @@ server nac {
         # TODO: Fix That  &Packet-Src-IPv6-Address := "%{Packet-Src-IPv6-Address}"
       }
       update request {
-         Origin-Auth-Type := "Reject" # Tell nac that we are in post-auth reject
+         ELAN-Auth-Type := "Reject" # Tell nac that we are in post-auth reject
       }
       nac
   
@@ -253,16 +253,16 @@ server inner-eap-tunnel {
     }
     else {
         update request {
-            Origin-Auth-Provider := "${dot1x_authentication}"
+            ELAN-Auth-Provider := "${dot1x_authentication}"
         }
         # TODO: Send alert when dot1x_authentication is None
 
         update request {
-            Origin-Auth-Type := "radius-dot1x"
+            ELAN-Auth-Type := "radius-dot1x"
         }
         authentications
         update outer.session-state {
-            Origin-Auth-Provider := &session-state:Origin-Auth-Provider
+            ELAN-Auth-Provider := &session-state:ELAN-Auth-Provider
 
             ClearText-Password   := &control:Cleartext-Password
             NT-Password          := &control:NT-Password
@@ -310,10 +310,10 @@ server inner-eap-tunnel {
   
   post-auth {
     update outer.session-state {
-        &Origin-Login := User-Name
+        &ELAN-Login := User-Name
     }
     update outer.reply {
-        Cached-Session-Policy := "provider=%{outer.session-state:Origin-Auth-Provider},login=%{outer.session-state:Origin-Login}"
+        Cached-Session-Policy := "provider=%{outer.session-state:ELAN-Auth-Provider},login=%{outer.session-state:ELAN-Login}"
     }
 
 

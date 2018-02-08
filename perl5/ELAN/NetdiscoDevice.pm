@@ -1,4 +1,4 @@
-package Origin::NetdiscoDevice;
+package ELAN::NetdiscoDevice;
 
 sub new {
   my ($class, $ip) = @_;

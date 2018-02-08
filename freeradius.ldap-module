@@ -42,7 +42,7 @@ ldap ldap-auth-${id} {
     # Cache group name
     cacheable_name = "yes"
     cacheable_dn = "no"
-    cache_attribute = "Origin-Group"  # wait for 3.0.4
+    cache_attribute = "ELAN-Group"  # wait for 3.0.4
   }
   
   profile {

@@ -3,7 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
-def send_mail(recipients, cc_recipients=None, bcc_recipients=None,  text='', html=None, sender='', mail_subject='', mail_from='"Origin Nexus Edge Agent"', embedded=None):
+def send_mail(recipients, cc_recipients=None, bcc_recipients=None,  text='', html=None, sender='', mail_subject='', mail_from='"ELAN Agent"', embedded=None):
     '''
     Sends a mail to recipients, cc_recipients and bcc_recipients using text or html or both as alternate.
     embedded can be added using embedded as a dict of {cid: path} where cid is the embedded object cid used in html to refer to it (<img src="cid:<cid>">) and path is the path to the file

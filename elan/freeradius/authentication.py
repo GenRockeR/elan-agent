@@ -11,7 +11,7 @@ def AuthenticationProviderFailed(req, level='danger'):
         
         # Todo: set source depending on requester: radius-dot1x, captive-portal-web or captive-portal-guest-access
         event = Event('runtime-failure-authentication', source='radius', level=level)\
-            .add_data('authentication_provider', request.get('Origin-Auth-Failed'), data_type='authentication')
+            .add_data('authentication_provider', request.get('ELAN-Auth-Failed'), data_type='authentication')
         
         if request.get('Module-Failure-Message'):
             event.add_data('details', request.get('Module-Failure-Message'))
@@ -31,7 +31,7 @@ def AuthenticationGroupFailed(req):
         
         # Todo: set source depending on requester: radius-dot1x, captive-portal-web or captive-portal-guest-access
         Event('runtime-failure-authentication', source='radius', level='danger')\
-            .add_data('authentication_group', request.get('Origin-Auth-Failed'), data_type='authentication')\
+            .add_data('authentication_group', request.get('ELAN-Auth-Failed'), data_type='authentication')\
             .notify()
     except:
         ExceptionEvent(source='radius').notify()

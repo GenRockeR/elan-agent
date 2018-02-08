@@ -197,13 +197,13 @@ async def get_assignments(request):
 
     session.seen(mac, port=port)
 
-    auth_type = request.get('Origin-Auth-Type', None)
+    auth_type = request.get('ELAN-Auth-Type', None)
 
     if auth_type == 'radius-mac':
         authz = await asyncio.get_event_loop().run_in_executor(None, nac.checkAuthz, mac)
     elif auth_type == 'radius-dot1x':
-        authentication_provider = request.get('Origin-Auth-Provider')
-        login = request.get('Origin-Login', request.get('User-Name'))
+        authentication_provider = request.get('ELAN-Auth-Provider')
+        login = request.get('ELAN-Login', request.get('User-Name'))
         authz = await asyncio.get_event_loop().run_in_executor(None, functools.partial(
                                 nac.newAuthz,
                                 mac,
@@ -227,14 +227,14 @@ async def get_assignments(request):
 
         raise NotAuthorized
 
-    return {'Origin-Vlan-Id': str(authz.assign_vlan)}
+    return {'ELAN-Vlan-Id': str(authz.assign_vlan)}
 
 
 async def post_auth(req):
     try:
         request = request_as_hash_of_values(req)
 
-        if request.get('Origin-Auth-Type', None) == 'Reject':
+        if request.get('ELAN-Auth-Type', None) == 'Reject':
             return await seen(request)
         else:
             return await get_assignments(request)

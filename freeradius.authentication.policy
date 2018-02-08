@@ -7,7 +7,7 @@ authentications.authorize {
     update request {
         Module-Failure-Message !* ANY
     }
-    switch &Origin-Auth-Provider {
+    switch &ELAN-Auth-Provider {
       
       ${inner_switch}
     
@@ -17,7 +17,7 @@ authentications.authorize {
         }
         if(fail) {
             update request {
-                Origin-Auth-Failed := &Origin-Auth-Provider
+                ELAN-Auth-Failed := &ELAN-Auth-Provider
             }
             auth_provider_failed
             update request {
@@ -27,7 +27,7 @@ authentications.authorize {
       }
     }
     
-    if(&session-state:Origin-Auth-Provider == &session-state:Origin-AD-Auth-Provider){
+    if(&session-state:ELAN-Auth-Provider == &session-state:ELAN-AD-Auth-Provider){
         update control {
             MS-CHAP-Use-NTLM-Auth := Yes
         }

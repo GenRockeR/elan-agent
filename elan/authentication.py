@@ -1,49 +1,51 @@
-import pyrad.packet
-from pyrad.client import Client
-from pyrad.dictionary import Dictionary
 import subprocess, re, socket
+
 from elan.neuron import Synapse, Dendrite
 from elan.utils import restart_service
 from mako.template import Template
-
+from pyrad.client import Client
+from pyrad.dictionary import Dictionary
+import pyrad.packet
 
 
 def pwd_authenticate(authenticator_id, login, password, source):
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
                  dict=Dictionary("/elan-agent/authentication/pyradius/dictionary"))
-    
+
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-              User_Name=login, Connect_Info='authenticator={},source={},command=authenticate'.format(authenticator_id, source) )
-    req["User-Password"]=req.PwCrypt(password)
-    
+              User_Name=login, Connect_Info='authenticator={},source={},command=authenticate'.format(authenticator_id, source))
+    req["User-Password"] = req.PwCrypt(password)
+
     reply = srv.SendPacket(req)
-    
+
     return reply.code == pyrad.packet.AccessAccept
+
 
 def get_authorization(authenticator_id, login, source):
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
                  dict=Dictionary("/elan-agent/authentication/pyradius/dictionary"))
-    
+
     req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-              User_Name=login, Connect_Info='authenticator={},source={},command=authorize'.format(authenticator_id, source) )
-    
+              User_Name=login, Connect_Info='authenticator={},source={},command=authorize'.format(authenticator_id, source))
+
     reply = srv.SendPacket(req)
-    
+
     authz = {}
-    
-    for attr in reply.get(18, []): # 18 -> Reply-Message
+
+    for attr in reply.get(18, []):  # 18 -> Reply-Message
         key, value = attr.split('=', 1)
         authz[key] = value
-        
+
     return authz
 
+
 class AuthenticationProvider():
-    
+
     def __init__(self, dendrite=None):
         if dendrite is None:
             dendrite = Dendrite()
         self.dendrite = dendrite
-        
+
         self.authentications = None
         self.provided_services = set()
 
@@ -52,7 +54,7 @@ class AuthenticationProvider():
         self.ad_template = Template(filename="/elan-agent/authentication/freeradius/ad-module")
         self.external_auth_template = Template('''
             update session-state {
-                &Origin-Auth-Provider := ${id}
+                &ELAN-Auth-Provider := ${id}
             }
             external-auth {
                 invalid = 1
@@ -65,7 +67,7 @@ class AuthenticationProvider():
         ''')
         self.ldap_auth_template = Template('''
             update session-state {
-                &Origin-Auth-Provider := ${id}
+                &ELAN-Auth-Provider := ${id}
             }
             ldap-auth-${id} {
                 invalid = 1
@@ -78,8 +80,8 @@ class AuthenticationProvider():
         ''')
         self.ad_auth_template = Template('''
             update session-state {
-                &Origin-Auth-Provider := ${id}
-                &Origin-AD-Auth-Provider := ${id}
+                &ELAN-Auth-Provider := ${id}
+                &ELAN-AD-Auth-Provider := ${id}
             }
             ADldap {
                 invalid = 1
@@ -94,7 +96,7 @@ class AuthenticationProvider():
     def get_group_inner_case(self, auth, ignore_authentications=None):
         if ignore_authentications is None:
             ignore_authentications = set()
-        
+
         if auth['id'] in ignore_authentications:
             # authentications has already been tried. no need to try it again...
             return ''
@@ -102,14 +104,14 @@ class AuthenticationProvider():
         ignore_authentications.add(auth['id'])
 
         inner_case = ''
-        
+
         if auth['type'] == 'group':
             for member in auth['members']:
                 member_auth = self.authentications.get(
                         member['authentication'],
-                        {'id': member['authentication'], 'type': 'external'} # external may not be declared 
+                        {'id': member['authentication'], 'type': 'external'}  # external may not be declared
                 )
-                inner_case += self.get_group_inner_case( member_auth, ignore_authentications )
+                inner_case += self.get_group_inner_case(member_auth, ignore_authentications)
         else:
             if auth['type'] == 'LDAP':
                 inner_case += self.ldap_auth_template.render(**auth)
@@ -119,11 +121,11 @@ class AuthenticationProvider():
                 inner_case += self.google_auth_template.render(**auth)
             else:
                 inner_case += self.external_auth_template.render(**auth)
-    
+
             inner_case += '''
                     if(fail) {
                         update request {
-                            Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                            ELAN-Auth-Failed := &session-state:ELAN-Auth-Provider
                         }
                         auth_provider_failed_in_group
                         update request {
@@ -132,19 +134,18 @@ class AuthenticationProvider():
                     }
                     elsif(! invalid) {
                         update {
-                            request:Origin-Non-Failed-Auth := "True"
+                            request:ELAN-Non-Failed-Auth := "True"
                         }
                     }
             '''
-        
+
         return inner_case
 
-                
     def new_authentication_conf(self, conf):
             new_authentications = {}
             for auth in conf:
                 new_authentications[auth['id']] = auth
-            
+
             if new_authentications != self.authentications:
                 # TODO: be more relevant, ie when AD join failed and conf sent again to retry
                 self.authentications = new_authentications
@@ -154,20 +155,20 @@ class AuthenticationProvider():
         module_conf = '''
 rest external-auth {
         connect_uri = "http://127.0.0.1:8080/authentication/"
-        
+
         authorize {
-                uri = "${..connect_uri}authorize?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}"
+                uri = "${..connect_uri}authorize?provider=%{%{session-state:ELAN-Auth-Provider}:-%{ELAN-Auth-Provider}}&source=%{ELAN-Auth-Type}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         authenticate {
-                uri = "${..connect_uri}authenticate?provider=%{%{session-state:Origin-Auth-Provider}:-%{Origin-Auth-Provider}}&source=%{Origin-Auth-Type}"
+                uri = "${..connect_uri}authenticate?provider=%{%{session-state:ELAN-Auth-Provider}:-%{ELAN-Auth-Provider}}&source=%{ELAN-Auth-Type}"
                 method = 'post'
                 body = 'json'
-                
+
         }
-       
+
         pool {
             start = 0
             min = ${thread[pool].min_spare_servers}
@@ -188,7 +189,7 @@ exec ADpap {
 mschap ADmschap {
      winbind_username = "%{mschap:User-Name}"
      winbind_domain = "%{mschap:NT-Domain}"
-    
+
      pool {
         start = 0
         min = ${thread[pool].min_spare_servers}
@@ -200,28 +201,28 @@ mschap ADmschap {
         cleanup_interval = 300
         idle_timeout = 600
     }
-    
+
     passchange {
     }
     allow_retry = yes
     retry_msg = "Enter a valid password"
-    
+
 }
 
 rest auth_provider_failed {
         connect_uri = "http://127.0.0.1:8080/authentication/provider/failed"
-        
+
         authorize {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         authenticate {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         pool {
             start = 0
@@ -236,18 +237,18 @@ rest auth_provider_failed {
 }
 rest auth_provider_failed_in_group {
         connect_uri = "http://127.0.0.1:8080/authentication/provider/failed-in-group"
-        
+
         authorize {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         authenticate {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         pool {
             start = 0
@@ -264,18 +265,18 @@ rest auth_provider_failed_in_group {
 
 rest auth_all_providers_failed_in_group {
         connect_uri = "http://127.0.0.1:8080/authentication/group/all-failed"
-        
+
         authorize {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         authenticate {
                 uri = "${..connect_uri}"
                 method = 'post'
                 body = 'json'
-                
+
         }
         pool {
             start = 0
@@ -294,20 +295,20 @@ rest auth_all_providers_failed_in_group {
         inner_switch_server_conf = ""
         # Generate the files if we have all the information...
         new_provided_services = set()
-        
+
         has_active_directory = False
-        
+
         for auth in self.authentications.values():
             if auth['type'] == 'LDAP':
                 module_conf += "\n" + self.ldap_template.render(**auth)
-                inner_switch_server_conf +=  '''
+                inner_switch_server_conf += '''
                     case {id} {{
                 '''.format(id=auth['id'])
                 inner_switch_server_conf += self.ldap_auth_template.render(**auth)
                 inner_switch_server_conf += '''
                         if(fail) {
                             update request {
-                                Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                                ELAN-Auth-Failed := &session-state:ELAN-Auth-Provider
                             }
                             auth_provider_failed
                             update request {
@@ -317,32 +318,32 @@ rest auth_all_providers_failed_in_group {
                     }
                 '''
                 # also notify that we provide this auth
-                new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
-                new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
+                new_provided_services.add('authentication/provider/{id}/authenticate'.format(id=auth['id']))
+                new_provided_services.add('authentication/provider/{id}/authorize'.format(id=auth['id']))
             elif auth['type'] == 'active-directory':
                 # Join domain if not already done
                 if not AD.joined(auth['domain']):
                     if AD.joined():
                         AD.leave()
                     # try to join
-                    try: 
+                    try:
                         AD.join(realm=auth['domain'], user=auth['adminLogin'], password=auth['adminPwd'])
                     except AD.Error as e:
                         status = {'status': 'error', 'error': e.message}
                     else:
                         status = {'status': 'joined'}
                     self.dendrite.publish_conf('authentication/provider/{id}/status'.format(id=auth['id']), status)
-                
+
                 if AD.joined(auth['domain']):
                     has_active_directory = True
-                    inner_switch_server_conf +=  '''
+                    inner_switch_server_conf += '''
                         case {id} {{
                     '''.format(id=auth['id'])
                     inner_switch_server_conf += self.ad_auth_template.render(**auth)
                     inner_switch_server_conf += '''
                             if(fail) {
                                 update request {
-                                    Origin-Auth-Failed := &session-state:Origin-Auth-Provider
+                                    ELAN-Auth-Failed := &session-state:ELAN-Auth-Provider
                                 }
                                 auth_provider_failed
                                 update request {
@@ -351,39 +352,39 @@ rest auth_all_providers_failed_in_group {
                             }
                         }
                     '''
-                    
+
                     module_conf += "\n" + self.ad_template.render(**AD.info())
 
                     # also notify that we provide this auth
-                    new_provided_services.add( 'authentication/provider/{id}/authenticate'.format(id=auth['id']) )
-                    new_provided_services.add( 'authentication/provider/{id}/authorize'.format(id=auth['id']) )
+                    new_provided_services.add('authentication/provider/{id}/authenticate'.format(id=auth['id']))
+                    new_provided_services.add('authentication/provider/{id}/authorize'.format(id=auth['id']))
                 else:
                     auth['join_failed'] = True  # so that if we receive again same conf, we try to join again (new condf!= old)
-                    
+
             elif auth['type'] == 'group':
                 # Take care of groups, that can be nested:
-                inner_switch_server_conf +=  '''
+                inner_switch_server_conf += '''
                         case {id} {{
                             group {{
                                 {inner_case}
-                                if( ! &Origin-Non-Failed-Auth) {{
+                                if( ! &ELAN-Non-Failed-Auth) {{
                                     auth_all_providers_failed_in_group
                                 }}
                             }}
                         }}
                 '''.format(
-                       id = auth['id'],
-                       inner_case = self.get_group_inner_case(auth) )
+                       id=auth['id'],
+                       inner_case=self.get_group_inner_case(auth))
 
         # Quit AD domain if required
         if not has_active_directory and AD.joined():
             AD.leave()
 
         with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
-            module_file.write( module_conf )
+            module_file.write(module_conf)
         with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
-            policy_file.write( self.policy_template.render(inner_switch=inner_switch_server_conf) )
-        
+            policy_file.write(self.policy_template.render(inner_switch=inner_switch_server_conf))
+
         # CAs
         for provider in self.authentications.values():
             if provider.get('server_ca', None):
@@ -393,14 +394,14 @@ rest auth_all_providers_failed_in_group {
         # unprovide
         for service_path in self.provided_services - new_provided_services:
             self.dendrite.unprovide(service_path)
-            
+
         # Reload freeradius
         restart_service('freeradius')
-        
+
         # new provides
         for service_path in new_provided_services:
             self.dendrite.provide(service_path, cb=self.on_call)
-        
+
         self.provided_services = new_provided_services
 
     def on_call(self, data, service):
@@ -420,14 +421,13 @@ rest auth_all_providers_failed_in_group {
                 return get_authorization(m.group(1), login=data['login'], source=data['source'])
             except KeyError:
                 return { 'success': False }
-        
-            
 
-class AD:    
+
+class AD:
     synapse = Synapse()
-    
+
     REDIS_INFO_PATH = 'authentication:AD:info'
-    
+
     @classmethod
     def _run(cls, args):
         '''
@@ -435,7 +435,7 @@ class AD:
         returns a subprocess.CompletedProcess
         raises AD.Error with message as concatenation of stdout and stderr if return code != 0
         '''
-        process_result =  subprocess.run(
+        process_result = subprocess.run(
                 args,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
@@ -444,13 +444,13 @@ class AD:
         )
         if process_result.returncode != 0:
             raise cls.Error(process_result.stdout + '\n' + process_result.stderr)
-        
+
         return process_result
-    
+
     @classmethod
     def joined(cls, realm=None):
         AD_info = cls.info()
-        
+
         if AD_info:
             if realm:
                 return realm.upper() == AD_info['realm'].upper()
@@ -461,16 +461,15 @@ class AD:
     @classmethod
     def leave(cls):
         '''leave AD domain
-        
+
             never fails
         '''
         try:
             cls._run(['net', '-P', 'ads', 'leave'])
         except cls.Error:
             pass
-        
+
         cls.synapse.delete(cls.REDIS_INFO_PATH)
-        
 
     @classmethod
     def join(cls, realm, user, password):
@@ -482,7 +481,7 @@ class AD:
         cls._run(['chown', 'freerad', '/etc/krb5.keytab'])
         cls._run(['usermod', '-a', '-G', 'winbindd_priv', 'freerad'])
         cls._run(['chgrp', 'winbindd_priv', '/var/lib/samba/winbindd_privileged'])
-        
+
         f = open('/etc/freeradius/.k5identity', 'w')
         f.write('{hostname}$@{realm}'.format(hostname=socket.gethostname(), realm=realm).upper())
         f.close()
@@ -511,9 +510,9 @@ class AD:
     @classmethod
     def info(cls):
         return cls.synapse.get(cls.REDIS_INFO_PATH)
-    
+
     class Error(Exception):
+
         def __init__(self, message):
             self.message = message
-
 
