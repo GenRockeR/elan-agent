@@ -7,10 +7,6 @@ debian/*.debhelper
 debian/debhelper-*
 *.pyc
 __pycache__/
-bin/
-!lib/perl5
-lib/
-lib64
 debian/postinst
 debian/postrm
 debian/preinst
@@ -20,5 +16,3 @@ manage.py
 pip-selfcheck.json
 debian/*.debhelper
 .cache
-share/
-man/

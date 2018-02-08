@@ -95,7 +95,7 @@ BEGIN {
     );
 }
 
-$install_dir = '/origin/nac/pf';
+$install_dir = '/elan-agent/nac/pf';
 
 # TODO bug#920 all application config data should use Readonly to avoid accidental post-startup alterration
 $bin_dir  = catdir( $install_dir,"bin" );

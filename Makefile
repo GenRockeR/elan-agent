@@ -198,7 +198,7 @@ nac-snmp: nac-perl-lib nac-mibs
 	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
 
 .PHONY: nac-perl-lib
-nac-perl-lib: lib/perl5/Origin lib/perl5/pf lib/perl5/SNMP
+nac-perl-lib: perl5/ELAN embedded/perl5/pf embedded/perl5/SNMP
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5
 	cp -r $^ ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf
