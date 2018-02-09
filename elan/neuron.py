@@ -23,14 +23,22 @@ CALL_TIMEOUT = 60  # seconds
 SYNC_CALL_TIMEOUT = 40  # seconds
 
 
-def wait_for_synapse_ready():
+def wait_for_synapse_ready(synapse=None, verbose=False):
+    if synapse is None:
+        synapse = Synapse()
+
     started = False
-    s = Synapse()
+    count = 1
 
     while not started:
         try:
-            started = s.ping()
+            started = synapse.ping()
         except serialized_redis.redis.ConnectionError:
+            if verbose and count == 1:
+                print('Redis not ready, waiting...')
+            count += 1
+            if count == 10:
+                count = 1
             time.sleep(1)
 
 
