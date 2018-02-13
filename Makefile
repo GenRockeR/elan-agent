@@ -207,7 +207,7 @@ nac-perl-lib: perl5/ELAN embedded/perl5/pf embedded/perl5/SNMP
 .PHONY: nac-mibs
 nac-mibs:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac
-	cp -r mibs ${DESTDIR}${ORIGIN_PREFIX}/nac/mibs
+	cp -r embedded/mibs ${DESTDIR}${ORIGIN_PREFIX}/nac/mibs
 
 .PHONY: network-install
 network-install:
