@@ -39,10 +39,13 @@ use strict;
 use warnings;
 
 use base ('pf::Switch');
-use Log::Log4perl;
 
 use pf::accounting qw(node_accounting_dynauth_attr);
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $SSID
+);
 use pf::util;
 
 sub description { 'Ruckus Wireless Controllers' }
@@ -61,6 +64,17 @@ sub supportsExternalPortal { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
 
+=item supportsWebFormRegistration
+
+Will be activated only if HTTP is selected as a deauth method
+
+=cut
+
+sub supportsWebFormRegistration {
+    my ($self) = @_;
+    return $self->{_deauthMethod} eq $SNMP::HTTP;
+}
+
 =item getVersion
 
 obtain image version information from switch
@@ -68,10 +82,10 @@ obtain image version information from switch
 =cut
 
 sub getVersion {
-    my ($this)       = @_;
+    my ($self)       = @_;
     my $oid_ruckusVer = '1.3.6.1.4.1.25053.1.2.1.1.1.1.18';
-    my $logger       = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger       = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
     $logger->trace("SNMP get_request for sysDescr: $oid_ruckusVer");
@@ -79,7 +93,7 @@ sub getVersion {
     # sysDescr sample output:
     # 9.3.0.0 build 83
 
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_ruckusVer] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_ruckusVer] );
     if (defined($result)) {
         return $result->{$oid_ruckusVer};
     }
@@ -95,18 +109,13 @@ All traps ignored
 =cut
 
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
-    # Handle WIPS Trap
-    if ( $trapString =~ /\.1\.3\.6\.1\.4\.1\.25053\.2\.2\.2\.20 = STRING: \"([a-f0-9]{2}:[a-f0-9]{2}:[a-f0-9]{2}:[a-f0-9]{2}:[a-f0-9]{2}:[a-f0-9]{2})/ ) {
-        $trapHashRef->{'trapType'}    = 'wirelessIPS';
-        $trapHashRef->{'trapMac'} = clean_mac($1);
-    } else {
-        $logger->debug("trap currently not handled.  TrapString was: $trapString");
-        $trapHashRef->{'trapType'} = 'unknown';
-    }
+    $logger->debug("trap currently not handled.  TrapString was: $trapString");
+    $trapHashRef->{'trapType'} = 'unknown';
+
     return $trapHashRef;
 }
 
@@ -120,7 +129,7 @@ New implementation using RADIUS Disconnect-Request.
 
 sub deauthenticateMacDefault {
     my ( $self, $mac, $is_dot1x ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode... we won't perform deauthentication");
@@ -132,7 +141,7 @@ sub deauthenticateMacDefault {
 
     $logger->debug("deauthenticate $mac using RADIUS Disconnect-Request deauth method");
     return $self->radiusDisconnect(
-        $mac, { 'Acct-Session-Id' => $dynauth->{'acctsessionid'}, 'User-Name' => $dynauth->{'username'} },
+        $mac, { 'User-Name' => $dynauth->{'username'} },
     );
 }
 
@@ -143,8 +152,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::RADIUS;
     my %tech = (
         $SNMP::RADIUS => 'deauthenticateMacDefault',
@@ -156,23 +165,64 @@ sub deauthTechniques {
     return $method,$tech{$method};
 }
 
-=item parseUrl
 
-This is called when we receive a http request from the device and return specific attributes:
+=item parseExternalPortalRequest
 
-client mac address
-SSID
-client ip address
-redirect url
-grant url
-status code
+Parse external portal request using URI and it's parameters then return an hash reference with the appropriate parameters
+
+See L<pf::web::externalportal::handle>
 
 =cut
 
-sub parseUrl {
-    my($this, $req) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    return (clean_mac($$req->param('client_mac')),$$req->param('ssid'),$$req->param('uip'),$$req->param('url'),undef,undef);
+sub parseExternalPortalRequest {
+    my ( $self, $r, $req ) = @_;
+    my $logger = $self->logger;
+
+    # Using a hash to contain external portal parameters
+    my %params = ();
+
+    %params = (
+        switch_id               => $req->param('sip'),
+        client_mac              => clean_mac($req->param('client_mac')),
+        client_ip               => defined($req->param('uip')) ? $req->param('uip') : undef,
+        ssid                    => $req->param('ssid'),
+        redirect_url            => $req->param('url'),
+        synchronize_locationlog => $FALSE,
+    );
+
+    return \%params;
+}
+
+
+=item getAcceptForm
+
+Creates the form that should be given to the client device to trigger a reauthentication.
+
+=cut
+
+sub getAcceptForm {
+    my ( $self, $mac, $destination_url, $portalSession ) = @_;
+    my $logger = $self->logger;
+    $logger->debug("Creating web release form");
+
+    my $client_ip = $portalSession->param("ecwp-original-param-uip");
+    my $controller_ip = $self->{_ip};
+
+    my $html_form = qq[
+        <form name="weblogin_form" action="http://$controller_ip:9997/login" method="POST" style="display:none">
+          <input type="text" name="ip" value="$client_ip" />
+          <input type="text" name="username" value="$mac" />
+          <input type="text" name="password" value="$mac"/>
+          <input type="submit">
+        </form>
+
+        <script language="JavaScript" type="text/javascript">
+        window.setTimeout('document.weblogin_form.submit();', 1000);
+        </script>
+    ];
+
+    $logger->debug("Generated the following html form : ".$html_form);
+    return $html_form;
 }
 
 =back
@@ -183,7 +233,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

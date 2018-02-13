@@ -6,19 +6,19 @@ pf::Switch::Juniper - Object oriented module manage Juniper' switches
 
 =head1 STATUS
 
-Supports 
+Supports
  MAC Authentication (MAC RADIUS in Juniper's terms)
 
 Developed and tested on Juniper ex4200-48t running on JUNOS 10.3R1.9
 
 =head1 BUGS AND LIMITATIONS
- 
+
 =over
 
 =item Bouncing a port is slow
 
-Bouncing a port is done on a VLAN change when in MAC Authentication. 
-Because of the lack of SNMP read-write capabilities on the IF-MIB, 
+Bouncing a port is done on a VLAN change when in MAC Authentication.
+Because of the lack of SNMP read-write capabilities on the IF-MIB,
 a full disable / commit / enable / commit is performed on the switch making it very slow.
 
 =item Voice over IP
@@ -33,10 +33,9 @@ use strict;
 use warnings;
 
 use base ('pf::Switch');
-use Log::Log4perl;
-use Net::Appliance::Session;
 
-use pf::config;
+use pf::constants;
+use pf::config qw($MAC $PORT);
 use pf::locationlog;
 # importing switch constants
 use pf::Switch::constants;
@@ -66,11 +65,11 @@ Ex: NAS-Port 115 is the 115th ifIndex entry  which is ifIndex 598.
 =cut
 
 sub NasPortToIfIndex {
-    my ($this, $NAS_port) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $NAS_port) = @_;
+    my $logger = $self->logger;
 
     # grab ifName -> ifIndex hash
-    my %ifNameIfIndexHash = $this->getIfNameIfIndexHash();
+    my %ifNameIfIndexHash = $self->getIfNameIfIndexHash();
 
     # get numerically sorted ifIndexes (hash values)
     my @sortedIfIndexes = sort {$a <=> $b} values %ifNameIfIndexHash;
@@ -89,8 +88,8 @@ sub NasPortToIfIndex {
     my $subIntIfIndex = $sortedIfIndexes[$NAS_port];
 
     # because no obvious link could be made between a sub-interface ifIndex and it's parent, we use a regexp to do it
-    my $subIntName = $this->getIfName($subIntIfIndex);
-    # interface: ge-0/0/46 
+    my $subIntName = $self->getIfName($subIntIfIndex);
+    # interface: ge-0/0/46
     # sub-interface: ge-0/0/46.0
     if ($subIntName !~ /^(.+)\.\d+$/) {
         $logger->warn(
@@ -116,34 +115,35 @@ Warning: This is really slow! About 6 second for the link change.
 =cut
 
 sub setAdminStatus {
-    my ($this, $ifIndex, $enable) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    
-    if ( !$this->isProductionMode() ) {
+    my ($self, $ifIndex, $enable) = @_;
+    my $logger = $self->logger;
+
+    if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode ... we won't set the admin status for ifIndex $ifIndex");
         return 1;
-    }   
+    }
     my $session;
     eval {
+        require Net::Appliance::Session;
         $session = Net::Appliance::Session->new(
-            Host      => $this->{_ip},
+            Host      => $self->{_ip},
             Timeout   => 20,
-            Transport => $this->{_cliTransport},        
-            Platform  => "JUNOS",    
+            Transport => $self->{_cliTransport},
+            Platform  => "JUNOS",
         );
-        
-        $session->connect(
-            Name     => $this->{_cliUser},
-            Password => $this->{_cliPwd}
-        );  
-    };  
-    
-    if ($@) {
-        $logger->error("Unable to connect to ".$this->{'_ip'}." using ".$this->{_cliTransport}.". Failed with $@");
-        return;
-    }   
 
-    my $port = $this->getIfName($ifIndex);
+        $session->connect(
+            Name     => $self->{_cliUser},
+            Password => $self->{_cliPwd}
+        );
+    };
+
+    if ($@) {
+        $logger->error("Unable to connect to ".$self->{'_ip'}." using ".$self->{_cliTransport}.". Failed with $@");
+        return;
+    }
+
+    my $port = $self->getIfName($ifIndex);
 
     my $command;
     if ($enable eq 1) {
@@ -183,10 +183,10 @@ Called when a ReAssignVlan trap is received for a switch-port in Wired MAC Authe
 =cut
 
 sub handleReAssignVlanTrapForWiredMacAuth {
-    my ($this, $ifIndex, $mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $ifIndex, $mac) = @_;
+    my $logger = $self->logger;
 
-    my $switch_ip = $this->{_ip};
+    my $switch_ip = $self->{_ip};
 
     # TODO implement VoIP device detection
     $logger->info("Bouncing $switch_ip:$ifIndex. A new VLAN will be assigned upon reconnection.");
@@ -206,7 +206,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

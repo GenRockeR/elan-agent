@@ -37,16 +37,20 @@ Nothing documented at this point.
 use strict;
 use warnings;
 
-use Log::Log4perl;
-use Net::Appliance::Session;
 use Try::Tiny;
 
 use base ('pf::Switch');
 
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $ROLES_API_LEVEL
+    $MAC
+    $SSID
+);
+use pf::file_paths qw($lib_dir);
 # RADIUS constants (RADIUS:: namespace)
 use pf::radius::constants;
-use pf::roles::custom $ROLE_API_LEVEL;
+use pf::roles::custom $ROLES_API_LEVEL;
 # importing switch constants
 use pf::Switch::constants;
 use pf::util;
@@ -64,6 +68,8 @@ sub supportsWirelessDot1x { return $TRUE; }
 sub supportsWirelessMacAuth { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
+# locationlog update capabilities
+sub supportsRoamingAccounting { return $TRUE };
 
 =item getVersion
 
@@ -72,15 +78,15 @@ obtain image version information from switch
 =cut
 
 sub getVersion {
-    my ($this) = @_;
+    my ($self) = @_;
     my $oid_AeroHiveSoftwareVersion = '1.3.6.1.2.1.1.1.0'; #
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
 
     $logger->trace("SNMP get_request for AeroHiveSoftwareVersion: $oid_AeroHiveSoftwareVersion");
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_AeroHiveSoftwareVersion] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_AeroHiveSoftwareVersion] );
     if (defined($result)) {
         return $result->{$oid_AeroHiveSoftwareVersion};
     }
@@ -92,39 +98,43 @@ sub getVersion {
 =item parseTrap
 
 This is called when we receive an SNMP-Trap for this device
+Old roaming snmp support has been commented if you need to activate it then uncomment it
 
 =cut
 
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
-    if ($trapString =~ /\.1\.3\.6\.1\.6\.3\.1\.1\.4\.1\.0 = OID: $AEROHIVE::ahConnectionChangeEvent/ ) {
-        $trapHashRef->{'trapType'} = 'roaming';
-        my @values = split(/\|/, $trapString);
-        my %valeurs;
-        foreach my $val (@values) {
-            my ($oid, $temp) =  split(/ = /, $val);
-            my ($tempo, $value) = split(/: /, $temp);
-            $value =~ s/^\s+|\s+$//g if (defined($value));
-            $valeurs{$oid} = $value;
-        }
-        $trapHashRef->{'trapSSID'} = $valeurs{$AEROHIVE::ahSSID};
-        $trapHashRef->{'trapSSID'} =~ s/"//g;
-        $trapHashRef->{'trapIfIndex'} = $valeurs{$AEROHIVE::ahIfIndex};
-        $trapHashRef->{'trapVlan'} = $valeurs{$AEROHIVE::ahClientVLAN};
-        $trapHashRef->{'trapMac'} = $valeurs{$AEROHIVE::ahRemoteId};
-        $trapHashRef->{'trapClientUserName'} = $valeurs{$AEROHIVE::ahClientUserName};
-        $trapHashRef->{'trapConnectionType'} = $WIRELESS_MAC_AUTH;
-        if ($valeurs{$AEROHIVE::ahClientAuthMethod} eq '6' || $valeurs{$AEROHIVE::ahClientAuthMethod} eq '7') {
-            $trapHashRef->{'trapConnectionType'} = $WIRELESS_802_1X;
-        }
-    }
-    else {
-        $logger->debug("trap currently not handled");
-        $trapHashRef->{'trapType'} = 'unknown';
-    }
+#    if ($trapString =~ /\.1\.3\.6\.1\.6\.3\.1\.1\.4\.1\.0 = OID: $AEROHIVE::ahConnectionChangeEvent/ ) {
+#        $trapHashRef->{'trapType'} = 'roaming';
+#        my @values = split(/\|/, $trapString);
+#        my %valeurs;
+#        foreach my $val (@values) {
+#            my ($oid, $temp) =  split(/ = /, $val);
+#            my ($tempo, $value) = split(/: /, $temp);
+#            $value =~ s/^\s+|\s+$//g if (defined($value));
+#            $valeurs{$oid} = $value;
+#        }
+#        $trapHashRef->{'trapSSID'} = $valeurs{$AEROHIVE::ahSSID};
+#        $trapHashRef->{'trapSSID'} =~ s/"//g;
+#        $trapHashRef->{'trapIfIndex'} = $valeurs{$AEROHIVE::ahIfIndex};
+#        $trapHashRef->{'trapVlan'} = $valeurs{$AEROHIVE::ahClientVLAN};
+#        $trapHashRef->{'trapMac'} = $valeurs{$AEROHIVE::ahRemoteId};
+#        $trapHashRef->{'trapClientUserName'} = $valeurs{$AEROHIVE::ahClientUserName};
+#        $trapHashRef->{'trapConnectionType'} = $WIRELESS_MAC_AUTH;
+#        if ($valeurs{$AEROHIVE::ahClientAuthMethod} eq '6' || $valeurs{$AEROHIVE::ahClientAuthMethod} eq '7') {
+#            $trapHashRef->{'trapConnectionType'} = $WIRELESS_802_1X;
+#        }
+#    }
+#    else {
+#        $logger->debug("trap currently not handled");
+#        $trapHashRef->{'trapType'} = 'unknown';
+#    }
+#    return $trapHashRef;
+    $logger->debug("trap currently not handled");
+    $trapHashRef->{'trapType'} = 'unknown';
     return $trapHashRef;
 }
 
@@ -138,14 +148,14 @@ New implementation using RADIUS Disconnect-Request.
 
 sub deauthenticateMacDefault {
     my ( $self, $mac, $is_dot1x ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     if ( !$self->isProductionMode() ) {
-        $logger->info("not in production mode... we won't perform deauthentication");
+        $logger->info("(".$self->{'_id'}.") not in production mode... we won't perform deauthentication");
         return 1;
     }
 
-    $logger->debug("deauthenticate $mac using RADIUS Disconnect-Request deauth method");
+    $logger->debug("deauthenticate using RADIUS Disconnect-Request deauth method");
     return $self->radiusDisconnect($mac);
 }
 
@@ -162,11 +172,11 @@ Warning: this code doesn't support elevating to privileged mode. See #900 and #1
 =cut
 
 sub _deauthenticateMacTelnet {
-    my ( $this, $mac ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $mac ) = @_;
+    my $logger = $self->logger;
 
-    if ( !$this->isProductionMode() ) {
-        $logger->info("not in production mode ... we won't deauthenticate $mac");
+    if ( !$self->isProductionMode() ) {
+        $logger->info("(".$self->{'_id'}.") not in production mode ... we won't deauthenticate");
         return 1;
     }
 
@@ -177,28 +187,29 @@ sub _deauthenticateMacTelnet {
 
     my $session;
     eval {
+        require Net::Appliance::Session;
         $session = Net::Appliance::Session->new(
-            Host      => $this->{_ip},
+            Host      => $self->{_ip},
             Timeout   => 5,
-            Transport => $this->{_cliTransport},
+            Transport => $self->{_cliTransport},
             Platform => 'HiveOS',
             Source   => $lib_dir.'/pf/Switch/AeroHIVE/nas-pb.yml'
         );
         $session->connect(
-            Name     => $this->{_cliUser},
-            Password => $this->{_cliPwd}
+            Name     => $self->{_cliUser},
+            Password => $self->{_cliPwd}
         );
     };
 
     if ($@) {
-        $logger->error("Unable to connect to ".$this->{'_ip'}." using ".$this->{_cliTransport}.". Failed with $@");
+        $logger->error("Unable to connect to ".$self->{'_ip'}." using ".$self->{_cliTransport}.". Failed with $@");
         return;
     }
 
     # if $session->begin_configure() does not work, use the following command:
     my $command = "clear auth station mac $mac";
 
-    $logger->info("Deauthenticating mac $mac");
+    $logger->info("Deauthenticating mac");
     $logger->trace("sending CLI command '$command'");
     my @output;
     $session->in_privileged_mode(1);
@@ -207,7 +218,7 @@ sub _deauthenticateMacTelnet {
     };
     $session->in_privileged_mode(0);
     if ($@) {
-        $logger->error("Unable to deauthenticate $mac: $@");
+        $logger->error("Unable to deauthenticate: $@");
         $session->close();
         return;
     }
@@ -223,58 +234,49 @@ assigning VLANs and Roles at the same time.
 =cut
 
 sub returnRadiusAccessAccept {
-    my ($self, $vlan, $mac, $port, $connection_type, $user_name, $ssid, $wasInline, $user_role) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my ($self, $args) = @_;
+    my $logger = $self->logger;
 
     my $radius_reply_ref = {};
+    my $status;
+    # should this node be kicked out?
+    my $kick = $self->handleRadiusDeny($args);
+    return $kick if (defined($kick));
 
-    # TODO this is experimental
-    try {
-
-        $logger->debug("network device supports roles. Evaluating role to be returned");
-        my $roleResolver = pf::roles::custom->instance();
-        my $role = $roleResolver->getRoleForNode($mac, $self);
+    $logger->debug("Network device (".$self->{'_id'}.") supports roles. Evaluating role to be returned.");
+    if ( isenabled($self->{_RoleMap}) && $self->supportsRoleBasedEnforcement()) {
+        my $role = $self->getRoleByName($args->{'user_role'});
 
         # Roles are configured and the user should have one
-        if (defined($role)) {
-
+        if (defined($role) && $role ne ""  && isenabled($self->{_RoleMap})) {
             $radius_reply_ref = {
                 'Tunnel-Medium-Type' => $RADIUS::IP,
                 'Tunnel-Type' => $RADIUS::GRE,
                 'Tunnel-Private-Group-ID' => $role,
             };
-
-            $logger->info("Returning ACCEPT with Role: $role");
         }
 
-        # if Roles aren't configured, return VLAN information
-        else {
-
-            $radius_reply_ref = {
-                'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
-                'Tunnel-Type' => $RADIUS::VLAN,
-                'Tunnel-Private-Group-ID' => $vlan,
-            };
-
-            $logger->info("Returning ACCEPT with VLAN: $vlan");
-        }
+        $logger->info("(".$self->{'_id'}.") Returning ACCEPT with Role: $role");
 
     }
-    catch {
-        chomp($_);
-        $logger->debug(
-            "Exception when trying to resolve a Role for the node. Returning VLAN attributes in RADIUS Access-Accept. "
-            . "Exception: $_"
-        );
 
+    # if Roles aren't configured, return VLAN information
+    if (isenabled($self->{_VlanMap}) && defined($args->{'vlan'})) {
         $radius_reply_ref = {
+             %$radius_reply_ref,
             'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
             'Tunnel-Type' => $RADIUS::VLAN,
-            'Tunnel-Private-Group-ID' => $vlan,
+            'Tunnel-Private-Group-ID' => $args->{'vlan'},
         };
-    };
 
-    return [$RADIUS::RLM_MODULE_OK, %$radius_reply_ref];
+        $logger->info("Returning ACCEPT with VLAN: $args->{'vlan'}");
+    }
+
+    my $filter = pf::access_filter::radius->new;
+    my $rule = $filter->test('returnRadiusAccessAccept', $args);
+    ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+    return [$status, %$radius_reply_ref];
+
 }
 
 =item returnRoleAttribute
@@ -286,7 +288,7 @@ This stub is here otherwise roles support tests fails since we expect an returnR
 =cut
 
 sub returnRoleAttribute {
-    my ($this) = @_;
+    my ($self) = @_;
     return;
 }
 
@@ -298,8 +300,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::RADIUS;
     my %tech = (
         $SNMP::RADIUS => 'deauthenticateMacDefault',
@@ -321,7 +323,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

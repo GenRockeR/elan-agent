@@ -11,9 +11,7 @@ to access SNMP enabled Avaya switches.
 
 =head1 BUGS AND LIMITATIONS
 
-=over
-
-=item BayStack stacking issues
+=head2 BayStack stacking issues
 
 Sometimes switches that were previously in a stacked setup will report
 security violations as if they were still stacked.
@@ -21,51 +19,124 @@ You will notice security authorization made on wrong ifIndexes.
 A factory reset / reconfiguration will resolve the situation.
 We experienced the issue with a BayStack 470 running 3.7.5.13 but we believe it affects other BayStacks and firmwares.
 
-=item Hard to predict OIDs seen on some variants
+=head2 Hard to predict OIDs seen on some variants
 
 We faced issues where some switches (ie ERS2500) insisted on having a board index of 1 when adding a MAC to the security table although for most other operations the board index was 0.
 Our attempted fix is to always consider the board index to start with 1 on the operations touching secuirty status (isPortSecurity and authorizeMAC).
 Be aware of that if you start to see MAC authorization failures and report the problem to us, we might have to do a per firmware or per device implementation instead.
-
-=back
 
 =cut
 
 use strict;
 use warnings;
 
-use Log::Log4perl;
 use Net::SNMP;
+use Try::Tiny;
 
 use base ('pf::Switch::Nortel');
 
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $WIRED_MAC_AUTH
+    $WIRED_802_1X
+    $WIRED_MAC_AUTH
+);
 use pf::Switch::constants;
 use pf::util;
 use pf::accounting qw(node_accounting_current_sessionid);
 use pf::node qw(node_attributes);
 use pf::util::radius qw(perform_coa perform_disconnect);
+use pf::log;
 
 sub description { 'Avaya Switch Module' }
 
 =head1 CAPABILITIES
 
+TODO: This list is incomplete
 
-=back
+=cut
 
 =head1 METHODS
 
 TODO: This list is incomplete
 
-=over
+=cut
+
+sub supportsWiredMacAuth { return $SNMP::TRUE; }
+sub supportsWiredDot1x { return $SNMP::TRUE }
+sub supportsRadiusVoip { return $SNMP::TRUE }
+
+=head2 identifyConnectionType
+
+Used to override L<pf::Connection::identifyType> behavior if needed on a per switch module basis.
+
+=cut
+
+sub _identifyConnectionType {
+    my ($self, $nas_port_type, $eap_type, $mac, $user_name) = @_;
+    my $logger = $self->logger();
+
+    unless( defined($nas_port_type) ){
+        $logger->info("Request type is not set. On Nortel this means it's MAC AUTH");
+        return $WIRED_MAC_AUTH;
+    }
+
+    # if we're not overiding, we call the parent method
+    return $self->SUPER::_identifyConnectionType($nas_port_type, $eap_type, $mac, $user_name);
+
+}
+
+=head2 parseRequest
+
+Takes FreeRADIUS' RAD_REQUEST hash and process it to return
+NAS Port type (Ethernet, Wireless, etc.)
+Network Device IP
+EAP
+MAC
+NAS-Port (port)
+User-Name
 
 =cut
 
 
+sub parseRequest {
+    my ($self, $radius_request) = @_;
+    my $client_mac = clean_mac($radius_request->{'Calling-Station-Id'}) || clean_mac($radius_request->{'User-Name'});
+    my $user_name = $radius_request->{'User-Name'};
+    my $nas_port_type = $radius_request->{'NAS-Port-Type'};
+    my $port = $radius_request->{'NAS-Port'};
+    my $eap_type = 0;
+    if (exists($radius_request->{'EAP-Type'})) {
+        $eap_type = $radius_request->{'EAP-Type'};
+    }
+    my $nas_port_id;
+    if (defined($radius_request->{'NAS-Port-Id'})) {
+        $nas_port_id = $radius_request->{'NAS-Port-Id'};
+    }
+    return ($nas_port_type, $eap_type, $client_mac, $port, $user_name, $nas_port_id, undef, $nas_port_id);
+}
+
+
+=head2 getVoipVSA
+
+Get Voice over IP RADIUS Vendor Specific Attribute (VSA).
+
+=cut
+
+sub getVoipVsa {
+    return ();
+}
+
+=head2 parseTrap
+
+Unimplemented base method meant to be overriden in switches that support SNMP trap based methods.
+
+=cut
+
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
     if ( $trapString
         =~ /^BEGIN TYPE ([23]) END TYPE BEGIN SUBTYPE 0 END SUBTYPE BEGIN VARIABLEBINDINGS \.1\.3\.6\.1\.2\.1\.2\.2\.1\.1\.(\d+) = INTEGER: \d+\|\.1\.3\.6\.1\.2\.1\.2\.2\.1\.7\.\d+ = INTEGER: [^|]+\|\.1\.3\.6\.1\.2\.1\.2\.2\.1\.8\.\d+ = INTEGER: [^)]+\)/
         )
@@ -76,9 +147,9 @@ sub parseTrap {
         =~ /\|\.1\.3\.6\.1\.4\.1\.45\.1\.6\.5\.3\.12\.1\.3\.(\d+)\.(\d+) = $SNMP::MAC_ADDRESS_FORMAT/) {
 
         $trapHashRef->{'trapType'} = 'secureMacAddrViolation';
-        $trapHashRef->{'trapIfIndex'} = $this->getIfIndex($1,$2);
+        $trapHashRef->{'trapIfIndex'} = $self->getIfIndex($1,$2);
         $trapHashRef->{'trapMac'} = parse_mac_from_trap($3);
-        $trapHashRef->{'trapVlan'} = $this->getVlan( $trapHashRef->{'trapIfIndex'} );
+        $trapHashRef->{'trapVlan'} = $self->getVlan( $trapHashRef->{'trapIfIndex'} );
 
         if ($trapHashRef->{'trapIfIndex'} <= 0) {
             $logger->warn(
@@ -88,7 +159,7 @@ sub parseTrap {
         }
 
         $logger->debug(
-            "ifIndex for " . $trapHashRef->{'trapMac'} . " on switch " . $this->{_ip}
+            "ifIndex for " . $trapHashRef->{'trapMac'} . " on switch " . $self->{_ip}
             . " is " . $trapHashRef->{'trapIfIndex'}
         );
 
@@ -99,15 +170,21 @@ sub parseTrap {
     return $trapHashRef;
 }
 
-sub getIfIndex {
-    my ($this, $ifDesc_param,$param2) = @_;
+=head2 getIfIndex
 
-    if ( !$this->connectRead() ) {
+return the ifindex based on the slot number and the port number
+
+=cut
+
+sub getIfIndex {
+    my ($self, $ifDesc_param,$param2) = @_;
+
+    if ( !$self->connectRead() ) {
         return 0;
     }
 
     my $OID_ifDesc = '1.3.6.1.2.1.31.1.1.1.1';
-    my $result = $this->{_sessionRead}->get_table( -baseoid => $OID_ifDesc );
+    my $result = $self->{_sessionRead}->get_table( -baseoid => $OID_ifDesc );
     foreach my $key ( keys %{$result} ) {
         my $ifDesc = $result->{$key};
         if ( $ifDesc =~ /\(Slot:\s$ifDesc_param\sPort:\s$param2\)/i ) {
@@ -117,20 +194,26 @@ sub getIfIndex {
     }
 }
 
+=head2 getBoardPortFromIfIndex
+
+return the slot and the port number based on the ifindex
+
+=cut
+
 sub getBoardPortFromIfIndex {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
+    if ( !$self->connectRead() ) {
         return 0;
     }
     my $OID_ifDesc = '1.3.6.1.2.1.31.1.1.1.1';
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => ["$OID_ifDesc.$ifIndex"] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => ["$OID_ifDesc.$ifIndex"] );
     if ($result->{"$OID_ifDesc.$ifIndex"} =~ /Slot:\s(\d+)\sPort:\s(\d+)/) {
         return ($1,$2);
     }
 }
 
-=item getBoardPortFromIfIndexForSecurityStatus
+=head2 getBoardPortFromIfIndexForSecurityStatus
 
 We noticed that the security status related OIDs always report their first boardIndex to 1 even though elsewhere
 it's all referenced as 0.
@@ -140,24 +223,30 @@ To be used by method which read or write to security status related MIBs.
 =cut
 
 sub getBoardPortFromIfIndexForSecurityStatus {
-    my ( $this, $ifIndex ) = @_;
+    my ( $self, $ifIndex ) = @_;
 
-    my ($board, $port) = $this->getBoardPortFromIfIndex($ifIndex);
+    my ($board, $port) = $self->getBoardPortFromIfIndex($ifIndex);
 
     return ( $board, $port );
 }
 
+=head2 getAllSecureMacAddresses - return all MAC addresses in security table and their VLAN
+
+Returns an hashref with MAC => ifIndex => Array(VLANs)
+
+=cut
+
 sub getAllSecureMacAddresses {
-    my ($this) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self) = @_;
+    my $logger = $self->logger;
     my $OID_s5SbsAuthCfgAccessCtrlType = '1.3.6.1.4.1.45.1.6.5.3.10.1.2.0';
 
     my $secureMacAddrHashRef = {};
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return $secureMacAddrHashRef;
     }
 
-    my $result = $this->{_sessionRead}->get_table( -baseoid => "$OID_s5SbsAuthCfgAccessCtrlType" );
+    my $result = $self->{_sessionRead}->get_table( -baseoid => "$OID_s5SbsAuthCfgAccessCtrlType" );
     while ( my ( $oid_including_mac, $ctrlType ) = each( %{$result} ) ) {
         if (( $oid_including_mac =~
             /^$OID_s5SbsAuthCfgAccessCtrlType
@@ -167,31 +256,37 @@ sub getAllSecureMacAddresses {
 
                 my $boardIndx = $1;
                 my $portIndx  = $2;
-                my $ifIndex = $this->getIfIndex( $boardIndx, $portIndx );
+                my $ifIndex = $self->getIfIndex( $boardIndx, $portIndx );
                 my $oldMac = oid2mac($3);
-                push @{ $secureMacAddrHashRef->{$oldMac}->{$ifIndex} }, $this->getVlan($ifIndex);
+                push @{ $secureMacAddrHashRef->{$oldMac}->{$ifIndex} }, $self->getVlan($ifIndex);
         }
     }
 
     return $secureMacAddrHashRef;
 }
 
+=head2 getSecureMacAddresses - return all MAC addresses in security table and their VLAN for a given ifIndex
+
+Returns an hashref with MAC => Array(VLANs)
+
+=cut
+
 sub getSecureMacAddresses {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
     my $OID_s5SbsAuthCfgAccessCtrlType = '1.3.6.1.4.1.45.1.6.5.3.10.1.2';
     my $secureMacAddrHashRef = {};
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return $secureMacAddrHashRef;
     }
-    my $oldVlan = $this->getVlan($ifIndex);
+    my $oldVlan = $self->getVlan($ifIndex);
 
     $logger->trace(
         "SNMP get_table for s5SbsAuthCfgAccessCtrlType: $OID_s5SbsAuthCfgAccessCtrlType"
     );
 
-    my $result = $this->{_sessionRead}->get_table( -baseoid => "$OID_s5SbsAuthCfgAccessCtrlType" );
+    my $result = $self->{_sessionRead}->get_table( -baseoid => "$OID_s5SbsAuthCfgAccessCtrlType" );
     while ( my ( $oid_including_mac, $ctrlType ) = each( %{$result} ) ) {
         if ($ctrlType eq $ifIndex) {
             if ( $oid_including_mac =~
@@ -210,27 +305,29 @@ sub getSecureMacAddresses {
 }
 
 
-#called with $authorized set to true, creates a new line to authorize the MAC
-#when $authorized is set to false, deletes an existing line
+=head2 authorizeMAC - authorize a MAC address and de-authorize the previous one if required
+
+=cut
+
 sub _authorizeMAC {
-    my ( $this, $ifIndex, $mac, $authorize ) = @_;
+    my ( $self, $ifIndex, $mac, $authorize ) = @_;
     my $OID_s5SbsAuthCfgAccessCtrlType = '1.3.6.1.4.1.45.1.6.5.3.10.1.4';
     my $OID_s5SbsAuthCfgStatus         = '1.3.6.1.4.1.45.1.6.5.3.10.1.5';
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info( "not in production mode ... we won't delete an entry from the SecureMacAddrTable" );
         return 1;
     }
 
-    if ( !$this->connectWrite() ) {
+    if ( !$self->connectWrite() ) {
         return 0;
     }
 
-    # careful readers will notice that we don't use getBoardPortFromIfIndex here. 
+    # careful readers will notice that we don't use getBoardPortFromIfIndex here.
     # That's because Nortel thought that it made sense to start BoardIndexes differently for different OIDs
-    # on the same switch!!! 
-    my ( $boardIndx, $portIndx ) = $this->getBoardPortFromIfIndexForSecurityStatus($ifIndex);
+    # on the same switch!!!
+    my ( $boardIndx, $portIndx ) = $self->getBoardPortFromIfIndexForSecurityStatus($ifIndex);
     my @boardIndx;
 
     # Because the boardIndx for a standalone switch can be 0 or 1 (random)
@@ -239,7 +336,7 @@ sub _authorizeMAC {
     } else {
         push (@boardIndx, $boardIndx);
     }
- 
+
     my $cfgStatus = ($authorize) ? 2 : 3;
     my $mac_oid = mac2oid($mac);
 
@@ -248,7 +345,7 @@ sub _authorizeMAC {
     if ($authorize) {
         $logger->trace( "SNMP set_request for s5SbsAuthCfgAccessCtrlType: $OID_s5SbsAuthCfgAccessCtrlType" );
         foreach $boardIndx (@boardIndx) {
-            $result = $this->{_sessionWrite}->set_request(
+            $result = $self->{_sessionWrite}->set_request(
                 -varbindlist => [
                     "$OID_s5SbsAuthCfgAccessCtrlType.$boardIndx.$portIndx.$mac_oid", Net::SNMP::INTEGER, $TRUE,
                     "$OID_s5SbsAuthCfgStatus.$boardIndx.$portIndx.$mac_oid", Net::SNMP::INTEGER, $cfgStatus
@@ -262,7 +359,7 @@ sub _authorizeMAC {
         foreach $boardIndx (@boardIndx) {
             $logger->warn("Remove mac ".$OID_s5SbsAuthCfgStatus.$boardIndx.$portIndx.$mac_oid);
             $logger->trace( "SNMP set_request for s5SbsAuthCfgStatus: $OID_s5SbsAuthCfgStatus" );
-            $result = $this->{_sessionWrite}->set_request(
+            $result = $self->{_sessionWrite}->set_request(
                 -varbindlist => [
                     "$OID_s5SbsAuthCfgStatus.$boardIndx.$portIndx.$mac_oid", Net::SNMP::INTEGER, $cfgStatus
                 ]
@@ -275,29 +372,38 @@ sub _authorizeMAC {
 
     return $TRUE if (defined($return));
 
-    $logger->warn("MAC authorize / deauthorize failed with " . $this->{_sessionWrite}->error());
+    $logger->warn("MAC authorize / deauthorize failed with " . $self->{_sessionWrite}->error());
     return;
 }
 
+=head2 getPhonesLLDPAtIfIndex
+
+Return list of MACs found through LLDP on a given ifIndex.
+
+If this proves to be generic enough, it could be promoted to L<pf::Switch>.
+In that case, create a generic ifIndexToLldpLocalPort also.
+
+=cut
+
 sub getPhonesLLDPAtIfIndex {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
     my @phones;
-    if ( !$this->isVoIPEnabled() ) {
+    if ( !$self->isVoIPEnabled() ) {
         $logger->debug( "VoIP not enabled on switch "
-                . $this->{_ip}
+                . $self->{_ip}
                 . ". getPhonesLLDPAtIfIndex will return empty list." );
         return @phones;
     }
     my $oid_lldpRemPortId  = '1.0.8802.1.1.2.1.4.1.1.7';
     my $oid_lldpRemSysDesc = '1.0.8802.1.1.2.1.4.1.1.10';
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return @phones;
     }
     $logger->trace(
         "SNMP get_next_request for lldpRemSysDesc: $oid_lldpRemSysDesc");
-    my $result = $this->{_sessionRead}
+    my $result = $self->{_sessionRead}
         ->get_table( -baseoid => $oid_lldpRemSysDesc );
     foreach my $oid ( keys %{$result} ) {
         if ( $oid =~ /^$oid_lldpRemSysDesc\.([0-9]+)\.([0-9]+)\.([0-9]+)$/ ) {
@@ -309,7 +415,7 @@ sub getPhonesLLDPAtIfIndex {
                     $logger->trace(
                         "SNMP get_request for lldpRemPortId: $oid_lldpRemPortId.$cache_lldpRemTimeMark.$cache_lldpRemLocalPortNum.$cache_lldpRemIndex"
                     );
-                    my $MACresult = $this->{_sessionRead}->get_request(
+                    my $MACresult = $self->{_sessionRead}->get_request(
                         -varbindlist => [
                             "$oid_lldpRemPortId.$cache_lldpRemTimeMark.$cache_lldpRemLocalPortNum.$cache_lldpRemIndex"
                         ]
@@ -334,36 +440,7 @@ sub getPhonesLLDPAtIfIndex {
 
 
 
-=item parseRequest
-
-Takes FreeRADIUS' RAD_REQUEST hash and process it to return
-NAS Port type (Ethernet, Wireless, etc.)
-Network Device IP
-EAP
-MAC
-NAS-Port (port)
-User-Name
-
-=cut
-
-sub parseRequest {
-    my ($this, $radius_request) = @_;
-    my $client_mac = clean_mac($radius_request->{'User-Name'});
-    my $user_name = $radius_request->{'User-Name'};
-    my $nas_port_type = $radius_request->{'NAS-Port-Type'};
-    my $port = $radius_request->{'NAS-Port'};
-    my $eap_type = 0;
-    if (exists($radius_request->{'EAP-Type'})) {
-        $eap_type = $radius_request->{'EAP-Type'};
-    }
-    my $nas_port_id;
-    if (defined($radius_request->{'NAS-Port-Id'})) {
-        $nas_port_id = $radius_request->{'NAS-Port-Id'};
-    }
-    return ($nas_port_type, $eap_type, $client_mac, $port, $user_name, $nas_port_id, undef);
-}
-
-=item deauthenticateMac
+=head2 deauthenticateMac
 
 Actual implementation.
 
@@ -372,38 +449,38 @@ Allows callers to refer to this implementation even though someone along the way
 =cut
 
 sub deauthenticateMac {
-    my ($this, $IfIndex, $mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $IfIndex, $mac) = @_;
+    my $logger = $self->logger;
 
 
     my $oid_bseePortConfigMultiHostClearNeap = "1.3.6.1.4.1.45.5.3.3.1.19";
-    if (!$this->connectWrite()) {
+    if (!$self->connectWrite()) {
         return 0;
     }
     $mac =~ s/://g;
     $mac =~ s/([a-fA-F0-9]{2})/chr(hex $1)/eg;
     #my $mic = mac2oid($mac);
     $logger->trace("SNMP set_request force port to reauthenticateon mac: $mac");
-    my $result = $this->{_sessionWrite}->set_request(-varbindlist => [
+    my $result = $self->{_sessionWrite}->set_request(-varbindlist => [
         "$oid_bseePortConfigMultiHostClearNeap.$IfIndex", Net::SNMP::OCTET_STRING, $mac
     ]);
 
     if (!defined($result)) {
-        $logger->error("got an SNMP error trying to force mac auth re authenticate: ".$this->{_sessionWrite}->error);
+        $logger->error("got an SNMP error trying to force mac auth re authenticate: ".$self->{_sessionWrite}->error);
     }
 
     return (defined($result));
 }
 
-=item wiredeauthTechniques
+=head2 wiredeauthTechniques
 
 Return the reference to the deauth technique or the default deauth technique.
 
 =cut
 
 sub wiredeauthTechniques {
-    my ($this, $method, $connection_type) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method, $connection_type) = @_;
+    my $logger = $self->logger;
     if ($connection_type == $WIRED_802_1X) {
         my $default = $SNMP::SNMP;
         my %tech = (
@@ -429,21 +506,22 @@ sub wiredeauthTechniques {
     }
 }
 
-=item deauthenticateMacRadius
+=head2 deauthenticateMacRadius
 
 Method to deauth a wired node with CoA.
 
 =cut
+
 sub deauthenticateMacRadius {
-    my ($this, $ifIndex,$mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $ifIndex,$mac) = @_;
+    my $logger = $self->logger;
 
 
     # perform CoA
-    $this->radiusDisconnect($mac);
+    $self->radiusDisconnect($mac);
 }
 
-=item radiusDisconnect
+=head2 radiusDisconnect
 
 Sends a RADIUS Disconnect-Request to the NAS with the MAC as the Calling-Station-Id to disconnect.
 
@@ -457,7 +535,7 @@ Uses L<pf::util::radius> for the low-level RADIUS stuff.
 
 sub radiusDisconnect {
     my ($self, $mac, $add_attributes_ref) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     # initialize
     $add_attributes_ref = {} if (!defined($add_attributes_ref));
@@ -488,31 +566,30 @@ sub radiusDisconnect {
         my $connection_info = {
             nas_ip => $send_disconnect_to,
             secret => $self->{'_radiusSecret'},
-            LocalAddr => $management_network->tag('vip'),
+            LocalAddr => $self->deauth_source_ip($send_disconnect_to),
         };
 
         $logger->debug("network device supports roles. Evaluating role to be returned");
         my $roleResolver = pf::roles::custom->instance();
         my $role = $roleResolver->getRoleForNode($mac, $self);
 
-        my $acctsessionid = node_accounting_current_sessionid($mac);
         my $node_info = node_attributes($mac);
         # transforming MAC to the expected format 00-11-22-33-CA-FE
         $mac = uc($mac);
         $mac =~ s/:/-/g;
+        my $time = time;
 
         # Standard Attributes
         my $attributes_ref = {
-            #'Calling-Station-Id' => $mac,
+            'Calling-Station-Id' => $mac,
             'NAS-IP-Address' => $send_disconnect_to,
-            'Acct-Session-Id' => $acctsessionid,
+            'Event-Timestamp' => $time,
         };
 
         # merging additional attributes provided by caller to the standard attributes
         $attributes_ref = { %$attributes_ref, %$add_attributes_ref };
 
-        # Roles are configured and the user should have one
-        if (defined($role) && (defined($node_info->{'status'}) ) ) {
+        if ( $self->shouldUseCoA({role => $role}) ) {
 
             $attributes_ref = {
                 %$attributes_ref,
@@ -532,7 +609,7 @@ sub radiusDisconnect {
     };
     return if (!defined($response));
 
-    return $TRUE if ($response->{'Code'} eq 'CoA-ACK');
+    return $TRUE if ( ($response->{'Code'} eq 'Disconnect-ACK') || ($response->{'Code'} eq 'CoA-ACK') );
 
     $logger->warn(
         "Unable to perform RADIUS Disconnect-Request."
@@ -542,15 +619,13 @@ sub radiusDisconnect {
     return;
 }
 
-=back
-
 =head1 AUTHOR
 
 Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2014 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

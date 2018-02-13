@@ -11,26 +11,13 @@ to access SNMP enabled Aruba switches.
 
 =head1 STATUS
 
-=over
+=head1 SUPPORTS
 
-=item Supports
-
-=over
-
-=item 802.1X and MAC-Authentication with and without VoIP
-
-=back
+=head2 802.1X and MAC-Authentication with and without VoIP
 
 Stacked switch support has not been tested.
 
-=back
-
-
 =head1 BUGS AND LIMITATIONS
-
-=over
-
-=back
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
@@ -40,7 +27,6 @@ F<conf/switches.conf>
 
 use strict;
 use warnings;
-use Log::Log4perl;
 use Net::SNMP;
 use Try::Tiny;
 use base ('pf::Switch');
@@ -50,13 +36,18 @@ sub description { 'Aruba Switches' }
 # importing switch constants
 use pf::Switch::constants;
 use pf::util;
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $PORT
+    $WIRED_802_1X
+    $WIRED_MAC_AUTH
+);
 
 =head1 SUBROUTINES
 
-=over
-
 =cut
+
 # CAPABILITIES
 # access technology supported
 sub supportsRoleBasedEnforcement { return $TRUE; }
@@ -68,19 +59,19 @@ sub supportsRadiusDynamicVlanAssignment { return $TRUE; }
 sub inlineCapabilities { return ($MAC,$PORT); }
 
 
-=item getVersion
+=head2 getVersion
 
 =cut
 
 sub getVersion {
-    my ($this)       = @_;
+    my ($self)       = @_;
     my $oid_sysDescr = '1.3.6.1.2.1.1.1.0';
-    my $logger       = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger       = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
     $logger->trace("SNMP get_request for sysDescr: $oid_sysDescr");
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_sysDescr] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_sysDescr] );
     my $sysDescr = ( $result->{$oid_sysDescr} || '' );
     if ( $sysDescr =~ m/V(\d{1}\.\d{2}\.\d{2})/ ) {
         return $1;
@@ -91,7 +82,7 @@ sub getVersion {
     }
 }
 
-=item _dot1xPortReauthenticate
+=head2 _dot1xPortReauthenticate
 
 Actual implementation.
 
@@ -100,29 +91,12 @@ Allows callers to refer to this implementation even though someone along the way
 =cut
 
 sub dot1xPortReauthenticate {
-    my ($this, $ifIndex) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $ifIndex) = @_;
+    my $logger = $self->logger;
 
     return;
 }
 
-
-=item parseTrap
-
-All traps ignored
-
-=cut
-
-sub parseTrap {
-    my ( $this, $trapString ) = @_;
-    my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-
-    $logger->debug("trap ignored, not useful for switch");
-    $trapHashRef->{'trapType'} = 'unknown';
-
-    return $trapHashRef;
-}
 
 =head2 getIfIndexByNasPortId
 
@@ -130,17 +104,16 @@ Fetch the ifindex on the switch by NAS-Port-Id radius attribute
 
 =cut
 
-
 sub getIfIndexByNasPortId {
-    my ($this, $ifDesc_param) = @_;
+    my ($self, $ifDesc_param) = @_;
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() || !defined($ifDesc_param)) {
         return 0;
     }
 
     my @ifDescTemp = split(':',$ifDesc_param);
     my $OID_ifDesc = '1.3.6.1.2.1.2.2.1.2';
-    my $result = $this->{_sessionRead}->get_table( -baseoid => $OID_ifDesc );
+    my $result = $self->cachedSNMPRequest([-baseoid => $OID_ifDesc]);
     foreach my $key ( keys %{$result} ) {
         my $ifDesc = $result->{$key};
         if ( $ifDesc =~ /$ifDescTemp[1]$/i ) {
@@ -150,41 +123,42 @@ sub getIfIndexByNasPortId {
     }
 }
 
-=item deauthenticateMacRadius
+=head2 deauthenticateMacRadius
 
 Method to deauth a wired node with CoA.
 
 =cut
+
 sub deauthenticateMacRadius {
-    my ($this, $ifIndex,$mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $ifIndex,$mac) = @_;
+    my $logger = $self->logger;
 
 
     # perform CoA
-    $this->radiusDisconnect($mac);
+    $self->radiusDisconnect($mac);
 }
 
-=item returnRoleAttribute
+=head2 returnRoleAttribute
 
 What RADIUS Attribute (usually VSA) should the role returned into.
 
 =cut
 
 sub returnRoleAttribute {
-    my ($this) = @_;
+    my ($self) = @_;
 
     return 'Aruba-User-Role';
 }
 
-=item wiredeauthTechniques
+=head2 wiredeauthTechniques
 
 Return the reference to the deauth technique or the default deauth technique.
 
 =cut
 
 sub wiredeauthTechniques {
-    my ($this, $method, $connection_type) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method, $connection_type) = @_;
+    my $logger = $self->logger;
     if ($connection_type == $WIRED_802_1X) {
         my $default = $SNMP::SNMP;
         my %tech = (
@@ -211,7 +185,7 @@ sub wiredeauthTechniques {
     }
 }
 
-=item radiusDisconnect
+=head2 radiusDisconnect
 
 Sends a RADIUS Disconnect-Request to the NAS with the MAC as the Calling-Station-Id to disconnect.
 
@@ -225,7 +199,7 @@ Uses L<pf::util::radius> for the low-level RADIUS stuff.
 
 sub radiusDisconnect {
     my ($self, $mac, $add_attributes_ref) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     # initialize
     $add_attributes_ref = {} if (!defined($add_attributes_ref));
@@ -251,7 +225,7 @@ sub radiusDisconnect {
         my $connection_info = {
             nas_ip => $send_disconnect_to,
             secret => $self->{'_radiusSecret'},
-            LocalAddr => $management_network->tag('vip'),
+            LocalAddr => $self->deauth_source_ip($send_disconnect_to),
         };
 
         $logger->debug("[$self->{'_ip'}] Network device supports roles. Evaluating role to be returned.");
@@ -274,8 +248,7 @@ sub radiusDisconnect {
         # merging additional attributes provided by caller to the standard attributes
         $attributes_ref = { %$attributes_ref, %$add_attributes_ref };
 
-        # Roles are configured and the user should have one
-        if ( defined($role) && (defined($node_info->{'status'}) && isenabled($self->{_RoleMap}) ) ) {
+        if ( $self->shouldUseCoA({role => $role}) ) {
 
             $attributes_ref = {
                 %$attributes_ref,
@@ -295,7 +268,7 @@ sub radiusDisconnect {
     };
     return if (!defined($response));
 
-    return $TRUE if ($response->{'Code'} eq 'CoA-ACK');
+    return $TRUE if ( ($response->{'Code'} eq 'Disconnect-ACK') || ($response->{'Code'} eq 'CoA-ACK') );
 
     $logger->warn(
         "[$self->{'_ip'}] Unable to perform RADIUS Disconnect-Request."
@@ -305,15 +278,13 @@ sub radiusDisconnect {
     return;
 }
 
-=back
-
 =head1 AUTHOR
 
 Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2014 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

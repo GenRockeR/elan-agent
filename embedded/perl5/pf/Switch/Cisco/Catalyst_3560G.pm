@@ -29,10 +29,10 @@ The hardware should support it.
 
 =head1 BUGS AND LIMITATIONS
 
-Because a lot of code is shared with the 2950 make sure to check the BUGS AND LIMITATIONS section of 
+Because a lot of code is shared with the 2950 make sure to check the BUGS AND LIMITATIONS section of
 L<pf::Switch::Cisco::Catalyst_2950> also.
 
-=over 
+=over
 
 =item port-security + Voice over IP (VoIP)
 
@@ -61,17 +61,14 @@ This is a Cisco bug, nothing much we can do. Don't use this IOS for VoIP.
 use strict;
 use warnings;
 
-use Log::Log4perl;
 use Net::SNMP;
 
-use pf::config;
-
-use base ('pf::Switch::Cisco::Catalyst_2960');
+use base ('pf::Switch::Cisco::Catalyst_3560');
 
 sub description { 'Cisco Catalyst 3560G' }
 
 # CAPABILITIES
-# inherited from 2960
+# inherited from 3560
 
 =item NasPortToIfIndex
 
@@ -80,8 +77,8 @@ Translate RADIUS NAS-Port into switch's ifIndex.
 =cut
 
 sub NasPortToIfIndex {
-    my ($this, $NAS_port) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $NAS_port) = @_;
+    my $logger = $self->logger;
 
     # ex: 50023 is ifIndex 10023
     if ($NAS_port =~ s/^500/101/) {
@@ -101,7 +98,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

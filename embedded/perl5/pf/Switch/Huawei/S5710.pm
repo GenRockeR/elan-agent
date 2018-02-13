@@ -20,24 +20,23 @@ Bumping a port doesn't reevaluate the access.
 use strict;
 use warnings;
 
-use Log::Log4perl;
+use pf::log;
 use POSIX;
 use Try::Tiny;
 
 use base ('pf::Switch::Huawei');
 
-use pf::config;
+use pf::constants;
 sub description { 'Huawei S5710' }
 
 =head1 SUBROUTINES
 
-=over
-
 =cut
+
 sub supportsWiredMacAuth { return $TRUE; }
 sub supportsWiredDot1x { return $TRUE; }
 
-=item getIfType
+=head2 getIfType
 
 Returning ETHERNET type since there is no standard way to get the ifindex
 
@@ -45,20 +44,18 @@ Returning ETHERNET type since there is no standard way to get the ifindex
 
 sub getIfType{ return $SNMP::ETHERNET_CSMACD; }
 
-=item handleReAssignVlanTrapForWiredMacAuth
+=head2 handleReAssignVlanTrapForWiredMacAuth
 
 Called when a ReAssignVlan trap is received for a switch-port in Wired MAC Authentication.
 
 =cut
 
 sub handleReAssignVlanTrapForWiredMacAuth {
-    my ($this, $ifIndex, $mac) = @_;
-    my $logger = Log::Log4perl::get_logger(__PACKAGE__);
+    my ($self, $ifIndex, $mac) = @_;
+    my $logger = get_logger();
 
-    $this->deauthenticateMacRadius($mac);
+    $self->deauthenticateMacRadius($mac);
 }
-
-=back
 
 =head1 AUTHOR
 
@@ -66,7 +63,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2014 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

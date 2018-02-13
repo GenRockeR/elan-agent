@@ -18,13 +18,16 @@ Should work on the hostapd version started 2.0
 use strict;
 use warnings;
 
-use Log::Log4perl;
 use POSIX;
 use Try::Tiny;
 
 use base ('pf::Switch::Enterasys');
 
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $SSID
+);
 sub description { 'Enterasys V2110' }
 
 # importing switch constants
@@ -33,8 +36,6 @@ use pf::util;
 use pf::util::radius qw(perform_disconnect);
 
 =head1 SUBROUTINES
-
-=over
 
 =cut
 
@@ -46,43 +47,26 @@ sub supportsRoleBasedEnforcement { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
 
-
-=item parseTrap
-
-This is called when we receive an SNMP-Trap for this device
-
-=cut
-sub parseTrap {
-    my ( $this, $trapString ) = @_;
-    my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-
-    $logger->debug("trap currently not handled");
-    $trapHashRef->{'trapType'} = 'unknown';
-
-    return $trapHashRef;
-}
-
-=item getVersion - obtain image version information from switch
+=head2 getVersion - obtain image version information from switch
 
 =cut
 
 sub getVersion {
-    my ($this) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self) = @_;
+    my $logger = $self->logger;
     $logger->info("we don't know how to determine the version through SNMP !");
     return '2.0.13';
 }
 
-=item deauthTechniques
+=head2 deauthTechniques
 
 Return the reference to the deauth technique or the default deauth technique.
 
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::RADIUS;
     my %tech = (
         $SNMP::RADIUS => 'deauthenticateMacRadius',
@@ -94,16 +78,17 @@ sub deauthTechniques {
     return $method,$tech{$method};
 }
 
-=item deauthenticateMacDefault
+=head2 deauthenticateMacDefault
 
 De-authenticate a MAC address from wireless network (including 802.1x).
 
 New implementation using RADIUS Disconnect-Request.
 
 =cut
+
 sub deauthenticateMacRadius {
     my ( $self, $mac, $is_dot1x ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode... we won't perform deauthentication");
@@ -114,7 +99,7 @@ sub deauthenticateMacRadius {
     return $self->radiusDisconnect($mac);
 }
 
-=item radiusDisconnect
+=head2 radiusDisconnect
 
 Sends a RADIUS Disconnect-Request to the NAS with the MAC as the Calling-Station-Id to disconnect.
 
@@ -127,7 +112,7 @@ Uses L<pf::util::radius> for the low-level RADIUS stuff.
 # TODO consider whether we should handle retries or not?
 sub radiusDisconnect {
     my ($self, $mac, $add_attributes_ref) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     # initialize
     $add_attributes_ref = {} if (!defined($add_attributes_ref));
@@ -158,7 +143,7 @@ sub radiusDisconnect {
         my $connection_info = {
             nas_ip => $send_disconnect_to,
             secret => $self->{'_radiusSecret'},
-            LocalAddr => $management_network->tag('vip'),
+            LocalAddr => $self->deauth_source_ip($send_disconnect_to),
         };
 
         # transforming MAC to the expected format 00-11-22-33-CA-FE
@@ -183,7 +168,7 @@ sub radiusDisconnect {
     };
     return if (!defined($response));
 
-    return $TRUE if ($response->{'Code'} eq 'Disconnect-ACK');
+    return $TRUE if ( ($response->{'Code'} eq 'Disconnect-ACK') || ($response->{'Code'} eq 'CoA-ACK') );
 
     $logger->warn(
         "Unable to perform RADIUS Disconnect-Request."
@@ -194,7 +179,7 @@ sub radiusDisconnect {
 }
 
 
-=bacctSsid
+=head2 extractSsid
 
 Find RADIUS SSID parameter out of RADIUS REQUEST parameters
 
@@ -203,84 +188,31 @@ Enterasys specific parser. See pf::SNMP for base implementation.
 =cut
 
 sub extractSsid {
-    my ($this, $radius_request) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $radius_request) = @_;
+    my $logger = $self->logger;
 
     if (defined($radius_request->{'Siemens-SSID'})) {
         return $radius_request->{'Siemens-SSID'};
     }
 
     $logger->warn(
-        "Unable to extract SSID for module " . ref($this) . ". SSID-based VLAN assignments won't work. "
+        "Unable to extract SSID for module " . ref($self) . ". SSID-based VLAN assignments won't work. "
         . "Please let us know so we can add support for it."
     );
     return;
 }
 
-=item returnRoleAttribute
+=head2 returnRoleAttribute
 
 What RADIUS Attribute (usually VSA) should the role returned into.
 
 =cut
+
 sub returnRoleAttribute {
-    my ($this) = @_;
+    my ($self) = @_;
 
     return 'Filter-Id';
 }
-
-=item * _identifyConnectionType
-
-Identify the connection type based information provided by RADIUS call
-
-Returns the constants $WIRED or $WIRELESS. Undef if unable to identify.
-
-=cut
-
-sub _identifyConnectionType {
-    my ($this, $nas_port_type, $eap_type, $mac, $user_name) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
-
-    $eap_type = 0 if (not defined($eap_type));
-    if (defined($nas_port_type)) {
-
-        if ($nas_port_type =~ /^Wireless-802\.11/ || $nas_port_type =~ /^Wireless-Other/) {
-
-            if ($eap_type) {
-                return $WIRELESS_802_1X;
-            } else {
-                return $WIRELESS_MAC_AUTH;
-            }
-        } elsif ($nas_port_type =~ /^Ethernet/ ) {
-
-            if ($eap_type) {
-
-                # some vendor do EAP-based Wired MAC Authentication, as far as PacketFence is concerned
-                # this is still MAC Authentication so we need to cheat a little bit here
-                # TODO: consider moving this logic later once the switch is initialized so we can ask it
-                # (supportsEAPMacAuth?)
-                $mac =~ s/[^[:xdigit:]]//g;
-                if (lc $mac eq lc $user_name) {
-                    return $WIRED_MAC_AUTH;
-                } else {
-                    return $WIRED_802_1X;
-                }
-
-            } else {
-                return $WIRED_MAC_AUTH;
-            }
-
-        } else {
-            # we didn't recognize request_type, this is a problem
-            $logger->warn("Unknown connection_type. NAS-Port-Type: $nas_port_type, EAP-Type: $eap_type.");
-            return;
-        }
-    } else {
-        $logger->warn("Request type was not set. There is a problem with the NAS, your radius config "
-            ."or rlm_perl packetfence.pm FreeRADIUS module.");
-        return;
-    }
-}
-
 
 =head1 AUTHOR
 
@@ -288,7 +220,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

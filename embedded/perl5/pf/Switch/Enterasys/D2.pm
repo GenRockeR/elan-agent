@@ -15,16 +15,14 @@ It should work on all D2 switches and maybe more.
 
 use strict;
 use warnings;
-use Log::Log4perl;
 use Net::SNMP;
-use Net::Telnet;
 use pf::Switch::constants;
 
 use base ('pf::Switch::Enterasys');
 
 sub description { 'Enterasys Standalone D2' }
 
-=item supportsWiredAuth
+=head2 supportsWiredAuth
 
 This switch module supports wired MAC authentication.
 
@@ -34,18 +32,16 @@ sub supportsWiredMacAuth { return $SNMP::TRUE; }
 
 =head1 SUBROUTINES
 
-=over
-
-=item _setVlan - set the required vlan on the switch
+=head2 _setVlan - set the required vlan on the switch
 
 =cut
 
 # this switch's behavior is so strange.. this sub involved a lot of trial and errors
 # maybe the Matrix N3's telnet code would be a safer bet?
 sub _setVlan {
-    my ( $this, $ifIndex, $newVlan, $oldVlan, $switch_locker_ref ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if (!$this->connectRead()) {
+    my ( $self, $ifIndex, $newVlan, $oldVlan, $switch_locker_ref ) = @_;
+    my $logger = $self->logger;
+    if (!$self->connectRead()) {
         return 0;
     }
     my $OID_dot1qPvid = '1.3.6.1.2.1.17.7.1.4.5.1.1';                      # Q-BRIDGE-MIB
@@ -53,42 +49,42 @@ sub _setVlan {
     my $OID_dot1qVlanStaticEgressPorts   = '1.3.6.1.2.1.17.7.1.4.3.1.2';   # Q-BRIDGE-MIB
     my $result;
 
-    $logger->trace("locking - trying to lock \$switch_locker{".$this->{_ip}."} in _setVlan");
+    $logger->trace("locking - trying to lock \$switch_locker{".$self->{_ip}."} in _setVlan");
     {
-        lock %{ $switch_locker_ref->{$this->{_ip}} };
-        $logger->trace("locking - \$switch_locker{".$this->{_ip}."} locked in _setVlan");
+        my $lock = $self->getExclusiveLock();
+        $logger->trace("locking - \$switch_locker{".$self->{_ip}."} locked in _setVlan");
 
         # get current egress and untagged ports
-        $this->{_sessionRead}->translate(0);
+        $self->{_sessionRead}->translate(0);
         $logger->trace("SNMP get_request for dot1qVlanStaticUntaggedPorts and dot1qVlanStaticEgressPorts");
-        $result = $this->{_sessionRead}->get_request(
+        $result = $self->{_sessionRead}->get_request(
             -varbindlist => [
                 "$OID_dot1qVlanStaticEgressPorts.$oldVlan",
                 "$OID_dot1qVlanStaticEgressPorts.$newVlan",
                 "$OID_dot1qVlanStaticUntaggedPorts.$oldVlan",
                 "$OID_dot1qVlanStaticUntaggedPorts.$newVlan"]
         );
-        $this->{_sessionRead}->translate(1);
+        $self->{_sessionRead}->translate(1);
 
         # calculate new settings
-        my $egressPortsOldVlan = $this->modifyBitmask(
+        my $egressPortsOldVlan = $self->modifyBitmask(
             $result->{"$OID_dot1qVlanStaticEgressPorts.$oldVlan"},
             $ifIndex - 1, 0);
-        my $egressPortsVlan = $this->modifyBitmask(
+        my $egressPortsVlan = $self->modifyBitmask(
             $result->{"$OID_dot1qVlanStaticEgressPorts.$newVlan"},
             $ifIndex - 1, 1);
-        my $untaggedPortsOldVlan = $this->modifyBitmask(
+        my $untaggedPortsOldVlan = $self->modifyBitmask(
             $result->{"$OID_dot1qVlanStaticUntaggedPorts.$oldVlan"},
             $ifIndex - 1, 0);
-        my $untaggedPortsVlan = $this->modifyBitmask(
+        my $untaggedPortsVlan = $self->modifyBitmask(
             $result->{"$OID_dot1qVlanStaticUntaggedPorts.$newVlan"},
             $ifIndex - 1, 0 ); # Warning: I set it to zero below because I reverse the bits later!
 
         # this switch needs untagged port list's bits to be reversed (very odd behaviour for a Q-BRIDGE-MIB)
-        $untaggedPortsOldVlan = $this->reverseBitmask($untaggedPortsOldVlan);
-        $untaggedPortsVlan = $this->reverseBitmask($untaggedPortsVlan);
+        $untaggedPortsOldVlan = $self->reverseBitmask($untaggedPortsOldVlan);
+        $untaggedPortsVlan = $self->reverseBitmask($untaggedPortsVlan);
 
-        if (!$this->connectWrite()) {
+        if (!$self->connectWrite()) {
             return 0;
         }
 
@@ -96,7 +92,7 @@ sub _setVlan {
         # it will overwrite whatever you give it with what was there
         # ALTER THE SET SEQUENCE AT YOUR OWN RISK! This is the result of a painful investigation. 
         $logger->trace("SNMP set_request for egressPorts and untaggedPorts for new VLAN");
-        $result = $this->{_sessionWrite}->set_request(
+        $result = $self->{_sessionWrite}->set_request(
             -varbindlist => [
                 "$OID_dot1qVlanStaticEgressPorts.$newVlan", Net::SNMP::OCTET_STRING, $egressPortsVlan,
                 "$OID_dot1qVlanStaticUntaggedPorts.$newVlan", Net::SNMP::OCTET_STRING, $untaggedPortsVlan,
@@ -107,36 +103,32 @@ sub _setVlan {
 
         if (!defined($result)) {
             $logger->error("error setting egressPorts and untaggedPorts for old and new vlan: "
-                           .$this->{_sessionWrite}->error );
+                           .$self->{_sessionWrite}->error );
         }
 
     }
-    $logger->trace("locking - \$switch_locker{".$this->{_ip}."} unlocked in _setVlan");
+    $logger->trace("locking - \$switch_locker{".$self->{_ip}."} unlocked in _setVlan");
     return (defined($result));
 }
-
-=back
 
 =head1 BUGS AND LIMITATIONS
 
 This switch's behaviour was very inconsistent during development, your mileage may vary.
 
-=over
-
-=item Setting the VLAN of a port relies (in my opinion) on buggy switch behaviour
+=head2 Setting the VLAN of a port relies (in my opinion) on buggy switch behaviour
 
 If setting the VLAN doesn't work on a newer firmware version try the modules SecureStack_C2, SecureStack_C3 
 or Matrix_N3 and let us know how it went.
 
-=item Switch accepts multiple untagged VLAN per port when configured through SNMP
+=head2 Switch accepts multiple untagged VLAN per port when configured through SNMP
 
 This is problematic because on some occasions the untagged vlan port list can become inconsistent with the switch's 
 running config. To fix that, clear all untagged VLANs of a port even if the CLI interface doesn't show it. Use: clear 
 vlan egress <vlans> <ports>
 
-=item SNMPv3 support was not tested
+=head2 SNMPv3 support 
 
-=back
+was not tested
 
 =head1 AUTHOR
 
@@ -144,7 +136,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

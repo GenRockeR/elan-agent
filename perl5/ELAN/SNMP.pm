@@ -1,5 +1,8 @@
 package ELAN::SNMP;
 
+use strict;
+use warnings;
+
 use Dancer qw/:syntax :script/;
 
 use SNMP::Info;

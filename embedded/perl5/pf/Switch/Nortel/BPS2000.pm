@@ -6,12 +6,12 @@ pf::Switch::Nortel::BPS2000 - Object oriented module to access SNMP enabled Nort
 
 =head1 SYNOPSIS
 
-The pf::Switch::Nortel::BPS2000 module implements an object 
+The pf::Switch::Nortel::BPS2000 module implements an object
 oriented interface to access SNMP enabled Nortel::BPS2000 switches.
 
 =head1 STATUS
 
-BPS2000 switches don't support LLDP. 
+BPS2000 switches don't support LLDP.
 
 Otherwise this module is identical to pf::Switch::Nortel.
 
@@ -19,12 +19,11 @@ Otherwise this module is identical to pf::Switch::Nortel.
 
 use strict;
 use warnings;
-use Log::Log4perl;
 use Net::SNMP;
 
 use base ('pf::Switch::Nortel');
 
-use pf::config;
+use pf::constants;
 use pf::Switch::constants;
 use pf::util;
 
@@ -40,7 +39,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

@@ -24,12 +24,15 @@ use strict;
 use warnings;
 
 use Carp;
-use Log::Log4perl;
 use Net::SNMP;
 
 use base ('pf::Switch');
 
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $SSID
+);
 # importing switch constants
 use pf::Switch::constants;
 use pf::util;
@@ -54,15 +57,15 @@ obtain image version information from switch
 =cut
 
 sub getVersion {
-    my ($this) = @_;
+    my ($self) = @_;
     my $oid_inventoryswver = '1.3.6.1.4.1.23937.6.11.0'; # EXTRICOM-SNMP-MIB::inventoryswver
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return '';
     }
     $logger->trace("SNMP get_request for sysDescr: $oid_inventoryswver");
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_inventoryswver] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_inventoryswver] );
     my $inventoryswver = ( $result->{$oid_inventoryswver} || '' );
 
     # inventoryswver sample output: v4.2.46.11~xs_2010-Jul-21-1657
@@ -79,9 +82,9 @@ sub getVersion {
 =cut
 
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
     # EXTRICOM-SNMP-MIB::clientDisassociate: .1.3.6.1.4.1.23937.2.1
     if ( $trapString =~ /\.1\.3\.6\.1\.4\.1\.23937\.2\.1 = STRING: "[0-9]+:Client ([0-9A-Z]{2}:[0-9A-Z]{2}:[0-9A-Z]{2}:[0-9A-Z]{2}:[0-9A-Z]{2}:[0-9A-Z]{2})/ ) {
@@ -103,78 +106,70 @@ Writing to the read community instead (then putting back appropriate in place)
 =cut
 
 sub connectWrite {
-    my $this   = shift;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if ( defined( $this->{_sessionWrite} ) ) {
+    my $self   = shift;
+    my $logger = $self->logger;
+    if ( defined( $self->{_sessionWrite} ) ) {
         return 1;
     }
     $logger->debug( "opening SNMP v"
-            . $this->{_SNMPVersion}
-            . " write connection to $this->{_id}" );
-    if ( $this->{_SNMPVersion} eq '3' ) {
-        ( $this->{_sessionWrite}, $this->{_error} ) = Net::SNMP->session(
-            -hostname     => $this->{_ip},
-            -version      => $this->{_SNMPVersion},
+            . $self->{_SNMPVersion}
+            . " write connection to $self->{_id}" );
+    if ( $self->{_SNMPVersion} eq '3' ) {
+        ( $self->{_sessionWrite}, $self->{_error} ) = Net::SNMP->session(
+            -hostname     => $self->{_ip},
+            -version      => $self->{_SNMPVersion},
             -timeout      => 2,
             -retries      => 1,
-            -username     => $this->{_SNMPUserNameWrite},
-            -authprotocol => $this->{_SNMPAuthProtocolWrite},
-            -authpassword => $this->{_SNMPAuthPasswordWrite},
-            -privprotocol => $this->{_SNMPPrivProtocolWrite},
-            -privpassword => $this->{_SNMPPrivPasswordWrite}
+            -username     => $self->{_SNMPUserNameWrite},
+            -authprotocol => $self->{_SNMPAuthProtocolWrite},
+            -authpassword => $self->{_SNMPAuthPasswordWrite},
+            -privprotocol => $self->{_SNMPPrivProtocolWrite},
+            -privpassword => $self->{_SNMPPrivPasswordWrite},
+            -maxmsgsize => 4096
         );
     } else {
-        ( $this->{_sessionWrite}, $this->{_error} ) = Net::SNMP->session(
-            -hostname  => $this->{_ip},
-            -version   => $this->{_SNMPVersion},
+        ( $self->{_sessionWrite}, $self->{_error} ) = Net::SNMP->session(
+            -hostname  => $self->{_ip},
+            -version   => $self->{_SNMPVersion},
             -timeout   => 2,
             -retries   => 1,
-            -community => $this->{_SNMPCommunityWrite}
+            -community => $self->{_SNMPCommunityWrite},
+            -maxmsgsize => 4096
         );
     }
-    if ( !defined( $this->{_sessionWrite} ) ) {
+    if ( !defined( $self->{_sessionWrite} ) ) {
         $logger->error( "error creating SNMP v"
-                . $this->{_SNMPVersion}
+                . $self->{_SNMPVersion}
                 . " write connection to "
-                . $this->{_id} . ": "
-                . $this->{_error} );
+                . $self->{_id} . ": "
+                . $self->{_error} );
         return 0;
     } else {
        my $oid_readSNMPCommunity = '.1.3.6.1.4.1.23937.2.9.3.0';
         $logger->trace("SNMP get_request for sysLocation: $oid_readSNMPCommunity");
-        my $result = $this->{_sessionWrite}
+        my $result = $self->{_sessionWrite}
             ->get_request( -varbindlist => [$oid_readSNMPCommunity] );
         if ( !defined($result) ) {
             $logger->error( "error creating SNMP v"
-                    . $this->{_SNMPVersion}
+                    . $self->{_SNMPVersion}
                     . " write connection to "
-                    . $this->{_id} . ": "
-                    . $this->{_sessionWrite}->error() );
-            $this->{_sessionWrite} = undef;
+                    . $self->{_id} . ": "
+                    . $self->{_sessionWrite}->error() );
+            $self->{_sessionWrite} = undef;
             return 0;
         } else {
             my $sysLocation = $result->{$oid_readSNMPCommunity} || '';
             $logger->trace(
                 "SNMP set_request for OID: $oid_readSNMPCommunity to $sysLocation"
             );
-            $result = $this->{_sessionWrite}->set_request(
+            $result = $self->{_sessionWrite}->set_request(
                 -varbindlist => [
                     "$oid_readSNMPCommunity", Net::SNMP::OCTET_STRING,
                     $sysLocation
                 ]
             );
-            if ( !defined($result) ) {
-                $logger->error( "error creating SNMP v"
-                        . $this->{_SNMPVersion}
-                        . " write connection to "
-                        . $this->{_id} . ": "
-                        . $this->{_sessionWrite}->error()
-                        . " it looks like you specified a read-only community instead of a read-write one"
-                );
-                $this->{_sessionWrite} = undef;
-                return 0;
-            }
        }
+       # We no longer check the $result here since it is always false even when the call succeeds.
     }
     return 1;
 }
@@ -184,18 +179,18 @@ sub connectWrite {
 =cut
 
 sub deauthenticateMacDefault {
-    my ( $this, $mac ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $mac ) = @_;
+    my $logger = $self->logger;
     my $OID_clearDot11Client = '1.3.6.1.4.1.23937.9.12.0'; # EXTRICOM-SNMP-MIB::clearDot11Client
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info(
             "not in production mode ... we won't write to the clearDot11Client OID"
         );
         return 1;
     }
 
-    if ( !$this->connectWrite() ) {
+    if ( !$self->connectWrite() ) {
         return 0;
     }
 
@@ -204,12 +199,12 @@ sub deauthenticateMacDefault {
         $logger->trace(
             "SNMP set_request for clear_dot11_client: $OID_clearDot11Client"
         );
-        my $result = $this->{_sessionWrite}->set_request(
+        my $result = $self->{_sessionWrite}->set_request(
             -varbindlist => [ $OID_clearDot11Client, Net::SNMP::OCTET_STRING, "$mac" ]
         );
 
         # TODO: validate result
-        $logger->info("deauthenticate mac $mac from controller: ".$this->{_id});
+        $logger->info("deauthenticate mac $mac from controller: ".$self->{_id});
         return ( defined($result) );
     } else {
         $logger->error(
@@ -226,8 +221,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::SNMP;
     my %tech = (
         $SNMP::SNMP => 'deauthenticateMacDefault',
@@ -247,7 +242,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

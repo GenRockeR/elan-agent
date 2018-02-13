@@ -1,5 +1,8 @@
 package ELAN::NetdiscoDevice;
 
+use strict;
+use warnings;
+
 sub new {
   my ($class, $ip) = @_;
   my $self = {};

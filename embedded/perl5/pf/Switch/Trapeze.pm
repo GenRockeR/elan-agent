@@ -13,13 +13,16 @@ Module to manage Trapeze controllers
 use strict;
 use warnings;
 
-use Log::Log4perl;
-use Net::Appliance::Session;
 use POSIX;
 
 use base ('pf::Switch');
 
-use pf::config;
+use pf::constants;
+use pf::file_paths qw($lib_dir);
+use pf::config qw(
+    $MAC
+    $SSID
+);
 sub description { 'Trapeze Wireless Controller' }
 
 # importing switch constants
@@ -59,10 +62,10 @@ obtain image version information from switch
 =cut
 
 sub getVersion {
-    my ($this) = @_;
+    my ($self) = @_;
     my $oid_ntwsVersionString = '1.3.6.1.4.1.45.6.1.4.2.1.4';
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
 
@@ -71,37 +74,20 @@ sub getVersion {
 
     # first trying with a .0
     $logger->trace("SNMP get_request for ntwsVersionString: $oid_ntwsVersionString.0");
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_ntwsVersionString.".0"] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_ntwsVersionString.".0"] );
     if (defined($result)) {
         return $result->{$oid_ntwsVersionString.".0"};
     }
 
     # then trying straight
     $logger->trace("SNMP get_request for ntwsVersionString: $oid_ntwsVersionString");
-    $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_ntwsVersionString] );
+    $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_ntwsVersionString] );
     if (defined($result)) {
         return $result->{$oid_ntwsVersionString};
     }
 
     # none of the above worked
     $logger->warn("unable to fetch version information");
-}
-
-=item parseTrap
-
-This is called when we receive an SNMP-Trap for this device
-
-=cut
-
-sub parseTrap {
-    my ( $this, $trapString ) = @_;
-    my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-
-    $logger->debug("trap currently not handled");
-    $trapHashRef->{'trapType'} = 'unknown';
-
-    return $trapHashRef;
 }
 
 =item deauthenticateMacDefault
@@ -113,10 +99,10 @@ Right now te only way to do it is from the CLi (through Telnet or SSH).
 =cut
 
 sub deauthenticateMacDefault {
-    my ( $this, $mac ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $mac ) = @_;
+    my $logger = $self->logger;
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode ... we won't deauthenticate $mac");
         return 1;
     }
@@ -128,27 +114,28 @@ sub deauthenticateMacDefault {
 
     my $session;
     eval {
+        require Net::Appliance::Session;
         $session = Net::Appliance::Session->new(
-            Host      => $this->{_ip},
+            Host      => $self->{_ip},
             Timeout   => 5,
-            Transport => $this->{_cliTransport},
+            Transport => $self->{_cliTransport},
             Platform => 'TrapezeOS',
             Source   => $lib_dir.'/pf/Switch/Trapeze/nas-pb.yml'
         );
         $session->connect(
-            Name     => $this->{_cliUser},
-            Password => $this->{_cliPwd}
+            Name     => $self->{_cliUser},
+            Password => $self->{_cliPwd}
         );
     };
 
     if ($@) {
-        $logger->error("Unable to connect to ".$this->{'_ip'}." using ".$this->{_cliTransport}.". Failed with $@");
+        $logger->error("Unable to connect to ".$self->{'_ip'}." using ".$self->{_cliTransport}.". Failed with $@");
         return;
     }
 
     if (!$session->in_privileged_mode()) {
-        if (!$session->enable($this->{_cliEnablePwd})) {
-            $logger->error("Cannot get into privileged mode on ".$this->{'_id'}.
+        if (!$session->enable($self->{_cliEnablePwd})) {
+            $logger->error("Cannot get into privileged mode on ".$self->{'_id'}.
                            ". Are you sure you provided enable password in configuration?");
             $session->close();
             return;
@@ -181,8 +168,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::TELNET;
     my %tech = (
         $SNMP::TELNET => 'deauthenticateMacDefault',
@@ -203,7 +190,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

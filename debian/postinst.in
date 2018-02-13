@@ -59,6 +59,11 @@ then
     echo 'SASL_NOCANON on' >> /etc/ldap/ldap.conf
 fi
 
+mkdir -p /usr/local/pf/lib/pf/util
+ln -fs %{ORIGIN_PREFIX}/nac/pf/conf /usr/local/pf/
+ln -fs %{ORIGIN_PREFIX}/nac/pf/conf/dictionary /usr/local/pf/lib/pf/util/
+
+
 #DEBHELPER#
 
 exit 0

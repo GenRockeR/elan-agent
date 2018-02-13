@@ -17,16 +17,26 @@ use warnings;
 
 use base ('pf::Switch');
 use POSIX;
-use Log::Log4perl;
 use Net::SNMP;
 
 use pf::Switch::constants;
 use pf::util;
 
+#
+# %TRAP_NORMALIZERS
+# A hash of Enterasys trap normalizers
+# Use the following convention when adding a normalizer
+# <nameOfTrapNotificationType>TrapNormalizer
+#
+our %TRAP_NORMALIZERS = (
+    '.1.3.6.1.4.1.5624.1.2.21.1.0.1' => 'etsysMACLockingMACViolationTrapNormalizer',
+    '.1.3.6.1.4.1.5624.1.2.21.1.1.1' => 'etsysMACLockingSystemEnableTrapNormalizer',
+);
+
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
     if ( $trapString
         =~ /\.1\.3\.6\.1\.6\.3\.1\.1\.4\.1\.0 = OID: \.1\.3\.6\.1\.6\.3\.1\.1\.5\.([34])\|\.1\.3\.6\.1\.2\.1\.2\.2\.1\.1\.(\d+) =/
         )
@@ -40,7 +50,7 @@ sub parseTrap {
         $trapHashRef->{'trapType'}      = 'mac';
         $trapHashRef->{'trapOperation'} = 'learnt';
         $trapHashRef->{'trapIfIndex'}   = $1;
-        $trapHashRef->{'trapVlan'}      = $this->getVlan($1);
+        $trapHashRef->{'trapVlan'}      = $self->getVlan($1);
         $trapHashRef->{'trapMac'}       = lc(
             sprintf(
                 "%02X:%02X:%02X:%02X:%02X:%02X", $2, $3, $4, $5, $6, $7
@@ -52,7 +62,7 @@ sub parseTrap {
         $trapHashRef->{'trapType'}    = 'secureMacAddrViolation';
         $trapHashRef->{'trapIfIndex'} = $1;
         $trapHashRef->{'trapMac'} = parse_mac_from_trap($2);
-        $trapHashRef->{'trapVlan'} = $this->getVlan( $trapHashRef->{'trapIfIndex'} );
+        $trapHashRef->{'trapVlan'} = $self->getVlan( $trapHashRef->{'trapIfIndex'} );
 
     } else {
         $logger->debug("trap currently not handled");
@@ -62,21 +72,21 @@ sub parseTrap {
 }
 
 sub _setVlan {
-    my ( $this, $ifIndex, $newVlan, $oldVlan, $switch_locker_ref ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    return $this->_setVlanByOnlyModifyingPvid( $ifIndex, $newVlan, $oldVlan,
+    my ( $self, $ifIndex, $newVlan, $oldVlan, $switch_locker_ref ) = @_;
+    my $logger = $self->logger;
+    return $self->_setVlanByOnlyModifyingPvid( $ifIndex, $newVlan, $oldVlan,
         $switch_locker_ref );
 }
 
 sub isLearntTrapsEnabled {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
     return 0;
 }
 
 sub isPortSecurityEnabled {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
 
     #ENTERASYS-MAC_LOCKING-MIB
     my $OID_etsysMACLockingSystemEnable = '1.3.6.1.4.1.5624.1.2.21.1.1.1';
@@ -84,7 +94,7 @@ sub isPortSecurityEnabled {
     my $OID_etsysMACLockingViolationEnable
         = '1.3.6.1.4.1.5624.1.2.21.1.2.1.1.3';
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return 0;
     }
 
@@ -92,7 +102,7 @@ sub isPortSecurityEnabled {
     $logger->trace(
         "SNMP get_request for etsysMACLocking variables: $OID_etsysMACLockingSystemEnable.0, $OID_etsysMACLockingEnable.$ifIndex, $OID_etsysMACLockingViolationEnable.$ifIndex"
     );
-    my $result = $this->{_sessionRead}->get_request(
+    my $result = $self->{_sessionRead}->get_request(
         -varbindlist => [
             "$OID_etsysMACLockingSystemEnable.0",
             "$OID_etsysMACLockingEnable.$ifIndex",
@@ -125,14 +135,14 @@ sub isPortSecurityEnabled {
 }
 
 sub getMaxMacAddresses {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return -1;
     }
 
-    if ( !$this->isPortSecurityEnabled($ifIndex) ) {
+    if ( !$self->isPortSecurityEnabled($ifIndex) ) {
         return -1;
     }
 
@@ -143,7 +153,7 @@ sub getMaxMacAddresses {
     $logger->trace(
         "SNMP get_request for etsysMACLockingStaticStationsAllocated: $OID_etsysMACLockingStaticStationsAllocated.$ifIndex"
     );
-    my $result = $this->{_sessionRead}->get_request( -varbindlist =>
+    my $result = $self->{_sessionRead}->get_request( -varbindlist =>
             [ "$OID_etsysMACLockingStaticStationsAllocated.$ifIndex" ] );
     if ((   !exists(
                 $result->{
@@ -162,20 +172,20 @@ sub getMaxMacAddresses {
 }
 
 sub authorizeMAC {
-    my ( $this, $ifIndex, $deauthMac, $authMac, $deauthVlan, $authVlan ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex, $deauthMac, $authMac, $deauthVlan, $authVlan ) = @_;
+    my $logger = $self->logger;
 
     my $OID_etsysMACLockingStaticEntryRowStatus
         = '1.3.6.1.4.1.5624.1.2.21.1.3.1.1.2';
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info(
             "not in production mode ... we won't add an entry to the SecureMacAddrTable"
         );
         return 1;
     }
 
-    if ( !$this->connectWrite() ) {
+    if ( !$self->connectWrite() ) {
         return 0;
     }
 
@@ -202,26 +212,26 @@ sub authorizeMAC {
     if ( scalar(@oid_value) > 0 ) {
         $logger->trace(
             "SNMP set_request for etsysMACLockingStaticEntryRowStatus");
-        my $result = $this->{_sessionWrite}
+        my $result = $self->{_sessionWrite}
             ->set_request( -varbindlist => \@oid_value );
     }
     return 1;
 }
 
 sub getAllSecureMacAddresses {
-    my ($this) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self) = @_;
+    my $logger = $self->logger;
     my $OID_etsysMACLockingStaticEntryRowStatus
         = '1.3.6.1.4.1.5624.1.2.21.1.3.1.1.2';
 
     my $secureMacAddrHashRef = {};
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return $secureMacAddrHashRef;
     }
     $logger->trace(
         "SNMP get_table for etsysMACLockingStaticEntryRowStatus: $OID_etsysMACLockingStaticEntryRowStatus"
     );
-    my $result = $this->{_sessionRead}
+    my $result = $self->{_sessionRead}
         ->get_table( -baseoid => "$OID_etsysMACLockingStaticEntryRowStatus" );
     foreach my $oid_including_mac ( keys %{$result} ) {
         if ( $oid_including_mac
@@ -231,7 +241,7 @@ sub getAllSecureMacAddresses {
             my $oldMac = sprintf( "%02x:%02x:%02x:%02x:%02x:%02x",
                 $2, $3, $4, $5, $6, $7 );
             my $ifIndex = $1;
-            my $oldVlan = $this->getVlan($ifIndex);
+            my $oldVlan = $self->getVlan($ifIndex);
             push @{ $secureMacAddrHashRef->{$oldMac}->{$ifIndex} }, $oldVlan;
         }
     }
@@ -239,19 +249,19 @@ sub getAllSecureMacAddresses {
 }
 
 sub getSecureMacAddresses {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
     my $OID_etsysMACLockingStaticEntryRowStatus
         = '1.3.6.1.4.1.5624.1.2.21.1.3.1.1.2';
 
     my $secureMacAddrHashRef = {};
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return $secureMacAddrHashRef;
     }
     $logger->trace(
         "SNMP get_table for etsysMACLockingStaticEntryRowStatus: $OID_etsysMACLockingStaticEntryRowStatus"
     );
-    my $result = $this->{_sessionRead}
+    my $result = $self->{_sessionRead}
         ->get_table( -baseoid => "$OID_etsysMACLockingStaticEntryRowStatus" );
     foreach my $oid_including_mac ( keys %{$result} ) {
         if ( $oid_including_mac
@@ -260,11 +270,45 @@ sub getSecureMacAddresses {
         {
             my $oldMac = sprintf( "%02x:%02x:%02x:%02x:%02x:%02x",
                 $1, $2, $3, $4, $5, $6 );
-            my $oldVlan = $this->getVlan($ifIndex);
+            my $oldVlan = $self->getVlan($ifIndex);
             push @{ $secureMacAddrHashRef->{$oldMac} }, $oldVlan;
         }
     }
     return $secureMacAddrHashRef;
+}
+
+sub etsysMACLockingMACViolationTrapNormalizer {
+    my ($self, $trapInfo) = @_;
+    my ($pdu, $variables) = @$trapInfo;
+    my $logger = $self->logger;
+    my $oid = '.1.3.6.1.4.1.5624.1.2.21.1.2.1.1.4.';
+    my ($variable) = $self->findTrapVarWithBase($variables, $oid);
+    return undef unless $variable;
+    unless ($variable) {
+        $logger->error("Cannot find OID $oid in trap");
+        return undef;
+    }
+    my $trapMac = $self->extractMacFromVariable($variable);
+    unless ($trapMac) {
+        $logger->error("Cannot extract a mac address from OID $oid");
+        return undef;
+    }
+    unless ($variable->[0] =~ /^\Q$oid\E(\d+)$/) {
+        $logger->error("Cannot extract the board and port index from $variable->[0]");
+        return undef;
+    }
+    my $trapIfIndex = $1;
+    return {
+        trapType => 'secureMacAddrViolation',
+        trapMac => $trapMac,
+        trapIfIndex => $trapIfIndex,
+        trapVlan => $self->getVlan($trapIfIndex),
+    };
+}
+
+sub etsysMACLockingSystemEnableTrapNormalizer {
+    my ($self, $trapInfo) = @_;
+    return $self->etsysMACLockingSystemEnableTrapNormalizer($trapInfo);
 }
 
 =head1 AUTHOR
@@ -273,7 +317,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

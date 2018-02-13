@@ -3,18 +3,11 @@ PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
                    python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, postfix, suricata, \
                    nginx, redis-server, gcc, libnetfilter-log-dev, libnfnetlink-dev, libpython3-dev, python3-cffi, libglib2.0-dev, python3-dev, \
-                   zsync, libapache-htpasswd-perl, libapache-session-perl, libauthen-krb5-simple-perl, python3-yaml, python3-websockets, \
-                   libauthen-radius-perl, libcache-memcached-perl, libchi-driver-memcached-perl, libchi-perl, libconfig-inifiles-perl, \
-                   libcrypt-generatepassword-perl, libcrypt-openssl-x509-perl, libdancer-perl, libdancer-plugin-dbic-perl, libdbd-mysql-perl, \
-                   libdbi-perl, libfile-flock-perl, libfile-slurp-perl, libfile-which-perl, libhash-merge-perl, libhttp-browserdetect-perl, \
-                   libio-interface-perl, libjson-perl, liblog-any-adapter-log4perl-perl, liblog-log4perl-perl, libnamespace-autoclean-perl, \
-                   libnetaddr-ip-perl, libnet-appliance-session-perl, libnet-arp-perl, libnet-ldap-perl, libnet-netmask-perl, libnet-snmp-perl, \
-                   libreadonly-perl, libredis-perl, libsnmp-perl, libsoap-lite-perl, libsort-naturally-perl, libswitch-perl, libtemplate-perl, \
-                   libtest-mockobject-perl, libtime-period-perl, libtry-tiny-perl, libuniversal-require-perl, liburi-escape-xs-perl, \
-                   libwww-curl-perl, libxml-simple-perl, libemail-valid-perl, libhtml-form-perl, snmpd, snmptrapd, python3-redis, python3-pyrad, \
-                   bridge-utils, vlan, nftables, rdnssd, python3-mako, python3-pyroute2, python3-django, libposix-2008-perl, \
-                   libnet-interface-perl, libnet-mac-vendor-perl, libnet-nessus-xmlrpc-perl, libnet-radius-perl, libparse-nessus-nbe-perl, python3-logbook, \
-                   python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp
+                   zsync, python3-yaml, python3-websockets, snmpd, snmptrapd, python3-redis, python3-pyrad, bridge-utils, vlan, nftables, rdnssd, \
+                   python3-mako, python3-pyroute2, python3-django, python3-logbook, python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp, \
+                   libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, libnet-ip-perl, libreadonly-perl, \
+                   libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, \
+                   libjson-maybexs-perl, libfile-fcntllock-perl
 
 include packaging.mk
 
@@ -55,7 +48,7 @@ authentication-freeradius:
 	install -d ${DESTDIR}/etc/freeradius/sites-available
 	install -d ${DESTDIR}/etc/freeradius/sites-enabled
 	install -m 644 freeradius.authentication.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
-	ln -s ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled/
+	ln -fs ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled/
 	install -d ${DESTDIR}/etc/default
 	install -m 644 freeradius.default          ${DESTDIR}/etc/default/freeradius
 
@@ -169,7 +162,7 @@ nac-freeradius: freeradius.nac.server freeradius.nac.modules
 	install -d ${DESTDIR}/etc/freeradius/mods-available
 	install -d ${DESTDIR}/etc/freeradius/mods-enabled
 	install -m 644 freeradius.nac.modules ${DESTDIR}/etc/freeradius/mods-available/nac
-	ln -s ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
+	ln -fs ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
 
 .PHONY: nac-nginx
 nac-nginx:
@@ -198,7 +191,7 @@ nac-snmp: nac-perl-lib nac-mibs
 	install -m 755 snmptrapd.conf ${DESTDIR}${ORIGIN_PREFIX}/nac/snmp/snmptrapd.conf
 
 .PHONY: nac-perl-lib
-nac-perl-lib: perl5/ELAN embedded/perl5/pf embedded/perl5/SNMP
+nac-perl-lib: perl5/ELAN perl5/pf embedded/perl5/pf embedded/perl5/SNMP
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5
 	cp -r $^ ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf

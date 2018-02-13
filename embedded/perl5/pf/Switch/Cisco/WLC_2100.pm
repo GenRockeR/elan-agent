@@ -10,10 +10,10 @@ The pf::Switch::Cisco::WLC_2100 module implements an object oriented interface t
 
 =head1 STATUS
 
-Developed and tested a long time ago on an undocumented IOS. 
+Developed and tested a long time ago on an undocumented IOS.
 
 With time and product line evolution, this module mostly became a placeholder,
-you should see L<pf::Switch::Cisco::WLC> for other relevant support items and 
+you should see L<pf::Switch::Cisco::WLC> for other relevant support items and
 issues.
 
 =over
@@ -37,13 +37,15 @@ Requires IOS 5 or later.
 use strict;
 use warnings;
 
-use Log::Log4perl;
-use Net::Appliance::Session;
 use Net::SNMP;
 
 use base ('pf::Switch::Cisco::WLC');
 
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $SSID
+);
 use pf::util qw(format_mac_as_cisco);
 
 sub description { 'Cisco Wireless (WLC) 2100 Series' }
@@ -60,7 +62,7 @@ TODO: This list is incomplete
 # access technology supported
 sub supportsWirelessDot1x { return $TRUE; }
 sub supportsWirelessMacAuth { return $TRUE; }
-# special features 
+# special features
 sub supportsSaveConfig { return $FALSE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
@@ -70,8 +72,8 @@ sub inlineCapabilities { return ($MAC,$SSID); }
 Deprecated: This is no longer required since IOS 5.x+. New implementation is
 in pf::Switch::Cisco::WLC and relies on Disconnect-Message (RFC3576).
 
-Warning: this method should _never_ be called in a thread. Net::Appliance::Session is not thread 
-safe: 
+Warning: this method should _never_ be called in a thread. Net::Appliance::Session is not thread
+safe:
 
 L<http://www.cpanforum.com/threads/6909/>
 
@@ -80,8 +82,8 @@ Warning: this code doesn't support elevating to privileged mode. See #900 and #1
 =cut
 
 sub _deauthenticateMacSNMP {
-    my ( $this, $mac ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $mac ) = @_;
+    my $logger = $self->logger;
 
     $mac = format_mac_as_cisco($mac);
     if ( !defined($mac) ) {
@@ -92,28 +94,29 @@ sub _deauthenticateMacSNMP {
 
     my $session;
     eval {
+        require Net::Appliance::Session;
         $session = Net::Appliance::Session->new(
-            Host      => $this->{_ip},
+            Host      => $self->{_ip},
             Timeout   => 5,
-            Transport => $this->{_cliTransport}
+            Transport => $self->{_cliTransport}
         );
         $session->connect(
-            Name     => $this->{_cliUser},
-            Password => $this->{_cliPwd}
+            Name     => $self->{_cliUser},
+            Password => $self->{_cliPwd}
         );
         # Session not already privileged are not supported at this point. See #1370
-        #$session->begin_privileged( $this->{_cliEnablePwd} );
+        #$session->begin_privileged( $self->{_cliEnablePwd} );
         $session->do_privileged_mode(0);
         $session->begin_configure();
     };
 
     if ($@) {
-        $logger->error( "ERROR: Can not connect to WLC $this->{'_ip'} using "
-                . $this->{_cliTransport} );
+        $logger->error( "ERROR: Can not connect to WLC $self->{'_ip'} using "
+                . $self->{_cliTransport} );
         return 1;
     }
 
-    #if (! $session->enable($this->{_cliEnablePwd})) {
+    #if (! $session->enable($self->{_cliEnablePwd})) {
     #    $logger->error("ERROR: Can not 'enable' telnet connection");
     #    return 1;
     #}
@@ -131,7 +134,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

@@ -48,8 +48,7 @@ For more information see: https://supportforums.cisco.com/thread/2148888
 use strict;
 use warnings;
 
-use Log::Log4perl;
-use Net::Appliance::Session;
+use pf::log;
 use Net::SNMP;
 use Try::Tiny;
 
@@ -86,7 +85,7 @@ Diverges from L<pf::Switch::Cisco::WLC> in the following aspects:
 # The Service-Type entry was causing the WDS enabled Aironet to crash (IOS 12.3.8JEC3)
 sub deauthenticateMacDefault {
     my ( $self, $mac, $is_dot1x ) = @_;
-    my $logger = Log::Log4perl::get_logger(__PACKAGE__);
+    my $logger = get_logger();
 
     if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode... we won't perform deauthentication");
@@ -120,10 +119,11 @@ Warning: this code doesn't support elevating to privileged mode. See #900 and #1
 
 sub getCurrentApFromMac {
     my ( $self, $mac ) = @_;
-    my $logger = Log::Log4perl::get_logger(__PACKAGE__);
+    my $logger = get_logger();
 
     my $session;
     try {
+        require Net::Appliance::Session;
         $session = Net::Appliance::Session->new(
             Host => $self->{_ip},
             Timeout => 25, # apparently these things are very slow
@@ -199,23 +199,32 @@ Overriding default extractSsid because on Aironet AP SSID is in the Cisco-AVPair
 
 # Same as in pf::Switch::Cisco::Aironet. Please keep both in sync. Once Moose push in a role.
 sub extractSsid {
-    my ($this, $radius_request) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $radius_request) = @_;
+    my $logger = $self->logger;
 
     if (defined($radius_request->{'Cisco-AVPair'})) {
-        foreach my $ciscoAVPair (@{$radius_request->{'Cisco-AVPair'}}) {
-            $logger->trace("Cisco-AVPair: ".$ciscoAVPair);
+        if (ref($radius_request->{'Cisco-AVPair'}) eq 'ARRAY') {
+            foreach my $ciscoAVPair (@{$radius_request->{'Cisco-AVPair'}}) {
+                $logger->trace("Cisco-AVPair: ".$ciscoAVPair);
 
-            if ($ciscoAVPair =~ /^ssid=(.*)$/) { # ex: Cisco-AVPair = "ssid=PacketFence-Secure"
+                if ($ciscoAVPair =~ /^ssid=(.*)$/) { # ex: Cisco-AVPair = "ssid=PacketFence-Secure"
+                    return $1;
+                } else {
+                    $logger->info("Unable to extract SSID of Cisco-AVPair: ".$ciscoAVPair);
+                }
+            }
+        } else {
+            if ($radius_request->{'Cisco-AVPair'} =~ /^ssid=(.*)$/) { # ex: Cisco-AVPair = "ssid=PacketFence-Secure"
                 return $1;
             } else {
-                $logger->warn("Unable to extract SSID of Cisco-AVPair: ".$ciscoAVPair);
+                $logger->info("Unable to extract SSID of Cisco-AVPair: ".$radius_request->{'Cisco-AVPair'});
+
             }
         }
-     }
+    }
 
     $logger->warn(
-        "Unable to extract SSID for module " . ref($this) . ". SSID-based VLAN assignments won't work. "
+        "Unable to extract SSID for module " . ref($self) . ". SSID-based VLAN assignments won't work. "
         . "Make sure you enable Vendor Specific Attributes (VSA) on the AP if you want them to work."
     );
     return;
@@ -228,8 +237,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::RADIUS;
     my %tech = (
         $SNMP::RADIUS => 'deauthenticateMacDefault',
@@ -250,7 +259,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

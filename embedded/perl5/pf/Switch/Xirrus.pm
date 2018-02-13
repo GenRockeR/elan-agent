@@ -6,7 +6,7 @@ pf::Switch::Xirrus
 
 =head1 SYNOPSIS
 
-The pf::Switch::Xirrus module implements an object oriented interface to manage Xirrus Wireless Access Points.
+Implement object oriented module to interact with Xirrus network equipment
 
 =head1 STATUS
 
@@ -14,25 +14,41 @@ Developed and tested against XS4 model ArrayOS version 3.5-724.
 
 According to Xirrus engineers, this modules should work on any XS and XN model.
 
+=head2 External Portal Enforcement
+
+Developed and tested on XR4430 running 6.4.1
+
 =head1 BUGS AND LIMITATIONS
 
 SNMPv3 support is untested.
+
+=head2 External Portal Enforcement - Cannot use the access point behind a NAT gateway
+
+Since the access point is not sending the IP address of the device in the URL parameters,
+the access point and PacketFence cannot be separated by a NAT gateway.
+This module uses the remote IP in the HTTP request to determine the IP of the client.
 
 =cut
 
 use strict;
 use warnings;
 
-use Log::Log4perl;
 use POSIX;
+use Try::Tiny;
 
-use base ('pf::Switch');
-
-use pf::config;
+use pf::config qw(
+    $MAC
+    $SSID
+    $WIRELESS_MAC_AUTH
+);
+use pf::constants;
+use pf::node;
 use pf::Switch::constants;
 use pf::util;
 use pf::util::radius qw(perform_disconnect);
-use Try::Tiny;
+
+use base ('pf::Switch');
+
 
 sub description { 'Xirrus WiFi Arrays' }
 
@@ -50,6 +66,19 @@ sub supportsWirelessDot1x { return $TRUE; }
 sub supportsWirelessMacAuth { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
+sub supportsExternalPortal { return $TRUE; }
+sub supportsWebFormRegistration { return $TRUE; }
+sub supportsRoleBasedEnforcement { return $TRUE; }
+
+#
+# %TRAP_NORMALIZERS
+# A hash of Xirrus trap normalizers
+# Use the following convention when adding a normalizer
+# <nameOfTrapNotificationType>TrapNormalizer
+#
+our %TRAP_NORMALIZERS = (
+   '.1.3.6.1.4.1.14823.2.3.1.11.1.2.1017' => 'wlsxNUserEntryDeAuthenticatedTrapNormalizer',
+);
 
 =item getVersion
 
@@ -58,14 +87,14 @@ obtain image version information from switch
 =cut
 
 sub getVersion {
-    my ($this)       = @_;
+    my ($self)       = @_;
     my $oid_sysDescr = '1.3.6.1.2.1.1.1.0';
-    my $logger       = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger       = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
     $logger->trace("SNMP get_request for sysDescr: $oid_sysDescr");
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_sysDescr] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_sysDescr] );
     my $sysDescr = ( $result->{$oid_sysDescr} || '' );
 
     # sysDescr sample output:
@@ -81,9 +110,9 @@ sub getVersion {
 }
 
 sub parseTrap {
-    my ( $this, $trapString ) = @_;
+    my ( $self, $trapString ) = @_;
     my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my $logger = $self->logger;
 
     # wlsxNUserEntryDeAuthenticated: 1.3.6.1.4.1.14823.2.3.1.11.1.2.1017
 
@@ -105,21 +134,21 @@ deauthenticate a MAC address from wireless network (including 802.1x)
 =cut
 
 sub deauthenticateMacDefault {
-    my ($this, $mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $mac) = @_;
+    my $logger = $self->logger;
     my $OID_stationDeauthMacAddress = '1.3.6.1.4.1.21013.1.2.22.3.0'; # from XIRRUS-MIB
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode ... we won't write to the stationDeauthMacAddress");
         return 1;
     }
 
-    if ( !$this->connectWrite() ) {
+    if ( !$self->connectWrite() ) {
         return 0;
     }
 
     $logger->trace("SNMP set_request for stationDeauthMacAddress: $OID_stationDeauthMacAddress");
-    my $result = $this->{_sessionWrite}->set_request(
+    my $result = $self->{_sessionWrite}->set_request(
         -varbindlist => [
             "$OID_stationDeauthMacAddress",
             Net::SNMP::OCTET_STRING,
@@ -127,7 +156,7 @@ sub deauthenticateMacDefault {
         ] );
 
     # TODO: validate result
-    $logger->info("deauthenticate mac $mac from access point : " . $this->{_ip});
+    $logger->info("deauthenticate mac $mac from access point : " . $self->{_ip});
     return ( defined($result) );
 
 }
@@ -142,7 +171,7 @@ New implementation using RADIUS Disconnect-Request.
 
 sub deauthenticateMacRadius {
     my ( $self, $mac, $is_dot1x ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     if ( !$self->isProductionMode() ) {
         $logger->info("not in production mode... we won't perform deauthentication");
@@ -169,7 +198,7 @@ Uses L<pf::util::radius> for the low-level RADIUS stuff.
 
 sub radiusDisconnect {
     my ($self, $mac, $add_attributes_ref) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+    my $logger = $self->logger;
 
     # initialize
     $add_attributes_ref = {} if (!defined($add_attributes_ref));
@@ -200,7 +229,7 @@ sub radiusDisconnect {
         my $connection_info = {
             nas_ip => $send_disconnect_to,
             secret => $self->{'_radiusSecret'},
-            LocalAddr => $management_network->tag('vip'),
+            LocalAddr => $self->deauth_source_ip($send_disconnect_to),
         };
 
         # transforming MAC to the expected format 00-11-22-33-CA-FE
@@ -226,7 +255,7 @@ sub radiusDisconnect {
     };
     return if (!defined($response));
 
-    return $TRUE if ($response->{'Code'} eq 'CoA-ACK');
+    return $TRUE if ( ($response->{'Code'} eq 'Disconnect-ACK') || ($response->{'Code'} eq 'CoA-ACK') );
 
     $logger->warn(
         "Unable to perform RADIUS Disconnect-Request."
@@ -243,8 +272,8 @@ Return the reference to the deauth technique or the default deauth technique.
 =cut
 
 sub deauthTechniques {
-    my ($this, $method) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ($self, $method) = @_;
+    my $logger = $self->logger;
     my $default = $SNMP::SNMP;
     my %tech = (
         $SNMP::SNMP => 'deauthenticateMacDefault',
@@ -257,6 +286,187 @@ sub deauthTechniques {
     return $method,$tech{$method};
 }
 
+=item returnAuthorizeWrite
+
+Return radius attributes to allow write access
+
+=cut
+
+sub returnAuthorizeWrite {
+    my ($self, $args) = @_;
+    my $logger = $self->logger;
+    my $radius_reply_ref;
+    my $status;
+    $radius_reply_ref->{'Xirrus-Admin-Role'} = 'read-write';
+    $radius_reply_ref->{'Reply-Message'} = "Switch enable access granted by PacketFence";
+    $logger->info("User $args->{'user_name'} logged in $args->{'switch'}{'_id'} with write access");
+    my $filter = pf::access_filter::radius->new;
+    my $rule = $filter->test('returnAuthorizeWrite', $args);
+    ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+    return [$status, %$radius_reply_ref];
+
+}
+
+=item returnAuthorizeRead
+
+Return radius attributes to allow read access
+
+=cut
+
+sub returnAuthorizeRead {
+    my ($self, $args) = @_;
+    my $logger = $self->logger;
+    my $radius_reply_ref;
+    my $status;
+    $radius_reply_ref->{'Xirrus-Admin-Role'} = 'read-only';
+    $radius_reply_ref->{'Reply-Message'} = "Switch read access granted by PacketFence";
+    $logger->info("User $args->{'user_name'} logged in $args->{'switch'}{'_id'} with read access");
+    my $filter = pf::access_filter::radius->new;
+    my $rule = $filter->test('returnAuthorizeRead', $args);
+    ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+    return [$status, %$radius_reply_ref];
+}
+
+=item returnRadiusAccessAccept
+
+Prepares the RADIUS Access-Accept reponse for the network device.
+
+Overriding the default implementation for the external captive portal
+
+=cut
+
+sub returnRadiusAccessAccept {
+    my ($self, $args) = @_;
+    my $logger = $self->logger;
+
+    my $filter = pf::access_filter::radius->new;
+    my $rule = $filter->test('returnRadiusAccessAccept', $args);
+    my $radius_reply_ref = {};
+    my $status;
+
+    # should this node be kicked out?
+    my $kick = $self->handleRadiusDeny($args);
+    return $kick if (defined($kick));
+
+    my $node = $args->{'node_info'};
+
+    if ( $self->externalPortalEnforcement ) {
+        my $violation = pf::violation::violation_view_top($args->{'mac'});
+        # if user is unregistered or is in violation then we reject him to show him the captive portal
+        if ( $node->{status} eq $pf::node::STATUS_UNREGISTERED || defined($violation) ){
+            $logger->info("is unregistered. Refusing access to force the eCWP");
+            my $radius_reply_ref = {
+                'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
+                'Tunnel-Type' => $RADIUS::VLAN,
+                'Tunnel-Private-Group-ID' => -1,
+            };
+            ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+            return [$status, %$radius_reply_ref];
+        }
+        else{
+            $logger->info("Returning ACCEPT");
+            ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+            return [$status, %$radius_reply_ref];
+        }
+    }
+
+    return $self->SUPER::returnRadiusAccessAccept($args);
+}
+
+
+=item parseExternalPortalRequest
+
+Parse external portal request using URI and it's parameters then return an hash reference with the appropriate parameters
+
+See L<pf::web::externalportal::handle>
+
+=cut
+
+sub parseExternalPortalRequest {
+    my ( $self, $r, $req ) = @_;
+    my $logger = $self->logger;
+
+    # Using a hash to contain external portal parameters
+    my %params = ();
+
+    my $client_ip = defined($r->headers_in->{'X-Forwarded-For'}) ? $r->headers_in->{'X-Forwarded-For'} : $r->connection->remote_ip;
+
+    %params = (
+        switch_id               => $req->param('nasid'),
+        client_mac              => clean_mac($req->param('mac')),
+        client_ip               => $client_ip,
+        ssid                    => $req->param('ssid'),
+        redirect_url            => $req->param('userurl'),
+        status_code             => '200',
+        synchronize_locationlog => $TRUE,
+    );
+
+    return \%params;
+}
+
+
+sub getAcceptForm {
+    my ( $self, $mac, $destination_url, $portalSession ) = @_;
+    my $logger = $self->logger;
+    $logger->debug("Creating web release form");
+
+    my $uamip = $portalSession->param("ecwp-original-param-uamip");
+    my $uamport = $portalSession->param("ecwp-original-param-uamport");
+    my $userurl = $portalSession->param("ecwp-original-param-userurl");
+    my $challenge = $portalSession->param("ecwp-original-param-challenge");
+    my $newchal  = pack "H32", $challenge;
+
+    my @ib = unpack("C*", "\0" . $mac . $newchal);
+    my $encstr = join("", map {sprintf('\%3.3o', $_)} @ib);
+    my ($passvar) = split(/ /, `printf '$encstr' | md5sum`);
+
+    $mac =~ s/:/-/g;
+
+    my $html_form = qq[
+        <script>
+        if (document.URL.match(/res=success/)){
+            //http requests are too fast for the ap
+            //we leave him time to understand what is happening
+            setTimeout(function(){window.location = "$destination_url"}, 2000)
+        }
+        else{
+            window.location = "http://$uamip:$uamport/logon?username=$mac&password=$passvar&userurl=$destination_url"
+        }
+        </script>
+    ];
+
+    $logger->debug("Generated the following html form : ".$html_form);
+    return $html_form;
+}
+
+=item returnRoleAttribute
+
+Xirrus uses the standard Filter-Id parameter.
+
+=cut
+
+sub returnRoleAttribute {
+    my ($self) = @_;
+
+    return 'Filter-Id';
+}
+
+
+=item wlsxNUserEntryDeAuthenticatedTrapNormalizer
+
+trap normalizer for wlsxNUserEntryDeAuthenticated trap
+
+=cut
+
+sub wlsxNUserEntryDeAuthenticatedTrapNormalizer {
+    my ($self, $trapInfo) = @_;
+    my $logger = $self->logger;
+    my ($pdu, $variables) = @$trapInfo;
+    return {
+        trapType => 'dot11Deauthentication',
+        trapMac => $self->getMacFromTrapVariablesForOIDBase($variables, '.1.3.6.1.4.1.14823.2.3.1.11.1.1.52.'),
+    };
+}
 
 =back
 
@@ -266,7 +476,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

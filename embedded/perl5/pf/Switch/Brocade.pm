@@ -2,32 +2,27 @@ package pf::Switch::Brocade;
 
 =head1 NAME
 
-pf::Switch::Brocade - Object oriented module to access SNMP enabled Brocade Switches
+pf::Switch::Brocade
 
 =head1 SYNOPSIS
 
-The pf::Switch::Brocade module implements an object oriented interface
-to access SNMP enabled Brocade switches.
+Base module for Brocade network equipment
 
 =head1 STATUS
 
-=over 
-
-=item Supports
+=head2 SUPPORTS
 
 =over
 
-=item 802.1X and MAC-Authentication with and without VoIP
+=item MAC-Authentication - with and without VoIP
+
+=item 802.1x - with and without VoIP
+
+=item RADIUS CoA (requires at least 08.0.30d)
 
 =back
 
-Stacked switch support has not been tested.
-
-=back
-
-Tested on a Brocade ICX 6450 Version 07.4.00T311.
-
-=head1 BUGS AND LIMITATIONS
+=head2 BUGS AND LIMITATIONS
 
 =over
 
@@ -52,16 +47,23 @@ fallback.
 
 =back
 
-=head1 CONFIGURATION AND ENVIRONMENT
+=head2 NOTES
 
-F<conf/switches.conf>
+=over
+
+=item Stacked switch support has not been tested.
+
+=item Tested on a Brocade ICX 6450 Version 07.4.00T311.
+
+=back
 
 =cut
 
 use strict;
 use warnings;
-use Log::Log4perl;
+
 use Net::SNMP;
+
 use base ('pf::Switch');
 
 sub description { 'Brocade Switches' }
@@ -69,7 +71,14 @@ sub description { 'Brocade Switches' }
 # importing switch constants
 use pf::Switch::constants;
 use pf::util;
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $PORT
+    $WIRED_802_1X
+    $WIRED_MAC_AUTH
+);
+use pf::constants::role qw($VOICE_ROLE);
 
 =head1 SUBROUTINES
 
@@ -85,28 +94,28 @@ sub supportsRadiusDynamicVlanAssignment { return $TRUE; }
 sub supportsRadiusVoip { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$PORT); }
-
+sub supportsLldp { return $TRUE; }
 
 =item getVersion
 
 =cut
 
 sub getVersion {
-    my ($this) = @_;
+    my ($self) = @_;
     my $oid_snAgImgVer = '.1.3.6.1.4.1.1991.1.1.2.1.11';          #Proprietary Brocade MIB 1.3.6.1.4.1.1991 -> brcdIp
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    if ( !$this->connectRead() ) {
+    my $logger = $self->logger;
+    if ( !$self->connectRead() ) {
         return '';
     }
     $logger->trace(
         "SNMP get_request for oid_snAgImgVer: $oid_snAgImgVer"
     );
-    my $result = $this->{_sessionRead}->get_request( -varbindlist => [$oid_snAgImgVer] );
+    my $result = $self->{_sessionRead}->get_request( -varbindlist => [$oid_snAgImgVer] );
     my $runtimeSwVersion = ( $result->{$oid_snAgImgVer} || '' );
 
     # Error handling
     if ( !defined($result) ) {
-        $logger->warn("Asking for software version failed with " . $this->{_sessionRead}->error());
+        $logger->warn("Asking for software version failed with " . $self->{_sessionRead}->error());
         return;
     }
 
@@ -116,58 +125,40 @@ sub getVersion {
 =item _dot1xPortReauthenticate
 
 Actual implementation.
- 
+
 Allows callers to refer to this implementation even though someone along the way override the above call.
 
 =cut
 
 sub dot1xPortReauthenticate {
-    my ($this, $ifIndex, $mac) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self, $ifIndex, $mac) = @_;
+    my $logger = $self->logger;
 
 
     my $oid_brcdDot1xAuthPortConfigPortControl = "1.3.6.1.4.1.1991.1.1.3.38.3.1.1.1"; # from brcdlp
 
-    if (!$this->connectWrite()) {
+    if (!$self->connectWrite()) {
         return 0;
     }
 
-    $logger->trace("SNMP set_request force port in unauthorized mode on ifIndex: $ifIndex");    
-    my $result = $this->{_sessionWrite}->set_request(-varbindlist => [
+    $logger->trace("SNMP set_request force port in unauthorized mode on ifIndex: $ifIndex");
+    my $result = $self->{_sessionWrite}->set_request(-varbindlist => [
         "$oid_brcdDot1xAuthPortConfigPortControl.$ifIndex", Net::SNMP::INTEGER, $BROCADE::FORCE_UNAUTHORIZED
     ]);
 
     if (!defined($result)) {
-        $logger->error("got an SNMP error trying to force 802.1x unauthorized: ".$this->{_sessionWrite}->error);
+        $logger->error("got an SNMP error trying to force 802.1x unauthorized: ".$self->{_sessionWrite}->error);
     }
 
     $logger->trace("SNMP set_request force port in auto mode on ifIndex: $ifIndex");
-    $result = $this->{_sessionWrite}->set_request(-varbindlist => [
+    $result = $self->{_sessionWrite}->set_request(-varbindlist => [
         "$oid_brcdDot1xAuthPortConfigPortControl.$ifIndex", Net::SNMP::INTEGER, $BROCADE::CONTROLAUTO
     ]);
 
     if (!defined($result)) {
-        $logger->error("got an SNMP error trying to force 802.1x control auto: ".$this->{_sessionWrite}->error);
+        $logger->error("got an SNMP error trying to force 802.1x control auto: ".$self->{_sessionWrite}->error);
     }
     return (defined($result));
-}
-
-
-=item parseTrap
-
-All traps ignored
-
-=cut
-
-sub parseTrap {
-    my ( $this, $trapString ) = @_;
-    my $trapHashRef;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-
-    $logger->debug("trap ignored, not useful for switch");
-    $trapHashRef->{'trapType'} = 'unknown';
-
-    return $trapHashRef;
 }
 
 =item getVoipVSA
@@ -177,13 +168,13 @@ Get Voice over IP RADIUS Vendor Specific Attribute (VSA).
 =cut
 
 sub getVoipVsa {
-    my ($this) = @_;
-    my $logger = Log::Log4perl::get_logger(ref($this));
+    my ($self) = @_;
+    my $logger = $self->logger;
     return (
         'Foundry-MAC-Authent-needs-802.1x' => $FALSE,
         'Tunnel-Type'               => $RADIUS::VLAN,
         'Tunnel-Medium-Type'        => $RADIUS::ETHERNET,
-        'Tunnel-Private-Group-ID'   => "T:".$this->getVlanByName('voice'),
+        'Tunnel-Private-Group-ID'   => "T:".$self->getVlanByName($VOICE_ROLE),
     );
 }
 
@@ -198,30 +189,154 @@ sub isVoIPEnabled {
     return ( $self->{_VoIPEnabled} == 1 );
 }
 
-=item returnRadiusAccessAccept
+=item wiredeauthTechniques
 
-Overloading L<pf::Switch>'s implementation to send vsa in the radius reponse.
-
-It's optional, but we can force the 802.1x authentication by sending Foundry-MAC-Authent-needs-802.1x at 1.
-Disabled by default.
+Returns the reference to the deauth technique or the default deauth technique.
 
 =cut
 
-sub returnRadiusAccessAccept {
-    my ($self, $vlan, $mac, $port, $connection_type, $user_name, $ssid, $wasInline, $user_role) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($self) );
+sub wiredeauthTechniques {
+    my ($self, $method, $connection_type) = @_;
+    my $logger = $self->logger;
+    if ($connection_type == $WIRED_802_1X) {
+        my $default = $SNMP::RADIUS;
+        my %tech = (
+            $SNMP::SNMP => 'dot1xPortReauthenticate',
+            $SNMP::RADIUS => 'deauthenticateMacRadius',
+        );
 
-    # VLAN enforcement
-    my $radius_reply_ref = {
-        #'Foundry-MAC-Authent-needs-802.1x' => $TRUE,
-        'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
-        'Tunnel-Type' => $RADIUS::VLAN,
-        'Tunnel-Private-Group-ID' => $vlan,
-    };
+        if (!defined($method) || !defined($tech{$method})) {
+            $method = $default;
+        }
+        return $method,$tech{$method};
+    }
+    if ($connection_type == $WIRED_MAC_AUTH) {
+        my $default = $SNMP::RADIUS;
+        my %tech = (
+            $SNMP::SNMP => 'handleReAssignVlanTrapForWiredMacAuth',
+            $SNMP::RADIUS => 'deauthenticateMacRadius',
+        );
+
+        if (!defined($method) || !defined($tech{$method})) {
+            $method = $default;
+        }
+        return $method,$tech{$method};
+    }
+}
+
+=item deauthenticateMacRadius
+
+Deauthenticate a wired endpoint using RADIUS CoA
+
+=cut
+
+sub deauthenticateMacRadius {
+    my ($self, $ifIndex,$mac) = @_;
+
+    $self->radiusDisconnect($mac);
+}
+
+=item getPhonesLLDPAtIfIndex
+
+Copied from Cisco Catalyst 2960
+
+=cut
+
+sub getPhonesLLDPAtIfIndex {
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
+
+    # if can't SNMP read abort
+    return if ( !$self->connectRead() );
+
+    #Transfer ifIndex to LLDP index
+    my $lldpPort = $self->ifIndexToLldpLocalPort($ifIndex);
+    if (!defined($lldpPort)) {
+        $logger->info("Unable to lookup LLDP port from IfIndex. LLDP VoIP detection will not work. Is LLDP enabled?");
+        return;
+    }
+
+    my $oid_lldpRemPortId = '1.0.8802.1.1.2.1.4.1.1.7';
+    my $oid_lldpRemSysCapEnabled = '1.0.8802.1.1.2.1.4.1.1.12';
+    my $baseoid = "$oid_lldpRemSysCapEnabled.$CISCO::DEFAULT_LLDP_REMTIMEMARK.$lldpPort";
+
+    $logger->trace(sub {"SNMP get_next_request for lldpRemSysCapEnabled: $baseoid"});
+    my $result = $self->cachedSNMPRequest([-baseoid => $baseoid]);
+
+    # Cap entries look like this:
+    # iso.0.8802.1.1.2.1.4.1.1.12.0.10.29 = Hex-STRING: 24 00
+    # We want to validate that the telephone capability bit is turned on.
+    my @phones = ();
+    foreach my $oid ( keys %{$result} ) {
+
+        # grab the lldpRemIndex
+        if ( $oid =~ /^$oid_lldpRemSysCapEnabled\.[0-9]+\.$lldpPort\.([0-9]+)$/ ) {
+
+            my $lldpRemIndex = $1;
+
+            # make sure that what is connected is a VoIP phone based on lldpRemSysCapEnabled information
+            if ( $self->getBitAtPosition($result->{$oid}, $SNMP::LLDP::TELEPHONE) ) {
+                # we have a phone on the port. Get the MAC
+                $logger->trace(
+                    "SNMP get_request for lldpRemPortId: "
+                    . "$oid_lldpRemPortId.$CISCO::DEFAULT_LLDP_REMTIMEMARK.$lldpPort.$lldpRemIndex"
+                );
+                my $portIdResult = $self->{_sessionRead}->get_request(
+                    -varbindlist => [
+                        "$oid_lldpRemPortId.$CISCO::DEFAULT_LLDP_REMTIMEMARK.$lldpPort.$lldpRemIndex"
+                    ]
+                );
+                next if (!defined($portIdResult));
+                if ($portIdResult->{"$oid_lldpRemPortId.$CISCO::DEFAULT_LLDP_REMTIMEMARK.$lldpPort.$lldpRemIndex"}
+                        =~ /^(?:0x)?([0-9A-Z]{2})([0-9A-Z]{2})([0-9A-Z]{2})([0-9A-Z]{2})([0-9A-Z]{2})([0-9A-Z]{2})(?::..)?$/i) {
+                    push @phones, lc("$1:$2:$3:$4:$5:$6");
+                }
+            }
+        }
+    }
+    return @phones;
+}
 
 
-    $logger->info("Returning ACCEPT with VLAN: $vlan");
-    return [$RADIUS::RLM_MODULE_OK, %$radius_reply_ref];
+=item returnAuthorizeWrite
+
+Return radius attributes to allow write access
+
+=cut
+
+sub returnAuthorizeWrite {
+   my ($self, $args) = @_;
+   my $logger = $self->logger;
+   my $radius_reply_ref = {};
+   my $status;
+   $radius_reply_ref->{'Foundry-Privilege-Level'} = '0';
+   $radius_reply_ref->{'Reply-Message'} = "Switch enable access granted by PacketFence";
+   $logger->info("User $args->{'user_name'} logged in $args->{'switch'}{'_id'} with write access");
+   my $filter = pf::access_filter::radius->new;
+   my $rule = $filter->test('returnAuthorizeWrite', $args);
+   ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+   return [$status, %$radius_reply_ref];
+
+}
+
+=item returnAuthorizeRead
+
+Return radius attributes to allow read access
+
+=cut
+
+sub returnAuthorizeRead {
+   my ($self, $args) = @_;
+   my $logger = $self->logger;
+   my $radius_reply_ref = {};
+   my $status;
+   $radius_reply_ref->{'Foundry-Privilege-Level'} = '5';
+   $radius_reply_ref->{'Reply-Message'} = "Switch read access granted by PacketFence";
+   $logger->info("User $args->{'user_name'} logged in $args->{'switch'}{'_id'} with read access");
+   my $filter = pf::access_filter::radius->new;
+   my $rule = $filter->test('returnAuthorizeRead', $args);
+   ($radius_reply_ref, $status) = $filter->handleAnswerInRule($rule,$args,$radius_reply_ref);
+   return [$status, %$radius_reply_ref];
 }
 
 =back
@@ -232,7 +347,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 

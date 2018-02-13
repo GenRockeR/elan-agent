@@ -6,7 +6,7 @@ pf::Switch::HP::Procurve_2500 - Object oriented module to access SNMP enabled HP
 
 =head1 SYNOPSIS
 
-The pf::Switch::HP::Procurve_2500 module implements an object 
+The pf::Switch::HP::Procurve_2500 module implements an object
 oriented interface to access SNMP enabled HP Procurve 2500 switches.
 
 =head1 STATUS
@@ -20,7 +20,6 @@ We are also not sure about the VoIP using 802.1X/Mac Auth.
 
 use strict;
 use warnings;
-use Log::Log4perl;
 use Net::SNMP;
 use base ('pf::Switch::HP');
 
@@ -29,7 +28,12 @@ sub description { 'HP ProCurve 2500 Series' }
 # importing switch constants
 use pf::Switch::constants;
 use pf::util;
-use pf::config;
+use pf::constants;
+use pf::config qw(
+    $MAC
+    $PORT
+);
+use pf::log;
 
 # CAPABILITIES
 # access technology supported
@@ -37,15 +41,130 @@ sub supportsWiredMacAuth { return $TRUE; }
 sub supportsWiredDot1x { return $TRUE; }
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$PORT); }
+sub supportsFloatingDevice { return $TRUE }
+
+=head2 _connect
+
+Connect to the switch using SSH
+
+=cut
+
+sub _connect {
+    my ($self) = @_;
+    my $logger = get_logger;
+    my $ssh;
+
+    # 'normal' users won't have the right to enable so we need to use manager to enable
+    my $enable_user = "manager";
+
+    eval {
+        require Net::SSH2;
+        $ssh = Net::SSH2->new();
+        $ssh->connect($self->{_ip}, 22 ) or die "Cannot connect $!"  ;
+        $ssh->auth_password($self->{_cliUser},$self->{_cliPwd}) or die "Cannot authenticate" ;
+    };
+
+    if ($@) {
+        $logger->info("Unable to connect to ".$self->{_ip}." using SSH. Failed with $@");
+        return;
+    }
+
+
+    my $chan = $ssh->channel();
+    $chan->shell();
+    print $chan "\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+    print $chan "en\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+    print $chan "$enable_user\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+    print $chan $self->{_cliEnablePwd}."\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+
+    return ($ssh, $chan);
+}
+
+=head2 disableMABByIfIndex
+
+Enable MAC authentication on a given port
+
+=cut
+
+sub enableMABByIfIndex {
+    my ( $self, $ifIndex ) = @_;
+    my $logger = get_logger();
+
+    my ($ssh, $chan) = $self->_connect();
+    return unless($ssh);
+
+    print $chan "conf\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+
+    print $chan "aaa port-access mac-based $ifIndex\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+
+    $ssh->disconnect();
+
+    return 1;
+}
+
+=head2 disableMABByIfIndex
+
+Disable MAC authentication on a given port
+
+=cut
+
+sub disableMABByIfIndex {
+    my ( $self, $ifIndex ) = @_;
+    my $logger = get_logger;
+
+    my ($ssh, $chan) = $self->_connect();
+    return unless($ssh);
+
+    print $chan "conf\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+    print $chan "no aaa port-access mac-based $ifIndex\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+
+    $ssh->disconnect();
+
+    return 1;
+}
+
+=head2 setTaggedVlans
+
+Tag a list of VLANs on a port
+
+=cut
+
+sub setTaggedVlans {
+    my ( $self, $ifIndex, $switch_locker, @vlans ) = @_;
+    my $logger = get_logger;
+
+    my ($ssh, $chan) = $self->_connect();
+    return unless($ssh);
+
+    print $chan "conf\n";
+    $logger->debug("SSH output : $_") while <$chan>;
+
+    foreach my $vlan (@vlans){
+        print $chan "vlan $vlan tagged $ifIndex\n";
+        $logger->debug("SSH output : $_") while <$chan>;
+    }
+
+    $ssh->disconnect();
+
+    return 1;
+}
 
 sub getMaxMacAddresses {
-    my ( $this, $ifIndex ) = @_;
-    my $logger                  = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger                  = $self->logger;
     my $OID_hpSecPtAddressLimit = '1.3.6.1.4.1.11.2.14.2.10.3.1.3';
     my $OID_hpSecPtLearnMode    = '1.3.6.1.4.1.11.2.14.2.10.3.1.4';
     my $hpSecCfgAddrGroupIndex  = 1;
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return -1;
     }
 
@@ -53,7 +172,7 @@ sub getMaxMacAddresses {
     $logger->trace(
         "SNMP get_request for hpSecPtLearnMode: $OID_hpSecPtLearnMode.$hpSecCfgAddrGroupIndex.$ifIndex"
     );
-    my $result = $this->{_sessionRead}->get_request( -varbindlist =>
+    my $result = $self->{_sessionRead}->get_request( -varbindlist =>
             [ "$OID_hpSecPtLearnMode.$hpSecCfgAddrGroupIndex.$ifIndex" ] );
     if ((   !exists(
                 $result->{
@@ -79,7 +198,7 @@ sub getMaxMacAddresses {
     $logger->trace(
         "SNMP get_request for hpSecPtAddressLimit: $OID_hpSecPtAddressLimit.$hpSecCfgAddrGroupIndex.$ifIndex"
     );
-    $result = $this->{_sessionRead}->get_request( -varbindlist =>
+    $result = $self->{_sessionRead}->get_request( -varbindlist =>
             [ "$OID_hpSecPtAddressLimit.$hpSecCfgAddrGroupIndex.$ifIndex" ] );
     if ((   !exists(
                 $result->{
@@ -101,21 +220,21 @@ sub getMaxMacAddresses {
 }
 
 sub isPortSecurityEnabled {
-    my ( $this, $ifIndex ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex ) = @_;
+    my $logger = $self->logger;
 
     my $OID_hpSecPtLearnMode   = '1.3.6.1.4.1.11.2.14.2.10.3.1.4';
     my $OID_hpSecPtAlarmEnable = '1.3.6.1.4.1.11.2.14.2.10.3.1.6';
     my $hpSecCfgAddrGroupIndex = 1;
 
-    if ( !$this->connectRead() ) {
+    if ( !$self->connectRead() ) {
         return 0;
     }
 
     $logger->trace(
         "SNMP get_next_request for hpSecPtLearnMode: $OID_hpSecPtLearnMode.$hpSecCfgAddrGroupIndex.$ifIndex and hpSecPtAlarmEnable: $OID_hpSecPtAlarmEnable.$hpSecCfgAddrGroupIndex.$ifIndex"
     );
-    my $result = $this->{_sessionRead}->get_request(
+    my $result = $self->{_sessionRead}->get_request(
         -varbindlist => [
             "$OID_hpSecPtLearnMode.$hpSecCfgAddrGroupIndex.$ifIndex",
             "$OID_hpSecPtAlarmEnable.$hpSecCfgAddrGroupIndex.$ifIndex"
@@ -142,8 +261,8 @@ sub isPortSecurityEnabled {
 }
 
 sub authorizeMAC {
-    my ( $this, $ifIndex, $deauthMac, $authMac, $deauthVlan, $authVlan ) = @_;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
+    my ( $self, $ifIndex, $deauthMac, $authMac, $deauthVlan, $authVlan ) = @_;
+    my $logger = $self->logger;
 
     my $OID_hpSecCfgStatus
         = '1.3.6.1.4.1.11.2.14.2.10.4.1.4';    #HP-ICF-GENERIC-RPTR
@@ -151,14 +270,14 @@ sub authorizeMAC {
         = '1.3.6.1.4.1.11.2.14.2.10.3.1.7';    #HP-ICF-GENERIC-RPTR
     my $hpSecCfgAddrGroupIndex = 1;
 
-    if ( !$this->isProductionMode() ) {
+    if ( !$self->isProductionMode() ) {
         $logger->info(
             "not in production mode ... we won't add or delete an entry from the hpSecureCfgAddrTable"
         );
         return 1;
     }
 
-    if ( !$this->connectWrite() ) {
+    if ( !$self->connectWrite() ) {
         return 0;
     }
 
@@ -202,7 +321,7 @@ sub authorizeMAC {
         "SNMP set_request for hpSecCfgStatus: $OID_hpSecCfgStatus.$hpSecCfgAddrGroupIndex.$ifIndex"
     );
     my $result
-        = $this->{_sessionWrite}->set_request( -varbindlist => \@oid_value );
+        = $self->{_sessionWrite}->set_request( -varbindlist => \@oid_value );
     return ( defined($result) );
 }
 
@@ -212,7 +331,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2018 Inverse inc.
 
 =head1 LICENSE
 
