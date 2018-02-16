@@ -12,3 +12,4 @@ ATTRIBUTE ELAN-Non-Failed-Auth  3611  string
 ATTRIBUTE ELAN-Switch-Id        3612  string
 ATTRIBUTE ELAN-Switch-Interface 3613  string
 ATTRIBUTE ELAN-AD-Auth-Provider 3614  string
+ATTRIBUTE ELAN-Radius-Client-Ip 3615  string

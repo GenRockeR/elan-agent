@@ -46,7 +46,7 @@ async def end(request):
 async def find_port(request):
     # will try to find port
     nas_ip_address = request.get('NAS-IP-Address', None)
-    radius_client_ip = request.get('Packet-Src-IP-Address', request.get('Packet-Src-IPv6-Address', None))
+    radius_client_ip = request.get('ELAN-Radius-Client-Ip', None)
 
     switch_polled = False
     switch = None
