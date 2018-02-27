@@ -85,13 +85,14 @@ captive-portal-www:
   
 
 .PHONY: connection-tracker-install
-connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trackerd.py bin/session_trackerd.py connection-tracker-pyshark
+connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trackerd.py bin/dns_response_trackerd.py bin/session_trackerd.py connection-tracker-pyshark
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan
 	install -m 644 -t ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan elan/*.py
 	rm -f ${DESTDIR}${ORIGIN_PREFIX}/lib/python/elan/__init__.py
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
 	install bin/connection_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/connection-trackerd
 	install bin/device_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/device-trackerd
+	install bin/dns_response_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/dns-response-trackerd
 	install bin/session_trackerd.py ${DESTDIR}${ORIGIN_PREFIX}/bin/session-trackerd
 
 connection-tracker-pyshark:

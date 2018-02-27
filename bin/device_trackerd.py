@@ -106,7 +106,9 @@ class DeviceTracker():
                 device.seen_hostname(mac, hostname, source)
 
         except Exception:
-            ExceptionEvent(source='network').notify()
+            ExceptionEvent(source='device-tracker')\
+                 .add_data('packet', packet)\
+                 .notify()
 
     def checkAuthzOnVlan(self, mac, vlan):
         authz = nac.checkAuthz(mac)

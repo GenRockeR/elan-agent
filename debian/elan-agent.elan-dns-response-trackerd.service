@@ -1,0 +1,16 @@
+[Unit]
+
+Description=Device Tracker
+After=redis.service
+Wants=redis.service
+
+[Service]
+Restart=always
+RestartSec=10
+
+Environment=PYTHONPATH=/elan-agent/lib/python
+
+ExecStart=/elan-agent/bin/dns-response-trackerd
+
+[Install]
+WantedBy=multi-user.target

@@ -98,7 +98,7 @@ class ConnectionTracker():
                 self.dendrite.publish('connection', pkt_params)
 
         except Exception as e:
-            ExceptionEvent(source='network')\
+            ExceptionEvent(source='connection-tracker')\
                  .add_data('packet', packet)\
                  .notify()
 
