@@ -27,19 +27,23 @@ def wait_for_synapse_ready(synapse=None, verbose=False):
     if synapse is None:
         synapse = Synapse()
 
-    started = False
     count = 1
+    while not is_synapse_ready(synapse):
+        if verbose and count == 1:
+            print('Redis not ready, waiting...')
+        count += 1
+        if count == 10:
+            count = 1
+        time.sleep(1)
 
-    while not started:
-        try:
-            started = synapse.ping()
-        except serialized_redis.redis.ConnectionError:
-            if verbose and count == 1:
-                print('Redis not ready, waiting...')
-            count += 1
-            if count == 10:
-                count = 1
-            time.sleep(1)
+
+def is_synapse_ready(synapse=None):
+    if synapse is None:
+        synapse = Synapse()
+    try:
+        return bool(synapse.ping())
+    except serialized_redis.redis.ConnectionError:
+        return False
 
 
 class Synapse(serialized_redis.JSONSerializedRedis):
