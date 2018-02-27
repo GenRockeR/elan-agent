@@ -3,7 +3,7 @@ import os
 import struct
 import time
 
-from elan import session, neuron
+from elan import session, neuron, rdns
 from elan.capture import Capture
 from elan.event import ExceptionEvent
 from elan.utils  import if_indextoname
@@ -94,6 +94,9 @@ class ConnectionTracker():
                         tip['is_mac_ip'] = session.mac_has_ip_on_vlan(tip['mac'], tip['ip'], tip['vlan'])
                     else:
                         tip['is_mac_ip'] = False
+
+                if pkt_params['src']['is_mac_ip']:
+                    pkt_params['dst']['probable_dns'] = rdns.get_cached_rdns(source=pkt_params['dst']['ip'], mac=pkt_params['src']['mac']) or ''
 
                 self.dendrite.publish('connection', pkt_params)
 
