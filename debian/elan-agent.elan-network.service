@@ -10,7 +10,7 @@ Environment="PYTHONPATH=/elan-agent/lib/python"
 
 ExecStartPre=-/sbin/brctl addbr br0
 ExecStartPre=-/usr/bin/python3 -c 'import elan.network; elan.network.NetworkConfiguration(wait_synapse=False).generate_configuration_files()'
-ExecStartPre=-/bin/chown www-data /etc/network/interfaces.d/ea-network
+ExecStartPre=-/bin/chown www-data /etc/network/interfaces.d/elan-network
 
 ExecStart=/sbin/ifup br0
 

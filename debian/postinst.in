@@ -51,7 +51,7 @@ update-rc.d -f nftables remove
 # disable all interfaces
 ifdown -a --ignore-errors --exclude=lo
 cat /elan-agent/network/interface.lo > /etc/network/interfaces
-chown www-data /etc/network/interfaces.d/ea-network
+chown www-data /etc/network/interfaces.d/elan-network
 
 
 if ! grep -q 'SASL_NOCANON on' /etc/ldap/ldap.conf
