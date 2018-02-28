@@ -2,6 +2,9 @@
 
 Description=Suricata server
 
+After=redis.service
+Wants=redis.service
+
 [Service]
 Restart=always
 RestartSec=10
