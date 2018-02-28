@@ -41,6 +41,7 @@ def add_entries(*entries):
     '''
     pipe = synapse.pipeline()
     for entry in entries:
-        pipe.set(RDNS_PATH.format(mac=entry['mac'], source=entry['source']), entry['rdns'], ex=int(entry['ttl']) * 10)
-        pipe.set(RDNS_PATH.format(mac='*', source=entry['source']), entry['rdns'], ex=int(entry['ttl']) * 10)
+        expiry = int(entry['ttl']) + 60  # Keep it a little longer, just in case
+        pipe.set(RDNS_PATH.format(mac=entry['mac'], source=entry['source']), entry['rdns'], ex=expiry)
+        pipe.set(RDNS_PATH.format(mac='*', source=entry['source']), entry['rdns'], ex=expiry)
     pipe.execute()

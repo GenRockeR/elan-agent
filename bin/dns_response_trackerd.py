@@ -40,6 +40,7 @@ class DnsResponseTracker():
             if hasattr(packet, 'dns'):
                 dns = packet.dns
                 for name, type_, ttl in zip(dns.resp_name.fields, dns.resp_type.fields, dns.resp_ttl.fields):
+                    type_ = type_.show
                     if type_ == '5':  # CNAME record
                         if cname_iter is None:
                             cname_iter = iter(dns.cname.fields)
@@ -55,13 +56,13 @@ class DnsResponseTracker():
                     else:
                         continue
 
-                    entries.append(dict(mac=mac, rdns=name, source=value, ttl=ttl))
+                    entries.append(dict(mac=mac, rdns=name.show, source=value.show, ttl=ttl.show))
 
                 rdns.add_entries(*entries)
 
         except Exception:
             ExceptionEvent(source='dns-response-tracker')\
-                 .add_data('packet', packet)\
+                 .add_data('packet', str(packet))\
                  .notify()
 
 

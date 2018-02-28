@@ -107,7 +107,7 @@ class DeviceTracker():
 
         except Exception:
             ExceptionEvent(source='device-tracker')\
-                 .add_data('packet', packet)\
+                 .add_data('packet', str(packet))\
                  .notify()
 
     def checkAuthzOnVlan(self, mac, vlan):

@@ -95,14 +95,15 @@ class ConnectionTracker():
                     else:
                         tip['is_mac_ip'] = False
 
-                if pkt_params['src']['is_mac_ip']:
-                    pkt_params['dst']['probable_dns'] = rdns.get_cached_rdns(source=pkt_params['dst']['ip'], mac=pkt_params['src']['mac']) or ''
+                probable_dns = rdns.get_cached_rdns(source=pkt_params['dst']['ip'], mac=pkt_params['src']['mac'])
+                if probable_dns:
+                    pkt_params['dst']['probable_dns'] = probable_dns
 
                 self.dendrite.publish('connection', pkt_params)
 
         except Exception as e:
             ExceptionEvent(source='connection-tracker')\
-                 .add_data('packet', packet)\
+                 .add_data('packet', str(packet))\
                  .notify()
 
 
