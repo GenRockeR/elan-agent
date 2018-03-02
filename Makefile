@@ -138,7 +138,6 @@ ids-install-suricata:
 	install -m 644 suricata.reference ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/reference.config
 	install -m 644 suricata.classification ${DESTDIR}${ORIGIN_PREFIX}/ids/suricata/classification.config
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install bin/rule_fetcher.py ${DESTDIR}${ORIGIN_PREFIX}/bin/rule-fetcher
 	install bin/ids_monitor.py ${DESTDIR}${ORIGIN_PREFIX}/bin/ids-monitor
 
 .PHONY: ids-install-logger
