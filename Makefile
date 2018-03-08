@@ -7,7 +7,7 @@ PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make
                    python3-mako, python3-pyroute2, python3-django, python3-logbook, python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp, \
                    libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, libnet-ip-perl, libreadonly-perl, \
                    libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, \
-                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl
+                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl, libchi-perl
 
 include packaging.mk
 
