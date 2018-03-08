@@ -239,7 +239,7 @@ sub pf_connection_params {
 
   my %pf_connection_params = (SNMPVersion => $connection->{version});
   if($connection->{version} && $connection->{version} eq '3') {
-    $pf_connection_params{SNMPUserNameRead} = $connection->{user};
+    $pf_connection_params{SNMPUserNameRead} = $connection->{credentials}->{user};
     if($connection->{credentials}->{auth}){
       $pf_connection_params{SNMPAuthProtocolRead} = $connection->{credentials}->{auth}->{proto};
       $pf_connection_params{SNMPAuthPasswordRead} = $connection->{credentials}->{auth}->{pass};
@@ -251,7 +251,7 @@ sub pf_connection_params {
     }
   }
   else {
-    $pf_connection_params{SNMPCommunityRead} = $connection->{community};    
+    $pf_connection_params{SNMPCommunityRead} = $connection->{credentials}->{community};    
   }
 
   return %pf_connection_params;
@@ -317,15 +317,17 @@ sub NasPortToIfIndex {
             if(defined(&{$sc.'::NasPortToIfIndex'})){
                 my $s = $sc->new({ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0}); # set id to avoid warnings...
                 my $index = $s->NasPortToIfIndex($nas_port);
-                my $found;
-                for my $i (@$indexes) {
-                    if( $i == $index ) {
-                      $found = 1;
-                      last;
+                if(defined($index)){
+                    my $found;
+                    for my $i (@$indexes) {
+                        if( $i == $index ) {
+                          $found = 1;
+                          last;
+                        }
                     }
-                }
-                if(! $found) {
-                  push @$indexes, $index;
+                    if(! $found) {
+                      push @$indexes, $index;
+                    }
                 }
             }
             1;
