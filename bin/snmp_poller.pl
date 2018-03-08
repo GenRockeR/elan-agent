@@ -238,7 +238,7 @@ sub pf_connection_params {
   my ($connection) = @_;
 
   my %pf_connection_params = (SNMPVersion => $connection->{version});
-  if($connection->{version} eq '3') {
+  if($connection->{version} && $connection->{version} eq '3') {
     $pf_connection_params{SNMPUserNameRead} = $connection->{user};
     if($connection->{credentials}->{auth}){
       $pf_connection_params{SNMPAuthProtocolRead} = $connection->{credentials}->{auth}->{proto};
@@ -266,7 +266,7 @@ sub snmp_parse_trap {
     next if $sc eq 'pf::Switch::MockedSwitch';
     if(defined(&{$sc.'::parseTrap'})){
       eval {
-        my $s = $sc->new(ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0 ); # set id to avoid warnings...
+        my $s = $sc->new({ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0}); # set id to avoid warnings...
 
         my $trap_info = $s->parseTrap($trap_str);
         if($trap_info->{trapType} ne 'unknown'){
@@ -315,7 +315,7 @@ sub NasPortToIfIndex {
         next if $sc eq 'pf::Switch::MockedSwitch';
         eval {
             if(defined(&{$sc.'::NasPortToIfIndex'})){
-                my $s = $sc->new(ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0 ); # set id to avoid warnings...
+                my $s = $sc->new({ip => $switch_ip, pf_connection_params($connection), mode => 'production', id => 0}); # set id to avoid warnings...
                 my $index = $s->NasPortToIfIndex($nas_port);
                 my $found;
                 for my $i (@$indexes) {

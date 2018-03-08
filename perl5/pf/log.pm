@@ -9,7 +9,9 @@ our ( @ISA, @EXPORT );
 @EXPORT = qw(get_logger);
 
 
-sub get_logger {
-}
+use Log::Log4perl qw(:easy);    
+Log::Log4perl->easy_init({ level    => $DEBUG,
+                           layout   => "%p %c: %m%n"
+                         });
 
 1;
