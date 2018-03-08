@@ -1,0 +1,20 @@
+@@ -373,9 +373,11 @@ sub connectRead {
+     $logger->debug( "opening SNMP v"
+             . $self->{_SNMPVersion}
+             . " read connection to $self->{_id}" );
++    my $domain = index($self->{_ip}, '.') >= 0 ? 'udp4': 'udp6';
+     if ( $self->{_SNMPVersion} eq '3' ) {
+         ( $self->{_sessionRead}, $self->{_error} ) = Net::SNMP->session(
+             -hostname     => $self->{_ip},
++            -domain       => $domain,
+             -version      => $self->{_SNMPVersion},
+             -username     => $self->{_SNMPUserNameRead},
+             -timeout      => 2,
+@@ -389,6 +391,7 @@ sub connectRead {
+     } else {
+         ( $self->{_sessionRead}, $self->{_error} ) = Net::SNMP->session(
+             -hostname  => $self->{_ip},
++            -domain    => $domain,
+             -version   => $self->{_SNMPVersion},
+             -timeout   => 2,
+             -retries   => 1,

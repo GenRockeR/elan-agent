@@ -7,7 +7,7 @@ PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make
                    python3-mako, python3-pyroute2, python3-django, python3-logbook, python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp, \
                    libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, libnet-ip-perl, libreadonly-perl, \
                    libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, \
-                   libjson-maybexs-perl, libfile-fcntllock-perl
+                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl
 
 include packaging.mk
 
@@ -196,6 +196,7 @@ nac-perl-lib: perl5/ELAN perl5/pf embedded/perl5/pf embedded/perl5/SNMP
 	cp -r $^ ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf
 	install -m 644 pf/* ${DESTDIR}${ORIGIN_PREFIX}/nac/pf/conf/
+	patch ${DESTDIR}${ORIGIN_PREFIX}/lib/perl5/pf/Switch.pm pf::Switch.ipv6-patch
 
 .PHONY: nac-mibs
 nac-mibs:
