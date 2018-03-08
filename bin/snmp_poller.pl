@@ -65,7 +65,7 @@ sub snmp_poll {
   my $ip = shift;
   
   # check if params are cached
-  my $json_connection_params = $redis->hget(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip));
+  my $json_connection_params = $redis->hget(SNMP_READ_PARAMS_CACHE_PATH, $ip);
   if($json_connection_params) {
     my $data = _snmp_poll( $ip, $json->decode($json_connection_params) );
     # check if we got an answer
@@ -73,7 +73,7 @@ sub snmp_poll {
       return $data;
     }
     # Cached creds are not valid: delete them
-    $redis->hdel(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip));
+    $redis->hdel(SNMP_READ_PARAMS_CACHE_PATH, $ip);
   }
 
   
@@ -112,7 +112,7 @@ sub snmp_poll {
               # Store connection params for that swicth for next poll
               my $data = $json->decode($result);
               $connection_params->{class} = delete($data->{snmp_info_class});
-              $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $json->encode($ip), $json->encode($connection_params));
+              $redis->hset(SNMP_READ_PARAMS_CACHE_PATH, $ip, $json->encode($connection_params));
             
               return $data;
           }
@@ -121,7 +121,7 @@ sub snmp_poll {
           # Child
           my $data = _snmp_poll($ip, $connection_params);
           if($data) {
-            print($json->encode($data))
+            print($json->encode($data)); # send result to Parent
           }
           exit 0;
       }
