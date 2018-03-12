@@ -1,7 +1,6 @@
-# SNMP::Info::Layer3::Mikrotik
-# $Id$
+# SNMP::Info::Layer3::Huawei
 #
-# Copyright (c) 2011 Jeroen van Ingen
+# Copyright (c) 2015 Jeroen van Ingen
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,14 +27,23 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::Mikrotik;
+package SNMP::Info::Layer3::Huawei;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
+use SNMP::Info::LLDP;
+use SNMP::Info::IEEE802dot3ad 'agg_ports_lag';
 
-@SNMP::Info::Layer3::Mikrotik::ISA       = qw/SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::Mikrotik::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::Huawei::ISA = qw/
+  SNMP::Info::IEEE802dot3ad
+  SNMP::Info::LLDP
+  SNMP::Info::Layer3
+  Exporter
+/;
+@SNMP::Info::Layer3::Huawei::EXPORT_OK = qw/
+  agg_ports
+/;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
@@ -43,77 +51,82 @@ $VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
-    'HOST-RESOURCES-MIB'       => 'hrSystem',
-    'MIKROTIK-MIB'             => 'mtxrLicVersion',
+    %SNMP::Info::LLDP::MIBS,
+    %SNMP::Info::IEEE802dot3ad::MIBS,
+    'HUAWEI-MIB' => 'quidway',
 );
 
 %GLOBALS = (
     %SNMP::Info::Layer3::GLOBALS,
-    'hrSystemUptime' => 'hrSystemUptime',
-    'os_level'       => 'mtxrLicLevel',
-    'os_ver'         => 'mtxrLicVersion',
-    'serial1'        => 'mtxrSystem.3.0',
-    'firmware'       => 'mtxrSystem.4.0',
-    'fan_type'       => 'mtxrHlActiveFan',
+    %SNMP::Info::LLDP::GLOBALS,
 );
 
 %FUNCS = (
     %SNMP::Info::Layer3::FUNCS,
+    %SNMP::Info::LLDP::FUNCS,
 );
 
 %MUNGE = (
     %SNMP::Info::Layer3::MUNGE,
+    %SNMP::Info::LLDP::MUNGE,
 );
 
 sub vendor {
-    return 'mikrotik';
-}
-
-sub serial {
-    my $mikrotik = shift;
-    return $mikrotik->serial1;
-}
-
-sub model {
-    my $mikrotik = shift;
-    my $descr = $mikrotik->description() || '';
-    my $model = undef;
-    $model = $1 if ( $descr =~ /^RouterOS\s+(\S+)$/i );
-    return $model;
+    return "Huawei";
 }
 
 sub os {
-    return 'routeros';
+    my $huawei = shift;
+    my $descr  = $huawei->description();
+
+    return $1 if ( $descr =~ /\b(VRP)\b/ );
+    return "huawei";
 }
 
-sub board_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlTemperature;
-    return $temp / 10.0;
+sub os_ver {
+    my $huawei = shift;
+    my $descr  = $huawei->description();
+    my $os_ver = undef;
+
+    $os_ver = "$1" if ( $descr =~ /\bVersion ([0-9.]+)/i );
+
+    return $os_ver;
 }
 
-sub cpu_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlProcessorTemperature;
-    return $temp / 10.0;
+sub i_ignore {
+    my $l3      = shift;
+    my $partial = shift;
+
+    my $interfaces = $l3->interfaces($partial) || {};
+
+    my %i_ignore;
+    foreach my $if ( keys %$interfaces ) {
+
+        # lo0 etc
+        if ( $interfaces->{$if} =~ /\b(inloopback|console)\d*\b/i ) {
+            $i_ignore{$if}++;
+        }
+    }
+    return \%i_ignore;
 }
+
+sub agg_ports { return agg_ports_lag(@_) }
 
 1;
 __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::Mikrotik - SNMP Interface to Mikrotik devices
+SNMP::Info::Layer3::Huawei - SNMP Interface to Huawei Layer 3 switches and routers.
 
 =head1 AUTHORS
 
 Jeroen van Ingen
-initial version based on SNMP::Info::Layer3::NetSNMP by Bradley Baetz and Bill Fenner
 
 =head1 SYNOPSIS
 
  # Let SNMP::Info determine the correct subclass for you. 
- my $mikrotik = new SNMP::Info(
+ my $huawei = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
                           DestHost    => 'myrouter',
@@ -122,12 +135,12 @@ initial version based on SNMP::Info::Layer3::NetSNMP by Bradley Baetz and Bill F
                         ) 
     or die "Can't connect to DestHost.\n";
 
- my $class      = $mikrotik->class();
+ my $class      = $huawei->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
-Subclass for Mikrotik devices
+Subclass for Huawei Quidway switches
 
 =head2 Inherited Classes
 
@@ -135,19 +148,25 @@ Subclass for Mikrotik devices
 
 =item SNMP::Info::Layer3
 
+=item SNMP::Info::LLDP
+
+=item SNMP::Info::IEEE802dot3ad
+
 =back
 
 =head2 Required MIBs
 
 =over
 
-=item F<HOST-RESOURCES-MIB>
-
-=item F<MIKROTIK-MIB>
+=item F<HUAWEI-MIB>
 
 =item Inherited Classes' MIBs
 
 See L<SNMP::Info::Layer3> for its own MIB requirements.
+
+See L<SNMP::Info::LLDP> for its own MIB requirements.
+
+See L<SNMP::Info::IEEE802dot3ad> for its own MIB requirements.
 
 =back
 
@@ -157,44 +176,27 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $mikrotik->vendor()
+=item $huawei->vendor()
 
-Returns C<'mikrotik'>.
+Returns 'Huawei'.
 
-=item $mikrotik->os()
+=item $huawei->os()
 
-Returns C<'routeros'>.
+Returns 'VRP' if contained in C<sysDescr>, 'huawei' otherwise.
 
-=item $mikrotik->model()
+=item $huawei->os_ver()
 
-Tries to extract the device model from C<sysDescr>.
-
-=item $mikrotik->os_ver()
-
-Returns the value of C<mtxrLicVersion>.
-
-=item $mikrotik->os_level()
-
-Returns the value of RouterOS level C<mtxrLicLevel>
-
-=item $mikrotik->board_temp()
-=item $mikrotik->cpu_temp()
-
-Returns the appropriate temperature values
-
-=item $mikrotik->serial()
-
-Returns the device serial.
-
-=item $mikrotik->firmware()
-
-Returns the firmware version of hardware.
+Returns the software version extracted from C<sysDescr>.
 
 =back
 
 =head2 Globals imported from SNMP::Info::Layer3
 
 See documentation in L<SNMP::Info::Layer3> for details.
+
+=head2 Globals imported from SNMP::Info::LLDP
+
+See documentation in L<SNMP::Info::LLDP> for details.
 
 =head1 TABLE ENTRIES
 
@@ -203,9 +205,19 @@ to a hash.
 
 =head2 Overrides
 
-None.
-
 =over
+
+=item $huawei->i_ignore()
+
+Returns reference to hash.  Increments value of IID if port is to be ignored.
+
+Ignores InLoopback and Console interfaces
+
+=item C<agg_ports>
+
+Returns a HASH reference mapping from slave to master port for each member of
+a port bundle on the device. Keys are ifIndex of the slave ports, Values are
+ifIndex of the corresponding master ports.
 
 =back
 
@@ -213,5 +225,8 @@ None.
 
 See documentation in L<SNMP::Info::Layer3> for details.
 
+=head2 Table Methods imported from SNMP::Info::LLDP
+
+See documentation in L<SNMP::Info::LLDP> for details.
 
 =cut

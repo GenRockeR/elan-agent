@@ -11,7 +11,7 @@ use SNMP::Info::CDP;
 
 use vars qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE $AUTOLOAD/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::LLDP::MIBS,
@@ -73,6 +73,8 @@ sub model {
     my $descr = $dsmodel->description();
     if ( $descr =~ /^([\S ]+) Software.*/){
         return $1;
+    } else {
+        return $descr;
     }
 }
 

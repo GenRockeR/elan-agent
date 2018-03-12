@@ -40,7 +40,7 @@ use SNMP::Info::LLDP;
 
 use vars qw/$VERSION $DEBUG %GLOBALS %MIBS %FUNCS %MUNGE/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
@@ -49,13 +49,16 @@ $VERSION = '3.33';
     'JUNIPER-MIB'                 => 'jnxBoxAnatomy',
     'JUNIPER-VIRTUALCHASSIS-MIB'  => 'jnxVirtualChassisMemberTable',
     'JUNIPER-VLAN-MIB'            => 'jnxVlanMIBObjects',
+    'JUNIPER-L2ALD-MIB'           => 'jnxL2aldVlanFdbId',
 );
 
 %GLOBALS = ( %SNMP::Info::Layer3::GLOBALS, 
 	     %SNMP::Info::LLDP::GLOBALS,
 	     'serial'    => 'jnxBoxSerialNo.0',
 	     'mac'       => 'dot1dBaseBridgeAddress',
-	     'box_descr' => 'jnxBoxDescr'
+	     'box_descr' => 'jnxBoxDescr',
+             'version'   => 'jnxVirtualChassisMemberSWVersion.0',
+             'vc_model'   => 'jnxVirtualChassisMemberModel.0',
 	     );
 
 %FUNCS = ( %SNMP::Info::Layer3::FUNCS, 
@@ -64,7 +67,7 @@ $VERSION = '3.33';
 	   # JUNIPER-VLAN-MIB::jnxExVlanTable
 	   'v_index'    => 'jnxExVlanTag',
 	   'v_type'     => 'jnxExVlanType',
-	   'v_name'     => 'jnxExVlanName',
+	   'vlan_name'     => 'jnxExVlanName',
 	   
 	   # JUNIPER-VLAN-MIB::jnxExVlanPortGroupTable
 	   'i_trunk'    => 'jnxExVlanPortAccessMode',
@@ -73,6 +76,10 @@ $VERSION = '3.33';
            'e_contents_type'   => 'jnxContentsType',
            'e_containers_type' => 'jnxContainersType',
            'e_hwver'           => 'jnxContentsRevision',
+
+           'v_fdb_id'          => 'jnxL2aldVlanFdbId',
+           'v_vlan_tag'        => 'jnxL2aldVlanTag',
+           'v_vlan_name'        => 'jnxL2aldVlanName',
 );
 
 %MUNGE = ( %SNMP::Info::Layer3::MUNGE, 
@@ -106,14 +113,20 @@ sub layers {
 sub os_ver {
     my $juniper = shift;
 
-    my $descr        = $juniper->description() || '';
-    my $lldp_descr   = $juniper->lldp_sysdesc() || '';
+    my $sys_descr  = $juniper->description()  || '';
+    my $lldp_descr = $juniper->lldp_sysdesc() || '';
 
-    if ( $descr =~ m/kernel JUNOS (\S+)/ ) {
-        return $1;
+    my $ver = $juniper->version() || '';
+    if (not $ver eq '')  {
+        return $ver;
     }
-    elsif ( $lldp_descr =~ m/version\s(\S+)\s/ ) {
-	return $1;
+    foreach my $descr ($sys_descr, $lldp_descr) {
+        if ( $descr =~ m/kernel JUNOS ([^,\s]+)/ ) {
+            return $1;
+        }
+        elsif ( $descr =~ m/version\s(\S+)\s/ ) {
+            return $1;
+        }
     }
     return;
 }
@@ -121,7 +134,13 @@ sub os_ver {
 sub model {
     my $l3 = shift;
     my $id = $l3->id();
+    # Query the junos device model.
+    my $mod = uc $l3->vc_model() || '';
 
+    if  (not $mod eq '') { 
+        return $mod;
+    }
+    # Fallback to old method
     unless ( defined $id ) {
         print
             " SNMP::Info::Layer3::Juniper::model() - Device does not support sysObjectID\n"
@@ -186,8 +205,10 @@ sub v_index {
     my ($partial) = shift;
 
     my ($v_index)  = $juniper->jnxExVlanTag($partial);
+    my ($v_vlan_index) = $juniper->v_vlan_tag($partial);
 
-    return $v_index;
+    return $v_index unless $v_vlan_index;
+    return $v_vlan_index;
 }
 
 sub i_vlan {
@@ -208,7 +229,7 @@ sub i_vlan {
 
     foreach my $bport ( keys %$i_pvid ) {
         my $q_vlan  = $i_pvid->{$bport};
-	my $vlan    = $v_index->{$q_vlan};
+	my $vlan    = $v_index->{$q_vlan} || $q_vlan;
         my $ifindex = $index->{$bport};
         unless ( defined $ifindex ) {
             print "  Port $bport has no bp_index mapping. Skipping.\n"
@@ -217,8 +238,13 @@ sub i_vlan {
         }
         $i_vlan->{$ifindex} = $vlan;
     }
-
     return $i_vlan;
+}
+sub v_name { 
+    my $juniper = shift;
+    my $name = $juniper->v_vlan_name();
+    return $juniper->vlan_name() unless $name;
+    return $name;
 }
 
 # Index doesn't use VLAN ID, so override the HOA private method here to
@@ -254,6 +280,38 @@ sub _vlan_hoa {
         }
     }
     return $vlan_hoa;
+}
+
+sub i_vlan_membership {
+    my $juniper  = shift;
+    my $partial = shift;
+
+    my $res;
+
+    my $dot1qVlanStaticEgressPorts = $juniper->dot1qVlanCurrentEgressPorts($partial) || $juniper->dot1qVlanStaticEgressPorts($partial);
+    my $bp_index = $juniper->bp_index();
+    foreach my $vlan (keys %$dot1qVlanStaticEgressPorts) {
+        my @bp_indexes = split /,/, $dot1qVlanStaticEgressPorts->{$vlan};
+        push @{$res->{$bp_index->{$_}}}, $vlan for @bp_indexes;
+    }
+    return $res;
+}
+
+sub qb_fw_vlan {
+    my $juniper = shift;
+
+    my $qb_fw_vlan = $juniper->SUPER::qb_fw_vlan();
+    my $v_fdb_id   = $juniper->v_fdb_id();
+    my $v_vlan_tag = $juniper->v_vlan_tag();
+    return $qb_fw_vlan unless $v_fdb_id && $v_vlan_tag;
+    my %fdb_id_to_tag = reverse %$v_fdb_id;
+
+    foreach my $key (keys %$qb_fw_vlan) {
+        my $v = $qb_fw_vlan->{$key};
+        $qb_fw_vlan->{$key} = $v_vlan_tag->{$fdb_id_to_tag{$v}};
+    }
+
+    return $qb_fw_vlan;
 }
 
 # Pseudo ENTITY-MIB methods
@@ -667,6 +725,10 @@ to a hash.
 
 Returns reference to hash: key = VLAN ID, value = FDB ID.
 
+=item $juniper->qb_fw_vlan()
+
+Returns reference to hash of forwarding table entries VLAN ID
+
 =item $juniper->v_index()
 
 (C<jnxExVlanTag>)
@@ -686,6 +748,11 @@ Returns reference to hash: key = VLAN ID, value = FDB ID.
 =item $juniper->i_vlan()
 
 Returns a mapping between C<ifIndex> and the PVID or default VLAN.
+
+=item $juniper->i_vlan_membership()
+
+Returns reference to hash of arrays: key = C<ifIndex>, value = array of VLAN
+IDs.  These are the VLANs which are members of the egress list for the port.
 
 =back
 

@@ -1,4 +1,6 @@
-# SNMP::Info::Layer3::Steelhead
+package SNMP::Info::Layer3::VyOS;
+
+# SNMP::Info::Layer3::VyOS
 #
 # Copyright (c) 2013 Eric Miller
 # All rights reserved.
@@ -27,78 +29,72 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::Steelhead;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
 
-@SNMP::Info::Layer3::Steelhead::ISA
-    = qw/SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::Steelhead::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::VyOS::ISA       = qw/SNMP::Info::Layer3 Exporter/;
+@SNMP::Info::Layer3::VyOS::EXPORT_OK = qw//;
 
-use vars qw/$VERSION %GLOBALS %FUNCS %MIBS %MUNGE/;
+use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
 $VERSION = '3.49';
 
 %MIBS = (
-    %SNMP::Info::Layer3::MIBS,
-    'STEELHEAD-MIB' => 'serialNumber',
+    %SNMP::Info::Layer2::MIBS, %SNMP::Info::Layer3::MIBS,
+    
 );
 
 %GLOBALS = (
-    %SNMP::Info::Layer3::GLOBALS,
-    # Fully qualified to remove ambiguity of 'model'
-    'rb_model' => 'STEELHEAD-MIB::model',
+    %SNMP::Info::Layer2::GLOBALS, %SNMP::Info::Layer3::GLOBALS,
+    
 );
 
-%FUNCS = (
-    %SNMP::Info::Layer3::FUNCS,
-);
+%FUNCS = ( %SNMP::Info::Layer2::FUNCS, %SNMP::Info::Layer3::FUNCS, );
 
-%MUNGE = (
-    %SNMP::Info::Layer3::MUNGE,
-);
+%MUNGE = ( %SNMP::Info::Layer2::MUNGE, %SNMP::Info::Layer3::MUNGE, );
 
 sub layers {
     return '01001100';
 }
 
-sub vendor {
-    return 'riverbed';
+sub os {
+    my $vyos = shift;
+
+    my $ver = $vyos->description() || '';
+
+    if((lc $ver) =~ /vyos/){
+        return 'VyOS';
+    }else{
+        return 'Vyatta';
+    }
 }
 
 sub model {
-    my $riverbed = shift;
-
-    my $model = $riverbed->rb_model() || '';
-    
-    if ($model =~ /^(\d+)/) {
-        return $1;
-    }
-    return $model;
+    my $vyos = shift;
+    return $vyos->os();
 }
 
-sub os {
-    return 'steelhead';
+sub vendor {
+    my $vyos = shift;
+    return $vyos->os();
 }
 
 sub os_ver {
-    my $riverbed = shift;
-    
-    my $ver = $riverbed->systemVersion() || '';
+    my $vyos = shift;
 
-    if ( $ver =~ /(\d+[\.\d]+)/ ) {
-        return $1;
-    }
-    
-    return $ver;
+    my $ver = $vyos->description() || '';
+
+    my @myver = reverse split(/ /, $ver);
+
+    return $myver[0];
 }
 
 sub serial {
-    my $riverbed = shift;
-    
-    return $riverbed->serialNumber();
+    my $vyos = shift;
+
+    return $vyos->serialNumber();
 }
 
 1;
@@ -106,36 +102,26 @@ __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::Steelhead - SNMP Interface to Riverbed Steelhead WAN
-optimization appliances.
-
-=head1 AUTHOR
-
-Eric Miller
+SNMP::Info::Layer3::VyOS - SNMP Interface to Vyatta Devices
 
 =head1 SYNOPSIS
 
  # Let SNMP::Info determine the correct subclass for you. 
- my $riverbed = new SNMP::Info(
+ my $vyos = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
-                          DestHost    => 'myswitch',
+                          DestHost    => 'myrouter',
                           Community   => 'public',
                           Version     => 2
                         ) 
     or die "Can't connect to DestHost.\n";
 
- my $class = $riverbed->class();
+ my $class      = $vyos->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
-Abstraction subclass for Riverbed Steelhead WAN optimization appliances.
-
-For speed or debugging purposes you can call the subclass directly, but not
-after determining a more specific class using the method above. 
-
- my $riverbed = new SNMP::Info::Layer3::Steelhead(...);
+Subclass for Vyatta Devices running VyOS.
 
 =head2 Inherited Classes
 
@@ -145,17 +131,9 @@ after determining a more specific class using the method above.
 
 =back
 
-=head2 Required MIBs
-
-F<STEELHEAD-MIB>
-
-=over
-
-=item Inherited Classes' MIBs
+=head2 Inherited Classes' MIBs
 
 See L<SNMP::Info::Layer3/"Required MIBs"> for its own MIB requirements.
-
-=back
 
 =head1 GLOBALS
 
@@ -163,40 +141,29 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $riverbed->vendor()
+=item $vyos->layers()
 
-Returns 'riverbed'
+Returns support for 3, 4 and 7.
 
-=item $riverbed->model()
+=item $vyos->os()
 
-Returns the chassis model.
+Returns 'VyOS' or 'Vyatta'.
 
-(C<STEELHEAD-MIB::model>)
+=item $vyos->model()
 
-=item $riverbed->os()
+Returns the OS.
 
-Returns 'steelhead'
+=item $vyos->vendor()
 
-=item $riverbed->os_ver()
+Returns the OS.
 
-Returns the software version extracted from (C<systemVersion>).
+=item $vyos->os_ver()
 
-=item $riverbed->serial()
+Returns the software version extracted from C<sysDescr>.
 
-Returns the chassis serial number.
+=item $vyos->serial()
 
-(C<serialNumber>)
-
-=back
-
-=head2 Overrides
-
-=over
-
-=item $riverbed->layers()
-
-Returns 01001100.  Steelhead does not support bridge MIB, so override reported
-layers.
+Returns serial number.
 
 =back
 
@@ -205,9 +172,6 @@ layers.
 See documentation in L<SNMP::Info::Layer3/"GLOBALS"> for details.
 
 =head1 TABLE METHODS
-
-These are methods that return tables of information in the form of a reference
-to a hash.
 
 =head2 Table Methods imported from SNMP::Info::Layer3
 

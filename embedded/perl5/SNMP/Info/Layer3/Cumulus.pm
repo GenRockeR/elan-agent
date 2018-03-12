@@ -1,7 +1,7 @@
-# SNMP::Info::Layer3::NetSNMP
+# SNMP::Info::Layer3::Cumulus
 # $Id$
 #
-# Copyright (c) 2008 Bill Fenner
+# Copyright (c) 2018 Bill Fenner and Oliver Gorwits
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,15 +28,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::NetSNMP;
+package SNMP::Info::Layer3::Cumulus;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
 use SNMP::Info::LLDP;
+use SNMP::Info::IEEE802dot3ad 'agg_ports_lag';
 
-@SNMP::Info::Layer3::NetSNMP::ISA       = qw/SNMP::Info::LLDP SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::NetSNMP::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::Cumulus::ISA = qw/
+  SNMP::Info::IEEE802dot3ad
+  SNMP::Info::LLDP
+  SNMP::Info::Layer3
+  Exporter
+/;
+@SNMP::Info::Layer3::Cumulus::EXPORT_OK = qw/ agg_ports /;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
@@ -45,6 +51,7 @@ $VERSION = '3.49';
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
     %SNMP::Info::LLDP::MIBS,
+    %SNMP::Info::IEEE802dot3ad::MIBS,
     'UCD-SNMP-MIB'       => 'versionTag',
     'NET-SNMP-TC'        => 'netSnmpAgentOIDs',
     'HOST-RESOURCES-MIB' => 'hrSystem',
@@ -55,6 +62,7 @@ $VERSION = '3.49';
     %SNMP::Info::LLDP::GLOBALS,
     'netsnmp_vers'   => 'versionTag',
     'hrSystemUptime' => 'hrSystemUptime',
+    'chassis'    => 'entPhysicalDescr.1',
 );
 
 %FUNCS = (
@@ -67,35 +75,26 @@ $VERSION = '3.49';
     %SNMP::Info::LLDP::MUNGE,
 );
 
-sub vendor {
-    return 'Net-SNMP';
-}
+sub vendor { return 'Cumulus Networks' }
 
-sub os {
-    my $netsnmp = shift;
-    my $descr   = $netsnmp->description();
-
-    return $1 if ( $descr =~ /^(\S+)\s+/ );
-    return;
-}
+sub os { return 'cumulus' }
 
 sub os_ver {
     my $netsnmp = shift;
     my $descr   = $netsnmp->description();
-    my $vers    = $netsnmp->netsnmp_vers();
-    my $os_ver  = undef;
 
-    $os_ver = $1 if ( $descr =~ /^\S+\s+\S+\s+(\S+)\s+/ );
-    if ($vers) {
-        $os_ver = "???" unless defined($os_ver);
-        $os_ver .= " / Net-SNMP " . $vers;
-    }
-
-    return $os_ver;
+# STRING: "Cumulus Linux version 3.5.1 running on innotek GmbH VirtualBox"
+    return $1 if ( $descr =~ /^Cumulus Linux (\S+)\s+/ );
+    return;
 }
 
-sub serial {
-    return '';
+sub model {
+    my $netsnmp = shift;
+    my $chassis = $netsnmp->chassis();
+
+# STRING: "Cumulus Networks  VX Chassis"
+    return $1 if ( $chassis =~ /^Cumulus Networks\s+(.+)/ );
+    return $netsnmp->SUPER::model();
 }
 
 # sysUptime gives us the time since the SNMP daemon has restarted,
@@ -113,6 +112,39 @@ sub uptime {
     return $netsnmp->SUPER::uptime();
 }
 
+# ifDescr is the same for all interfaces in a class, but the ifName is
+# unique, so let's use that for port name.  If all else fails, 
+# concatentate ifDesc and ifIndex.
+# (code from SNMP/Info/Layer2/Netgear.pm)
+sub interfaces {
+    my $netgear = shift;
+    my $partial = shift;
+
+    my $interfaces = $netgear->i_index($partial)       || {};
+    my $i_descr    = $netgear->i_description($partial) || {};
+    my $i_name     = $netgear->i_name($partial);
+    my $i_isset    = ();
+    # Replace the description with the ifName field, if set
+    foreach my $iid ( keys %$i_name ) {
+        my $name = $i_name->{$iid};
+        next unless defined $name;
+        if (defined $name and $name !~ /^\s*$/) {
+            $interfaces->{$iid} = $name;
+            $i_isset->{$iid} = 1;
+        }
+    }
+    # Replace the Index with the ifDescr field, appended with index
+    # number, to deal with devices with non-unique ifDescr.
+    foreach my $iid ( keys %$i_descr ) {
+        my $port = $i_descr->{$iid} . '-' . $iid;
+        next unless defined $port;
+        next if (defined $i_isset->{$iid} and $i_isset->{$iid} == 1);
+        $interfaces->{$iid} = $port;
+    }
+
+    return $interfaces;
+}
+
 sub i_ignore {
     my $l3      = shift;
     my $partial = shift;
@@ -122,29 +154,31 @@ sub i_ignore {
     my %i_ignore;
     foreach my $if ( keys %$interfaces ) {
 
-        # lo0 etc
-        if ( $interfaces->{$if} =~ /\blo\d*\b/i ) {
+        # vlan1@br0 or peerlink.4094@peerlink
+        if ( $interfaces->{$if} =~ /@/i ) {
             $i_ignore{$if}++;
         }
     }
     return \%i_ignore;
 }
 
+sub agg_ports { return agg_ports_lag(@_) }
+
 1;
 __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::NetSNMP - SNMP Interface to L3 Net-SNMP Devices
+SNMP::Info::Layer3::Cumulus - SNMP Interface to Cumulus Networks Devices
 
 =head1 AUTHORS
 
-Bradley Baetz and Bill Fenner
+Oliver Gorwits - based on Layer3::NetSNMP implementation
 
 =head1 SYNOPSIS
 
  # Let SNMP::Info determine the correct subclass for you. 
- my $netsnmp = new SNMP::Info(
+ my $cumulus = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
                           DestHost    => 'myrouter',
@@ -153,12 +187,12 @@ Bradley Baetz and Bill Fenner
                         ) 
     or die "Can't connect to DestHost.\n";
 
- my $class      = $netsnmp->class();
+ my $class      = $cumulus->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
-Subclass for Generic Net-SNMP devices
+Subclass for Cumulus Networks devices
 
 =head2 Inherited Classes
 
@@ -184,6 +218,8 @@ See L<SNMP::Info::Layer3> for its own MIB requirements.
 
 See L<SNMP::Info::LLDP> for its own MIB requirements.
 
+See L<SNMP::Info::IEEE802dot3ad> for its own MIB requirements.
+
 =back
 
 =head1 GLOBALS
@@ -192,28 +228,27 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $netsnmp->vendor()
+=item $cumulus->vendor()
 
-Returns 'Net-SNMP'.
+Returns 'Cumulus Networks'.
 
-=item $netsnmp->os()
+=item $cumulus->os()
 
-Returns the OS extracted from C<sysDescr>.
+Returns 'cumulus'.
 
-=item $netsnmp->os_ver()
+=item $cumulus->os_ver()
 
-Returns the software version extracted from C<sysDescr>, along
-with the Net-SNMP version.
+Returns the software version extracted from C<sysDescr>.
 
-=item $netsnmp->uptime()
+=item $cumulus->uptime()
 
 Returns the system uptime instead of the agent uptime.
 NOTE: discontinuity timers and other Time Stamp based objects
 are based on agent uptime, so use orig_uptime().
 
-=item $netsnmp->serial()
+=item $l3->model()
 
-Returns ''.
+Returns the chassis type.
 
 =back
 
@@ -225,6 +260,10 @@ See documentation in L<SNMP::Info::Layer3> for details.
 
 See documentation in L<SNMP::Info::LLDP> for details.
 
+=head2 Globals imported from SNMP::Info::IEEE802dot3ad
+
+See documentation in L<SNMP::Info::IEEE802dot3ad> for details.
+
 =head1 TABLE ENTRIES
 
 These are methods that return tables of information in the form of a reference
@@ -234,11 +273,27 @@ to a hash.
 
 =over
 
-=item $netsnmp->i_ignore()
+=item $cumulus->interfaces()
+
+Uses the i_name() field.
+
+=item $cumulus->i_ignore()
+
+Returns reference to hash.  Increments value of IID if port is to be ignored.
+
+Ignores interfaces with an "@" in them.
+
+=item $cumulus->i_ignore()
 
 Returns reference to hash.  Increments value of IID if port is to be ignored.
 
 Ignores loopback
+
+=item C<agg_ports>
+
+Returns a HASH reference mapping from slave to master port for each member of
+a port bundle on the device. Keys are ifIndex of the slave ports, Values are
+ifIndex of the corresponding master ports.
 
 =back
 
@@ -250,23 +305,8 @@ See documentation in L<SNMP::Info::Layer3> for details.
 
 See documentation in L<SNMP::Info::LLDP> for details.
 
-=head1 NOTES
+=head2 Table Methods imported from SNMP::Info::IEEE802dot3ad
 
-In order to cause SNMP::Info to classify your device into this class, it
-may be necessary to put a configuration line into your F<snmpd.conf>
-similar to
-
-  sysobjectid .1.3.6.1.4.1.8072.3.2.N
-
-where N is the object ID for your OS from the C<NET-SNMP-TC> MIB (or
-255 if not listed).  Some Net-SNMP installations default to an
-incorrect return value for C<system.sysObjectId>.
-
-In order to recognize a Net-SNMP device as Layer3, it may be necessary
-to put a configuration line similar to
-
-  sysservices 76
-
-in your F<snmpd.conf>.
+See documentation in L<SNMP::Info::IEEE802dot3ad> for details.
 
 =cut

@@ -24,7 +24,7 @@ use vars
     qw/$VERSION %FUNCS %GLOBALS %MIBS %MUNGE $AUTOLOAD $INIT $DEBUG %SPEED_MAP
     $NOSUCH $BIGINT $REPEATERS/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 =head1 NAME
 
@@ -32,7 +32,7 @@ SNMP::Info - OO Interface to Network devices and MIBs through SNMP
 
 =head1 VERSION
 
-SNMP::Info - Version 3.33
+SNMP::Info - Version 3.49
 
 =head1 AUTHOR
 
@@ -439,7 +439,7 @@ interface to data obtainable from network devices.
 All the required MIB files are included in the netdisco-mib package.
 (See Above).
 
-=over
+=over 4
 
 =item SNMP::Info::Layer1
 
@@ -447,7 +447,7 @@ Generic Layer1 Device subclass.
 
 See documentation in L<SNMP::Info::Layer1> for details.
 
-=over 
+=over 4
 
 =item SNMP::Info::Layer1::Allied
 
@@ -500,6 +500,12 @@ See documentation in L<SNMP::Info::Layer2> for details.
 SNMP::Info::Layer2::3Com - SNMP Interface to L2 3Com Switches
 
 See documentation in L<SNMP::Info::Layer2::3Com> for details.
+
+=item SNMP::Info::Layer2::Adtran
+
+Subclass for Adtran devices.
+
+See documentation in L<SNMP::Info::Layer2::Adtran> for details.
 
 =item SNMP::Info::Layer2::Airespace
 
@@ -634,7 +640,7 @@ See documentation in L<SNMP::Info::Layer2::Trapeze> for details.
 
 =item SNMP::Info::Layer2::Ubiquiti
 
-SNMP Interface to Ubiquiti Access Points
+SNMP Interface to Ubiquiti Access Points and other devices
 
 See documentation in L<SNMP::Info::Layer2::Ubiquiti> for details.
 
@@ -724,6 +730,12 @@ This class covers Catalyst 6500s in native mode, hybrid mode.  Catalyst
 
 See documentation in L<SNMP::Info::Layer3::C6500> for details.
 
+=item SNMP::Info::Layer3::CheckPoint
+
+Subclass for CheckPoint devices
+
+See documentation in L<SNMP::Info::Layer3::CheckPoint> for details.
+
 =item SNMP::Info::Layer3::Cisco
 
 This is a simple wrapper around layer 3 for IOS devices and the base layer 3
@@ -753,6 +765,18 @@ L<SNMP::Info::Layer3::CiscoSwitch> for details.
 Subclass for Avaya/Nortel Contivity/VPN Routers.  
 
 See documentation in L<SNMP::Info::Layer3::Contivity> for details.
+
+=item SNMP::Info::Layer3::Cumulus
+
+Subclass for Cumulus Networks Routers.  
+
+See documentation in L<SNMP::Info::Layer3::Cumulus> for details.
+
+=item SNMP::Info::Layer3::DLink
+
+Subclass for DLink devices.  
+
+See documentation in L<SNMP::Info::Layer3::DLink> for details.
 
 =item SNMP::Info::Layer3::Dell
 
@@ -931,6 +955,12 @@ Alcatel-Lucent SR Class.
 
 See documentation in L<SNMP::Info::Layer3::Timetra> for details.
 
+=item SNMP::Info::Layer3::VyOS
+
+Subclass for VyOS routers.
+
+See documentation in L<SNMP::Info::Layer3::VyOS> for details.
+
 =item SNMP::Info::Layer3::VMware
 
 Subclass for VMware ESXi hosts.
@@ -956,6 +986,12 @@ See documentation in L<SNMP::Info::Layer7> for details.
 SNMP Interface to APC UPS devices
 
 See documentation in L<SNMP::Info::Layer7::APC> for details.
+
+=item SNMP::Info::Layer7::CiscoIPS
+
+SNMP Interface to Cisco IPS devices
+
+See documentation in L<SNMP::Info::Layer7::Cisco IPS> for details.
 
 =item SNMP::Info::Layer7::Netscaler
 
@@ -1512,16 +1548,19 @@ sub device_type {
         42   => 'SNMP::Info::Layer3::Sun',
         43   => 'SNMP::Info::Layer2::3Com',
         45   => 'SNMP::Info::Layer2::Baystack',
-        171  => 'SNMP::Info::Layer3::Dell',
+        171  => 'SNMP::Info::Layer3::DLink',
         244  => 'SNMP::Info::Layer3::Lantronix',
         311  => 'SNMP::Info::Layer3::Microsoft',
+        664   => 'SNMP::Info::Layer2::Adtran',
         674  => 'SNMP::Info::Layer3::Dell',
+        1588 => 'SNMP::Info::Layer3::Foundry',
         1872 => 'SNMP::Info::Layer3::AlteonAD',
         1916 => 'SNMP::Info::Layer3::Extreme',
         1991 => 'SNMP::Info::Layer3::Foundry',
         2011 => 'SNMP::Info::Layer3::Huawei',
         2021 => 'SNMP::Info::Layer3::NetSNMP',
         2272 => 'SNMP::Info::Layer3::Passport',
+        2620 => 'SNMP::Info::Layer3::CheckPoint',
         2636 => 'SNMP::Info::Layer3::Juniper',
         2925 => 'SNMP::Info::Layer1::Cyclades',
         3076 => 'SNMP::Info::Layer3::Altiga',
@@ -1550,6 +1589,9 @@ sub device_type {
         30065 => 'SNMP::Info::Layer3::Arista',
         35098 => 'SNMP::Info::Layer3::Pica8',
         41112 => 'SNMP::Info::Layer2::Ubiquiti',
+        4413 => 'SNMP::Info::Layer2::Ubiquiti',
+        30803 => 'SNMP::Info::Layer3::VyOS',
+        40310 => 'SNMP::Info::Layer3::Cumulus',
     );
 
     my %l2sysoidmap = (
@@ -1557,8 +1599,9 @@ sub device_type {
         11    => 'SNMP::Info::Layer2::HP',
         43    => 'SNMP::Info::Layer2::3Com',
         45    => 'SNMP::Info::Layer2::Baystack',
-        171   => 'SNMP::Info::Layer3::Dell',
+        171   => 'SNMP::Info::Layer3::DLink',
         207   => 'SNMP::Info::Layer2::Allied',
+        664   => 'SNMP::Info::Layer2::Adtran',
         674   => 'SNMP::Info::Layer3::Dell',
         1872  => 'SNMP::Info::Layer3::AlteonAD',
         1916  => 'SNMP::Info::Layer3::Extreme',
@@ -1671,7 +1714,9 @@ sub device_type {
             =~ /^(BayStack|Ethernet\s+Routing\s+Switch)\s[2345](\d){2,3}/i );
 
         # Nortel Contivity
-        $objtype = 'SNMP::Info::Layer3::Contivity' if $desc =~ /(\bCES\b|\bNVR\sV\d)/;
+        $objtype = 'SNMP::Info::Layer3::Contivity'
+          if $desc =~ /(\bCES\b|\bNVR\sV\d)/
+              and (!defined $id or !defined $l3sysoidmap{$id});
 
         # SonicWALL
         $objtype = 'SNMP::Info::Layer3::SonicWALL' if $desc =~ /SonicWALL/i;
@@ -1689,6 +1734,11 @@ sub device_type {
         $objtype = 'SNMP::Info::Layer3::CiscoFWSM'
             if ( $desc =~ /Cisco Firewall Services Module/i );
         
+        #   Cisco Small Business (300 500) series override
+        #   This is for enterprises(1).cisco(9).otherEnterprises(6).ciscosb(1)
+        $objtype = 'SNMP::Info::Layer2::CiscoSB'
+            if ( $soid =~ /^\.?1\.3\.6\.1\.4\.1\.9\.6\.1/ );
+
         # Avaya Secure Router
         $objtype = 'SNMP::Info::Layer3::Tasman'
             if ( $desc =~ /^(avaya|nortel)\s+(SR|secure\srouter)\s+\d{4}/i );
@@ -1912,6 +1962,10 @@ sub device_type {
         $objtype = 'SNMP::Info::Layer2::NWSS2300'    
             if (
             $desc =~ /^(Nortel\s)??Wireless\sSecurity\sSwitch\s23[568][012]\b/);
+            
+        # Cisco IPS, older version which doesn't report layer 3 functionality
+        $objtype = 'SNMP::Info::Layer7::CiscoIPS'
+            if ( $soid =~ /\.1\.3\.6\.1\.4\.1\.9\.1\.1545/i );
 
         # Generic device classification based upon sysObjectID
         if ( defined($id) and $objtype eq 'SNMP::Info') {
@@ -2936,7 +2990,7 @@ allows all developers to have visibility into the request.  Please include
 pointers to the applicable platform MIBs.  For development we will need an
 C<snmpwalk> of the device.  There is a tool now included in the SNMP::Info
 distribution to help with this task, although you'll most likely need to
-download the distribution from CPAN as it's included in the "C<t/util>"
+download the distribution from CPAN as it's included in the "C<contrib/util>"
 directory.
 
 The utility is named C<make_snmpdata.pl>. Run it with a command line like:

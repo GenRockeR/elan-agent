@@ -1,7 +1,6 @@
-# SNMP::Info::Layer3::Mikrotik
-# $Id$
+# SNMP::Info::Layer3::VMware
 #
-# Copyright (c) 2011 Jeroen van Ingen
+# Copyright (c) 2014-2016 Max Kosmach
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,33 +27,35 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::Mikrotik;
+package SNMP::Info::Layer3::VMware;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
+use SNMP::Info::IEEE802dot3ad 'agg_ports_lag';
 
-@SNMP::Info::Layer3::Mikrotik::ISA       = qw/SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::Mikrotik::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::VMware::ISA       = qw/SNMP::Info::IEEE802dot3ad SNMP::Info::Layer3 Exporter/;
+@SNMP::Info::Layer3::VMware::EXPORT_OK = qw/agg_ports/;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
 $VERSION = '3.49';
 
 %MIBS = (
+    %SNMP::Info::IEEE802dot3ad::MIBS,
     %SNMP::Info::Layer3::MIBS,
-    'HOST-RESOURCES-MIB'       => 'hrSystem',
-    'MIKROTIK-MIB'             => 'mtxrLicVersion',
+    'VMWARE-PRODUCTS-MIB' => 'vmwProducts',
+    'VMWARE-SYSTEM-MIB'   => 'vmwProdName',
 );
 
 %GLOBALS = (
     %SNMP::Info::Layer3::GLOBALS,
-    'hrSystemUptime' => 'hrSystemUptime',
-    'os_level'       => 'mtxrLicLevel',
-    'os_ver'         => 'mtxrLicVersion',
-    'serial1'        => 'mtxrSystem.3.0',
-    'firmware'       => 'mtxrSystem.4.0',
-    'fan_type'       => 'mtxrHlActiveFan',
+    # VMWARE-SYSTEM-MIB
+    'vmwProdVersion'  => 'vmwProdVersion',
+    'vmwProdBuild'    => 'vmwProdBuild',
+    'vmwProdUpdate'   => 'vmwProdUpdate',
+    'vmwProdPatch'    => 'vmwProdPatch',
+    'os'              => 'vmwProdName',
 );
 
 %FUNCS = (
@@ -66,68 +67,57 @@ $VERSION = '3.49';
 );
 
 sub vendor {
-    return 'mikrotik';
+    return 'VMware';
 }
 
-sub serial {
-    my $mikrotik = shift;
-    return $mikrotik->serial1;
+sub os_ver {
+    my $vmware     = shift;
+    my $vmwProdVersion = $vmware->vmwProdVersion();
+    my $vmwProdBuild = $vmware->vmwProdBuild() || '';
+    my $vmwProdUpdate = $vmware->vmwProdUpdate() || '';
+    my $vmwProdPatch = $vmware->vmwProdPatch() || '';
+
+    my $ver = "$vmwProdVersion" . "-" . "$vmwProdUpdate.$vmwProdPatch.$vmwProdBuild";
+    return $ver;
 }
 
-sub model {
-    my $mikrotik = shift;
-    my $descr = $mikrotik->description() || '';
-    my $model = undef;
-    $model = $1 if ( $descr =~ /^RouterOS\s+(\S+)$/i );
-    return $model;
+sub agg_ports {
+   return agg_ports_lag(@_);
 }
 
-sub os {
-    return 'routeros';
-}
-
-sub board_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlTemperature;
-    return $temp / 10.0;
-}
-
-sub cpu_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlProcessorTemperature;
-    return $temp / 10.0;
-}
+#sub layers {
+#    return '01001010';
+#}
 
 1;
 __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::Mikrotik - SNMP Interface to Mikrotik devices
+SNMP::Info::Layer3::VMware - SNMP Interface to VMware ESXi
 
 =head1 AUTHORS
 
-Jeroen van Ingen
-initial version based on SNMP::Info::Layer3::NetSNMP by Bradley Baetz and Bill Fenner
+Max Kosmach
 
 =head1 SYNOPSIS
 
- # Let SNMP::Info determine the correct subclass for you. 
- my $mikrotik = new SNMP::Info(
+ # Let SNMP::Info determine the correct subclass for you.
+ my $host = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
-                          DestHost    => 'myrouter',
+                          DestHost    => 'myhost',
                           Community   => 'public',
                           Version     => 2
-                        ) 
+                        )
     or die "Can't connect to DestHost.\n";
 
- my $class      = $mikrotik->class();
+ my $class      = $host->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
-Subclass for Mikrotik devices
+Subclass for VMware ESXi
 
 =head2 Inherited Classes
 
@@ -135,21 +125,25 @@ Subclass for Mikrotik devices
 
 =item SNMP::Info::Layer3
 
+=item SNMP::Info::IEEE802dot3ad
+
 =back
 
 =head2 Required MIBs
 
 =over
 
-=item F<HOST-RESOURCES-MIB>
+=item F<VMWARE-SYSTEM-MIB>
 
-=item F<MIKROTIK-MIB>
-
-=item Inherited Classes' MIBs
-
-See L<SNMP::Info::Layer3> for its own MIB requirements.
+=item F<VMWARE-PRODUCTS-MIB>
 
 =back
+
+=head2 Inherited Classes' MIBs
+
+See L<SNMP::Info::Layer3/"Required MIBs"> for its MIB requirements.
+
+See L<SNMP::Info::IEEE802dot3ad/"Required MIBs"> for its MIB requirements.
 
 =head1 GLOBALS
 
@@ -157,38 +151,20 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $mikrotik->vendor()
+=item $vmware->vendor()
 
-Returns C<'mikrotik'>.
+Returns C<'VMware'>.
 
-=item $mikrotik->os()
+=item $vmware->os()
 
-Returns C<'routeros'>.
+Returns the value of C<vmwProdName.0>.
 
-=item $mikrotik->model()
+=item $vmware->os_ver()
 
-Tries to extract the device model from C<sysDescr>.
+Returns the software version specified as major-update.patch.build (ex.  5.1.0-3.55.2583090).
 
-=item $mikrotik->os_ver()
+(C<vmwProdVersion>)-(C<vmwProdUpdate>).(C<vmwProdPatch>).(C<vmwProdBuild>)
 
-Returns the value of C<mtxrLicVersion>.
-
-=item $mikrotik->os_level()
-
-Returns the value of RouterOS level C<mtxrLicLevel>
-
-=item $mikrotik->board_temp()
-=item $mikrotik->cpu_temp()
-
-Returns the appropriate temperature values
-
-=item $mikrotik->serial()
-
-Returns the device serial.
-
-=item $mikrotik->firmware()
-
-Returns the firmware version of hardware.
 
 =back
 
@@ -201,11 +177,13 @@ See documentation in L<SNMP::Info::Layer3> for details.
 These are methods that return tables of information in the form of a reference
 to a hash.
 
-=head2 Overrides
-
-None.
-
 =over
+
+=item C<agg_ports>
+
+Returns a HASH reference mapping from slave to master port for each member of
+a port bundle on the device. Keys are ifIndex of the slave ports, Values are
+ifIndex of the corresponding master ports.
 
 =back
 

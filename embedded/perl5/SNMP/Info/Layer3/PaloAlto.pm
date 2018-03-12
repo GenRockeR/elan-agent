@@ -1,7 +1,6 @@
-# SNMP::Info::Layer3::Mikrotik
-# $Id$
+# SNMP::Info::Layer3::PaloAlto
 #
-# Copyright (c) 2011 Jeroen van Ingen
+# Copyright (c) 2014-2016 Max Kosmach
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,14 +27,14 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::Mikrotik;
+package SNMP::Info::Layer3::PaloAlto;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
 
-@SNMP::Info::Layer3::Mikrotik::ISA       = qw/SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::Mikrotik::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::PaloAlto::ISA       = qw/SNMP::Info::Layer3 Exporter/;
+@SNMP::Info::Layer3::PaloAlto::EXPORT_OK = qw//;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
@@ -43,18 +42,17 @@ $VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
-    'HOST-RESOURCES-MIB'       => 'hrSystem',
-    'MIKROTIK-MIB'             => 'mtxrLicVersion',
+    'PAN-COMMON-MIB'   => 'panSysSwVersion',
+    'PAN-PRODUCTS-MIB' => 'panProductsMibsModule',
 );
 
 %GLOBALS = (
     %SNMP::Info::Layer3::GLOBALS,
-    'hrSystemUptime' => 'hrSystemUptime',
-    'os_level'       => 'mtxrLicLevel',
-    'os_ver'         => 'mtxrLicVersion',
-    'serial1'        => 'mtxrSystem.3.0',
-    'firmware'       => 'mtxrSystem.4.0',
-    'fan_type'       => 'mtxrHlActiveFan',
+    'mac'        => 'ifPhysAddress.1',
+    # Oids from PAN-COMMON-MIB.
+    'os_ver'     => 'panSysSwVersion',
+    'serial1'    => 'panSysSerialNumber',
+    'pa_model'   => 'panChassisType'
 );
 
 %FUNCS = (
@@ -66,68 +64,57 @@ $VERSION = '3.49';
 );
 
 sub vendor {
-    return 'mikrotik';
-}
-
-sub serial {
-    my $mikrotik = shift;
-    return $mikrotik->serial1;
+    return 'Palo Alto Networks';
 }
 
 sub model {
-    my $mikrotik = shift;
-    my $descr = $mikrotik->description() || '';
-    my $model = undef;
-    $model = $1 if ( $descr =~ /^RouterOS\s+(\S+)$/i );
+    my $pa = shift;
+    my $model = $pa->pa_model;
+    $model =~ s/^pan//;
     return $model;
 }
 
 sub os {
-    return 'routeros';
+    return 'PAN-OS';
 }
 
-sub board_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlTemperature;
-    return $temp / 10.0;
+sub layers {
+    return '01001100';
 }
 
-sub cpu_temp {
-    my $mikrotik = shift;
-    my $temp = $mikrotik->mtxrHlProcessorTemperature;
-    return $temp / 10.0;
-}
+# TODO:
+# support fan and temp sensors from ENTITY-SENSOR-MIB
+# test with other Palo Alto devices
 
 1;
 __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::Mikrotik - SNMP Interface to Mikrotik devices
+SNMP::Info::Layer3::PaloAlto - SNMP Interface to Palo Alto devices
 
 =head1 AUTHORS
 
-Jeroen van Ingen
-initial version based on SNMP::Info::Layer3::NetSNMP by Bradley Baetz and Bill Fenner
+Max Kosmach
 
 =head1 SYNOPSIS
 
- # Let SNMP::Info determine the correct subclass for you. 
- my $mikrotik = new SNMP::Info(
+ # Let SNMP::Info determine the correct subclass for you.
+ my $pa = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
                           DestHost    => 'myrouter',
                           Community   => 'public',
                           Version     => 2
-                        ) 
+                        )
     or die "Can't connect to DestHost.\n";
 
- my $class      = $mikrotik->class();
+ my $class      = $pa->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
-Subclass for Mikrotik devices
+Subclass for Palo Alto devices
 
 =head2 Inherited Classes
 
@@ -141,10 +128,6 @@ Subclass for Mikrotik devices
 
 =over
 
-=item F<HOST-RESOURCES-MIB>
-
-=item F<MIKROTIK-MIB>
-
 =item Inherited Classes' MIBs
 
 See L<SNMP::Info::Layer3> for its own MIB requirements.
@@ -157,38 +140,25 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $mikrotik->vendor()
+=item $pa->vendor()
 
-Returns C<'mikrotik'>.
+Returns C<'Palo Alto Networks'>.
 
-=item $mikrotik->os()
+=item $pa->os()
 
-Returns C<'routeros'>.
+Returns C<'PANOS'>.
 
-=item $mikrotik->model()
+=item $pa->model()
 
-Tries to extract the device model from C<sysDescr>.
+Returns the value of C<panChassisType.0>.
 
-=item $mikrotik->os_ver()
+=item $pa->os_ver()
 
-Returns the value of C<mtxrLicVersion>.
+Returns the value of C<panSysSwVersion.0>.
 
-=item $mikrotik->os_level()
+=item $pa->serial()
 
-Returns the value of RouterOS level C<mtxrLicLevel>
-
-=item $mikrotik->board_temp()
-=item $mikrotik->cpu_temp()
-
-Returns the appropriate temperature values
-
-=item $mikrotik->serial()
-
-Returns the device serial.
-
-=item $mikrotik->firmware()
-
-Returns the firmware version of hardware.
+Returns the value of C<panSysSerialNumber.0>.
 
 =back
 
@@ -203,9 +173,12 @@ to a hash.
 
 =head2 Overrides
 
-None.
-
 =over
+
+=item $pa->layers()
+
+Returns 01001110.  Palo Alto doesn't report layers, modified to reflect
+Layer 2,3,4,7 functionality.
 
 =back
 

@@ -44,7 +44,7 @@ use constant {
     IPV6MIB => 3,
 };
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 
 
@@ -72,15 +72,18 @@ $VERSION = '3.33';
     'ip_pfx_origin'     => 'ipAddressPrefixOrigin',         # IP-MIB
     'c_pfx_origin'      => 'cIpAddressPfxOrigin',           # CISCO-IETF-IP-MIB 
 
-    'ip_addr6_pfx'      => 'ipAddressPrefix',               # IP-MIB 
+    'ip_addr6_pfx'      => 'ipAddressPrefix',               # IP-MIB
     'c_addr6_pfx'       => 'cIpAddressPrefix',              # CISCO-IETF-IP-MIB 
+
+    'ip_addr6_pfxlen'   => 'ipAddressPrefixLength',         # IP-MIB
+    'c_addr6_pfxlen'    => 'cIpAddressPfxLength',           # CISCO-IETF-IP-MIB
+    'i6_addr_pfxlen'    => 'ipv6AddrPfxLength',             # IPV6-MIB
 
     'ip_addr6_index'    => 'ipAddressIfIndex',              # IP-MIB
     'c_addr6_index'     => 'cIpAddressIfIndex',             # CISCO-IETF-IP-MIB 
 
     'ip_addr6_type'     => 'ipAddressType',                 # IP-MIB
     'c_addr6_type'      => 'cIpAddressType',                # CISCO-IETF-IP-MIB
-    
 );
 
 %MUNGE = (
@@ -313,7 +316,9 @@ sub ipv6_addr_prefix {
     foreach my $row (keys %$ipv6_addr_prefix){
         if ($row =~ /^(\d+)\.[\d\.]+$/) {
             my $type = $1;
-            if ($type == 2) { # IPv6
+	    if (($type == 2) or ($type == 4)) { # IPv6
+		# Remove interface specific part from vrf interfaces
+		if ($row =~ /^((\d+\.){17}\d+)/) { $row = $1 }
 		# Remove the OID part from the value
 		my $val = $ipv6_addr_prefix->{$row};
 		if ( $val =~ /^.+?((?:\d+\.){19}\d+)$/ ){
@@ -322,6 +327,33 @@ sub ipv6_addr_prefix {
 		}
 	    }
 	}
+    }
+    printf("%s: data comes from %s.\n", &_my_sub_name, $info->_method_used() ) if $info->debug();
+    return $return;
+}
+
+sub ipv6_addr_prefixlength {
+    my $info = shift;
+    my $return;
+    my $ipv6_addr_prefix = &_test_methods( $info, {
+        ip_addr6_pfx  => IPMIB,
+        c_addr6_pfx   => CISCO,
+    });
+    return unless defined $ipv6_addr_prefix;
+    foreach my $row (keys %$ipv6_addr_prefix) {
+        if ($row =~ /^(\d+)\.[\d\.]+$/) {
+            my $type = $1;
+            if (($type == 2) or ($type == 4)) { # IPv6
+                # Remove interface specific part from vrf interfaces
+                if ($row =~ /^((\d+\.){17}\d+)/) { $row = $1 }
+                # Remove the OID part from the value
+                my $val = $ipv6_addr_prefix->{$row};
+                if ( $val =~ /^.+?((?:\d+\.){19}(\d+))$/ ) {
+                    $val = $2;
+                    $return->{$row} = $val;
+                }
+            }
+        }
     }
     printf("%s: data comes from %s.\n", &_my_sub_name, $info->_method_used() ) if $info->debug();
     return $return;
@@ -353,6 +385,7 @@ sub ipv6_addr {
 sub _method_used {
     my $info = shift;
     my $return = 'none of the MIBs';
+    # FIXME ugh! a global. makes order of calls important for debug.
     if (defined $info::METHOD) {
         if ($info::METHOD eq IPMIB) {
             $return = 'IP-MIB';
@@ -372,6 +405,7 @@ sub _test_methods {
     foreach my $method (sort {$test->{$a} <=> $test->{$b}} keys %$test) {
         $return = $info->$method || {};
         if (scalar keys %$return) {
+            # FIXME ugh! a global. makes order of calls important for debug.
             $info::METHOD = $test->{$method};
             last;
         }
@@ -487,6 +521,10 @@ Maps an IPv6 prefix with its origin (manual, well-known, dhcp, etc.)
 =item $info->ipv6_addr_prefix() 
 
 Maps IPv6 addresses with their prefixes
+
+=item $info->ipv6_addr_prefixlength()
+
+Maps IPv6 addresses with their prefix length
 
 =item $info->ipv6_addr()
 

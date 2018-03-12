@@ -38,7 +38,7 @@ use SNMP::Info::Layer3;
 
 use vars qw/$VERSION %GLOBALS %FUNCS %MIBS %MUNGE/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
@@ -165,8 +165,9 @@ sub i_type {
 
     my %i_type;
     foreach my $if ( keys %$idx ) {
-
-        $i_type{$if} = 'ethernetCsmacd';
+        $i_type{$if} =
+          ((exists $f5->{sess}->{UseEnums} and $f5->{sess}->{UseEnums})
+           ? 'ethernetCsmacd' : 6 );
     }
     return \%i_type;
 }

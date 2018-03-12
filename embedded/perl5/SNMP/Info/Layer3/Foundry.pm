@@ -48,7 +48,7 @@ use SNMP::Info::LLDP;
 
 use vars qw/$VERSION %GLOBALS %FUNCS %MIBS %MUNGE/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
@@ -61,6 +61,7 @@ $VERSION = '3.33';
     'FOUNDRY-SN-STACKING-MIB'     => 'snStackingOperUnitRole',
     'FOUNDRY-POE-MIB'             => 'snAgentPoeGblPowerCapacityTotal',
     'FOUNDRY-SN-SWITCH-GROUP-MIB' => 'snSwGroupOperMode',
+    'BROCADE-PRODUCTS-MIB'        => 'sysName',
 );
 
 %GLOBALS = (

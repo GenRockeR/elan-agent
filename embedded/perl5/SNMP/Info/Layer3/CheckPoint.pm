@@ -1,4 +1,4 @@
-# SNMP::Info::Layer3::NetSNMP
+# SNMP::Info::Layer3::CheckPoint
 # $Id$
 #
 # Copyright (c) 2008 Bill Fenner
@@ -28,15 +28,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-package SNMP::Info::Layer3::NetSNMP;
+package SNMP::Info::Layer3::CheckPoint;
 
 use strict;
 use Exporter;
 use SNMP::Info::Layer3;
 use SNMP::Info::LLDP;
 
-@SNMP::Info::Layer3::NetSNMP::ISA       = qw/SNMP::Info::LLDP SNMP::Info::Layer3 Exporter/;
-@SNMP::Info::Layer3::NetSNMP::EXPORT_OK = qw//;
+@SNMP::Info::Layer3::CheckPoint::ISA       = qw/SNMP::Info::LLDP SNMP::Info::Layer3 Exporter/;
+@SNMP::Info::Layer3::CheckPoint::EXPORT_OK = qw//;
 
 use vars qw/$VERSION %GLOBALS %MIBS %FUNCS %MUNGE/;
 
@@ -45,9 +45,11 @@ $VERSION = '3.49';
 %MIBS = (
     %SNMP::Info::Layer3::MIBS,
     %SNMP::Info::LLDP::MIBS,
-    'UCD-SNMP-MIB'       => 'versionTag',
-    'NET-SNMP-TC'        => 'netSnmpAgentOIDs',
-    'HOST-RESOURCES-MIB' => 'hrSystem',
+    'CHECKPOINT-MIB'      => 'fwProduct',
+    'UCD-SNMP-MIB'        => 'versionTag',
+    'NET-SNMP-TC'         => 'netSnmpAgentOIDs',
+    'NET-SNMP-EXTEND-MIB' => 'nsExtendNumEntries',
+    'HOST-RESOURCES-MIB'  => 'hrSystem',
 );
 
 %GLOBALS = (
@@ -55,11 +57,15 @@ $VERSION = '3.49';
     %SNMP::Info::LLDP::GLOBALS,
     'netsnmp_vers'   => 'versionTag',
     'hrSystemUptime' => 'hrSystemUptime',
+    
 );
 
 %FUNCS = (
     %SNMP::Info::Layer3::FUNCS,
     %SNMP::Info::LLDP::FUNCS,
+
+    # Net-SNMP Extend table that could but customize to add a the CheckPoint version
+    'extend_output_table' => 'nsExtendOutputFull',
 );
 
 %MUNGE = (
@@ -68,22 +74,42 @@ $VERSION = '3.49';
 );
 
 sub vendor {
-    return 'Net-SNMP';
+    return 'checkpoint';
+}
+
+sub model {
+    my $ckp = shift;
+    my $id = $ckp->id;
+
+    my $model = &SNMP::translateObj($id);
+
+    if (defined $model) {
+        $model =~ s/^checkPoint//;
+        return $model;
+    } else {
+        return $id;
+    }
 }
 
 sub os {
-    my $netsnmp = shift;
-    my $descr   = $netsnmp->description();
-
-    return $1 if ( $descr =~ /^(\S+)\s+/ );
-    return;
+    return 'checkpoint';
 }
 
 sub os_ver {
-    my $netsnmp = shift;
-    my $descr   = $netsnmp->description();
-    my $vers    = $netsnmp->netsnmp_vers();
+    my $ckp = shift;
+    my $extend_table = $ckp->extend_output_table() || {};
+
+    my $descr   = $ckp->description();
+    my $vers    = $ckp->netsnmp_vers();
     my $os_ver  = undef;
+
+    foreach my $ex (keys %$extend_table) {
+        (my $name = pack('C*',split(/\./,$ex))) =~ s/[^[:print:]]//g;
+        if ($name eq 'ckpVersion') {
+            return $1 if ($extend_table->{$ex} =~ /^This is Check Point's software version (.*)$/);
+            last;
+        }
+    } 
 
     $os_ver = $1 if ( $descr =~ /^\S+\s+\S+\s+(\S+)\s+/ );
     if ($vers) {
@@ -95,7 +121,22 @@ sub os_ver {
 }
 
 sub serial {
+    my $ckp = shift;
+    my $extend_table = $ckp->extend_output_table() || {};
+
+    foreach my $ex (keys %$extend_table) {
+        (my $name = pack('C*',split(/\./,$ex))) =~ s/[^[:print:]]//g;
+        if ($name eq 'ckpAsset') {
+            return $1 if ($extend_table->{$ex} =~ /Serial Number: (\S+)/);
+            last;
+        }
+    }
+
     return '';
+}
+
+sub layers {
+    return '01001100';
 }
 
 # sysUptime gives us the time since the SNMP daemon has restarted,
@@ -104,13 +145,13 @@ sub serial {
 # sysUptime-based discontinuity timers or other TimeStamp
 # objects.
 sub uptime {
-    my $netsnmp = shift;
+    my $ckp = shift;
     my $uptime;
 
-    $uptime = $netsnmp->hrSystemUptime();
+    $uptime = $ckp->hrSystemUptime();
     return $uptime if defined $uptime;
 
-    return $netsnmp->SUPER::uptime();
+    return $ckp->SUPER::uptime();
 }
 
 sub i_ignore {
@@ -135,16 +176,16 @@ __END__
 
 =head1 NAME
 
-SNMP::Info::Layer3::NetSNMP - SNMP Interface to L3 Net-SNMP Devices
+SNMP::Info::Layer3::CheckPoint - SNMP Interface to CheckPoint Devices
 
 =head1 AUTHORS
 
-Bradley Baetz and Bill Fenner
+Ambroise Rosset
 
 =head1 SYNOPSIS
 
  # Let SNMP::Info determine the correct subclass for you. 
- my $netsnmp = new SNMP::Info(
+ my $ckp = new SNMP::Info(
                           AutoSpecify => 1,
                           Debug       => 1,
                           DestHost    => 'myrouter',
@@ -153,12 +194,20 @@ Bradley Baetz and Bill Fenner
                         ) 
     or die "Can't connect to DestHost.\n";
 
- my $class      = $netsnmp->class();
+ my $class      = $ckp->class();
  print "SNMP::Info determined this device to fall under subclass : $class\n";
 
 =head1 DESCRIPTION
 
 Subclass for Generic Net-SNMP devices
+
+=head2 WARNING
+
+To correctly and completelly work, you should add the following line in the file C</etc/snmp/snmpd.local.conf> on each of your CheckPoint devices:
+
+ # Netdisco SNMP configuration
+ extend  ckpVersion /opt/CPsuite-R77/fw1/bin/fw ver
+ extend  ckpAsset /bin/clish -c 'show asset all'
 
 =head2 Inherited Classes
 
@@ -192,28 +241,37 @@ These are methods that return scalar value from SNMP
 
 =over
 
-=item $netsnmp->vendor()
+=item $ckp->vendor()
 
-Returns 'Net-SNMP'.
+Returns 'checkpoint'.
 
-=item $netsnmp->os()
+=item $ckp->model()
+
+Return the model type of the CheckPoint device (Based on the sysObjectOID translation).
+
+=item $ckp->os()
 
 Returns the OS extracted from C<sysDescr>.
 
-=item $netsnmp->os_ver()
+=item $ckp->os_ver()
 
 Returns the software version extracted from C<sysDescr>, along
 with the Net-SNMP version.
 
-=item $netsnmp->uptime()
+=item $ckp->uptime()
 
 Returns the system uptime instead of the agent uptime.
 NOTE: discontinuity timers and other Time Stamp based objects
 are based on agent uptime, so use orig_uptime().
 
-=item $netsnmp->serial()
+=item $ckp->serial()
 
-Returns ''.
+Return the serial number of the device if the SNMP server is configured as indicated previously.
+Return '' in other case.
+
+=item $ckp->layers()
+
+Return '01001100'.
 
 =back
 
@@ -234,7 +292,7 @@ to a hash.
 
 =over
 
-=item $netsnmp->i_ignore()
+=item $ckp->i_ignore()
 
 Returns reference to hash.  Increments value of IID if port is to be ignored.
 

@@ -39,7 +39,7 @@ use SNMP::Info;
 
 use vars qw/$VERSION %MIBS %FUNCS %GLOBALS %MUNGE/;
 
-$VERSION = '3.33';
+$VERSION = '3.49';
 
 %MIBS = (
     'CISCO-CONFIG-COPY-MIB' => 'ccCopyTable',
@@ -97,6 +97,10 @@ sub copy_run_tftp {
         print "Using new method, row iid: $rand\n" if $ciscoconfig->debug();
 
         #Check each set, delete created row if any fail
+        unless ( $ciscoconfig->set_config_row_status( 5, $rand ) ) {
+            $ciscoconfig->error_throw("Initializing config copy instruction failed");
+            return;
+        }
         unless ( $ciscoconfig->set_config_source_type( 4, $rand ) ) {
             $ciscoconfig->error_throw("Setting source type failed");
             unless ( $ciscoconfig->set_config_row_status( 6, $rand ) ) {
