@@ -377,7 +377,7 @@ sub handle_connection {
         $answer = snmp_poll($request->{ip});
     }
     elsif($channel == $parse_trap_server ) {
-        $answer = snmp_parse_trap($request->{trap_str}, $request->{ip}, $request->{connection});
+        $answer = snmp_parse_trap($request->{trap}, $request->{ip}, $request->{connection});
     }
     elsif($channel == $nasport2ifindex_server) {
         $answer = NasPortToIfIndex($request->{nas_port}, $request->{ip}, $request->{connection});
