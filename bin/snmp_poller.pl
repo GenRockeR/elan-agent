@@ -274,7 +274,7 @@ sub snmp_parse_trap {
         }
         1;
       } or do {
-          # TODO: raise up alert... to center
+          # TODO: notify an alert...
           print("snmp_parse_trap: $sc: ", $@);
       };
     }

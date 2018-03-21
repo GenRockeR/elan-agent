@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+import functools
 import re
 import threading
 
 from elan import session, nac, neuron, utils, device
 from elan.capture import Capture
 from elan.event import Event, ExceptionEvent
+from elan.snmp import DeviceSnmpManager
 
 
 class DeviceTracker():
@@ -57,15 +59,22 @@ class DeviceTracker():
                     ip = packet.ipv6.src
 
                 if session.ignore_IP(ip):
-                    _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, time=epoch)
+                    mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, time=epoch)
                 else:
-                    _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, ip=ip, time=epoch)
+                    mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, ip=ip, time=epoch)
             else:
-                _mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, time=epoch)
+                mac_added, vlan_added, _ip_added = session.seen(mac, vlan=vlan, time=epoch)
+
+            tasks = []  # tasks to be launched in thread
+
+            if mac_added:
+                tasks.append(functools.partial(DeviceSnmpManager().set_port_of_mac, mac))
 
             if vlan_added and nac.vlan_has_access_control(vlan):
-                # Check Mac authorized on VLAN
-                task = threading.Thread(target=self.checkAuthzOnVlan, args=(mac, vlan))
+                tasks.append(functools.partial(self.checkAuthzOnVlan, mac, vlan))
+
+            if tasks:
+                task = threading.Thread(target=lambda: [task() for task in tasks])
                 task.start()
 
             source = packet.highest_layer

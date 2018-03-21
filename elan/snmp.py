@@ -13,17 +13,23 @@ SNMP_NASPORT_TO_IFINDEX_SOCK = '/tmp/snmp-nasport2ifindex.sock'
 SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
 SNMP_READ_PARAMS_CACHE_PATH = 'snmp:read:params'
 
+IGNORE_SWITCH_KEYS = (
+        'fw_mac', 'fw_port', 'fw_status', 'qb_fdb_index', 'v_index', 'bp_index', 'bp_port' , 'i_vlan', 'i_untagged', 'i_vlan_membership',
+        'i_vlan_membership_untagged', 'qb_i_vlan_t', 'qb_fw_mac', 'qb_fw_port', 'qb_fw_vlan', 'qb_fw_status'
+)
+
 
 class DeviceSnmpManager():
     '''
         Class for making SNMP::Info poll request on devices and to process traps.
-        It will keeping track of SNMP poll results (sending them to CC and storing them locally)
+        It will keeping track of SNMP poll results (notifying them and storing them locally)
     '''
     DEVICE_SNMP_ID_COUNTER = 'device:snmp:counter'
     DEVICE_SNMP_CACHE_PATH = 'device:snmp:id'  # polled device per ID
     DEVICE_IP_SNMP_CACHE_PATH = 'device:snmp:ip'  # device ID per IP
     DEVICE_MAC_SNMP_CACHE_PATH = 'device:snmp:mac'  # device ID per MAC
     DEVICE_POLL_EVERY = 600  # seconds
+    DEVICE_PORTS_WITH_NEW_MAC_PATH = 'device:snmp:ports_with_new_mac'
 
     def __init__(self):
         self.synapse = Synapse()
@@ -76,10 +82,7 @@ class DeviceSnmpManager():
         device1['ports'] = sorted(device1['ports'], key=lambda x: x.get('index', 0))
         device2['ports'] = sorted(device2['ports'], key=lambda x: x.get('index', 0))
 
-        return not almost_equal_dicts(device1, device2, [
-                'fw_mac', 'fw_port', 'fw_status', 'qb_fdb_index', 'v_index', 'bp_index', 'bp_port' , 'i_vlan', 'i_untagged', 'i_vlan_membership',
-                'i_vlan_membership_untagged', 'qb_i_vlan_t', 'qb_fw_mac', 'qb_fw_port', 'qb_fw_vlan', 'qb_fw_status']
-        )
+        return not almost_equal_dicts(device1, device2, IGNORE_SWITCH_KEYS)
 
     async def _unix_socket_connection(self, path, data):
         reader, writer = await asyncio.open_unix_connection(path)
@@ -129,8 +132,8 @@ class DeviceSnmpManager():
         # Update cached device if needed
         if cached_device != device_snmp:
             if cached_device is None or self.switch_has_changed(cached_device, device_snmp):
-                # send update to CC if has changed
-                Dendrite.publish_single('snmp', device_snmp)
+                # notify if has changed. Only send relevant keys
+                Dendrite.publish_single('snmp', { k:v for k, v in device_snmp.items() if k not in IGNORE_SWITCH_KEYS })
             # cache the device, including dynamic fields like fw_mac
             with self.synapse.pipeline() as pipe:
                 pipe.hset(self.DEVICE_SNMP_CACHE_PATH, device_id, device_snmp)
@@ -155,11 +158,11 @@ class DeviceSnmpManager():
 
         return await self._unix_socket_connection(SNMP_PARSE_TRAP_SOCK, dict(ip=ip, trap=trap_str, connection=read_params))
 
-    def get_read_params(self, device_ip):
+    async def get_read_params(self, device_ip):
         # Grab SNMP read credentials of device
         read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
         if not read_params:
-            if self.poll(device_ip, timeout=600):  # No Cached params, may take time to test them all
+            if await self.poll(device_ip, timeout=600):  # No Cached params, may take time to test them all
                 read_params = self.synapse.hget(SNMP_READ_PARAMS_CACHE_PATH, device_ip)
             # TOTO: send alert to CC ON if not read_params here
         return read_params
@@ -184,7 +187,7 @@ class DeviceSnmpManager():
         device_ip = snmp_connection_str.split(']', 1)[0].split('[', 1)[1]
 
         # Grab SNMP read credentials of device
-        read_params = self.get_read_params(device_ip)
+        read_params = await self.get_read_params(device_ip)
         if not read_params:
             return
 
@@ -239,14 +242,81 @@ class DeviceSnmpManager():
                 elif trap['trapType'] == 'dot11Deauthentication'or \
                     (trap['trapType'] == ['mac'] and trap['trapOperation'] == 'removed'):
                     session.end(mac=trap['trapMac'], time=trap_time)
+            elif trap['trapType'] in ['up', 'down']:
+                port = await self.getPortFromIndex(device_ip, trap['trapIfIndex'])
+                if port:
+                    port['device_ip'] = device_ip
+                    if trap['trapType'] == 'up':
+                        # remember this port could have new ip.
+                        self.port_has_new_macs(port)
+                    else:
+                        self.port_has_no_new_macs(port)
+                        # remove macs that are no longer on port
+                        mac_ports = await self.get_macs_on_device(device_ip)
+                        for mac in session.port_macs(port):
+                            if mac not in mac_ports:
+                                session.end(mac)
+
             # TODO: Mark Port as potentially containing a new  mac -> macksuck when new mac?
         else:
             event = Event(event_type='runtime-failure', source='snmp-notification', level='warning')
             event.add_data('ip', device_ip)
             event.notify()
 
+    def set_port_of_mac(self, mac):
+        '''
+        Will try to fond port of given
+        '''
+        ports_with_new_macs = self.get_ports_with_new_macs()
+
+        if ports_with_new_macs:
+            device_ips = { port.pop('device_ip') for port in ports_with_new_macs }
+            for device_ip in device_ips:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                mac_ports = loop.run_until_complete(self.get_macs_on_device(device_ip))
+                loop.close()
+                port = mac_ports.get(mac, None)
+                if port in ports_with_new_macs:
+                    session.seen(mac, port=port)
+                    port['device_ip'] = device_ip
+                    self.port_has_no_new_macs(port)
+                    break
+
+    def port_has_new_macs(self, port):
+        self.synapse.sadd(self.DEVICE_PORTS_WITH_NEW_MAC_PATH, port)
+
+    def port_has_no_new_macs(self, port):
+        self.synapse.srem(self.DEVICE_PORTS_WITH_NEW_MAC_PATH, port)
+
+    def get_ports_with_new_macs(self):
+        return self.synapse.smembers_as_list(self.DEVICE_PORTS_WITH_NEW_MAC_PATH)
+
+    async def get_macs_on_device(self, device_ip):
+        '''
+        Will trigger an SNMP poll on device_ip
+        Returns all macs on the device associated with the port they are on.
+        '''
+        snmp_device = await self.poll(device_ip, timeout=600)
+        macs_by_if_index = {}
+        fw_mac = snmp_device.get('fw_mac', {})
+        for fw_hash, if_index in snmp_device.get('fw_port', {}).items():
+            if fw_hash in fw_mac:
+                if if_index not in macs_by_if_index:
+                    macs_by_if_index[if_index] = set()
+                macs_by_if_index[if_index].add(fw_mac[fw_hash])
+
+        mac_ports = {}
+        for if_index, macs in macs_by_if_index.items():
+            port = await self.getPortFromIndex(device_ip, if_index)
+            if port:
+                for mac in macs:
+                    mac_ports[mac] = port
+
+        return mac_ports
+
     async def nasPort2IfIndexes(self, device_ip, nas_port, timeout=5):
-        read_params = self.get_read_params(device_ip)
+        read_params = await self.get_read_params(device_ip)
         return await self._unix_socket_connection(SNMP_NASPORT_TO_IFINDEX_SOCK, dict(nas_port=nas_port, ip=device_ip, connection=read_params))
 
     async def getPortFromIndex(self, device_ip, if_index, force_poll=False, no_poll=False):
@@ -269,7 +339,7 @@ class DeviceSnmpManager():
             else:
                 device = self.get_device_by_ip(device_ip)
                 if not device and not no_poll:
-                    device = self.poll(device_ip)
+                    device = await self.poll(device_ip)
                     device_polled = True
 
             if device:

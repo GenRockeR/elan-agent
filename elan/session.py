@@ -14,6 +14,7 @@ SESSION_IDS_SEQUENCE_PATH = 'device:mac:session-ids:sequence'
 
 MAC_PORT_PATH = 'device:mac:port'
 MAC_LAST_PORT_PATH = 'device:mac:last_port'
+PORT_MACS_PATH = 'device:{local_id}:port:{interface}'
 
 MAC_VLANS_PATH = 'device:mac:{mac}:vlans'
 MAC_VLAN_IPS_PATH = 'device:mac:{mac}:vlan:{vlan}:ips'
@@ -100,6 +101,12 @@ def mac_has_ip_on_vlan(mac, ip, vlan):
 
 def mac_port(mac):
     return synapse.hget(MAC_PORT_PATH, mac)
+
+
+def port_macs(port):
+    if 'interface' in port:
+        return synapse.smembers(PORT_MACS_PATH.format(**port))
+    return set()
 
 
 def seen(mac, vlan=None, port=None, ip=None, time=None):
@@ -194,6 +201,8 @@ def seen(mac, vlan=None, port=None, ip=None, time=None):
     if port is not None and port != old_port:
         pipe.hset(MAC_PORT_PATH, mac, port)
         pipe.hset(MAC_LAST_PORT_PATH, mac, port)  # Keep track of last port when port is deleted
+        if 'interface' in port:
+            pipe.sadd(PORT_MACS_PATH.format(**port), mac)
         pipe.execute()
         if not mac_added:  # TODO check if can write 'and not vlan_added and not ip_added': in CC will port be updated if mac already present and new vlan or ip session ?
             notify_MAC_port(mac=mac, mac_local_id=mac_local_id, port=port)
@@ -282,7 +291,11 @@ def end(mac, vlan=None, ip=None, time=None):
         if vlan_local_id:
             notify_end_VLAN_session(mac=mac, mac_local_id=mac_local_id, vlan=vlan, vlan_local_id=vlan_local_id, end=time)
     elif mac_local_id:
-        synapse.hdel(MAC_PORT_PATH, mac)
+        port = mac_port(mac)
+        pipe.hdel(MAC_PORT_PATH, mac)
+        if port and 'interface' in port:
+            pipe.srem(PORT_MACS_PATH.format(**port), mac)
+        pipe.execute()
         remove_till_disconnect_authentication_session(mac)
         notify_end_MAC_session(mac=mac, mac_local_id=mac_local_id, end=time)
 
