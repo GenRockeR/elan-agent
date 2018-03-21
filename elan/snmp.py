@@ -30,9 +30,17 @@ class DeviceSnmpManager():
     DEVICE_MAC_SNMP_CACHE_PATH = 'device:snmp:mac'  # device ID per MAC
     DEVICE_POLL_EVERY = 600  # seconds
     DEVICE_PORTS_WITH_NEW_MAC_PATH = 'device:snmp:ports_with_new_mac'
+    DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS = None
+    DEVICE_PORTS_WITH_NEW_MAC_TIMEOUT = datetime.timedelta(minutes=10)
 
     def __init__(self):
         self.synapse = Synapse()
+
+        now = datetime.datetime.now()
+        if DeviceSnmpManager.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS is None:
+            DeviceSnmpManager.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS = {
+                frozenset(port.items()): now for port in self.get_ports_with_new_macs()
+            }
 
     # retrieve from cache
     def get_new_device_id(self):
@@ -285,12 +293,27 @@ class DeviceSnmpManager():
 
     def port_has_new_macs(self, port):
         self.synapse.sadd(self.DEVICE_PORTS_WITH_NEW_MAC_PATH, port)
+        self.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS[frozenset(port.items())] = datetime.datetime.now()
+        self.expire_ports_with_new_macs()
 
     def port_has_no_new_macs(self, port):
         self.synapse.srem(self.DEVICE_PORTS_WITH_NEW_MAC_PATH, port)
+        self.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS.pop(frozenset(port.items()), None)
 
     def get_ports_with_new_macs(self):
+        self.expire_ports_with_new_macs()
         return self.synapse.smembers_as_list(self.DEVICE_PORTS_WITH_NEW_MAC_PATH)
+
+    def expire_ports_with_new_macs(self):
+        if DeviceSnmpManager.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS is None:
+            return
+        now = datetime.datetime.now()
+        to_delete = []
+        for f_port, timestamp in self.DEVICE_PORTS_WITH_NEW_MAC_TIMESTAMPS.items():
+            if now - timestamp > self.DEVICE_PORTS_WITH_NEW_MAC_TIMEOUT:
+                to_delete.append({k:v for k, v in f_port})
+        for port in to_delete:
+            self.port_has_no_new_macs(port)
 
     async def get_macs_on_device(self, device_ip):
         '''
