@@ -31,35 +31,49 @@ table bridge elan {
         iif @ac_ifs jump access_control_in
     }
 
+    chain access_control_forward_arp {
+        iif . oif @ndp_pt_ifs accept
+        oif . iif @ndp_pt_ifs accept
+
+        iif . oif @dns_pt_ifs accept
+        oif . iif @dns_pt_ifs accept
+
+        iif . oif @dhcp_pt_ifs accept
+        oif . iif @dhcp_pt_ifs accept
+    }
+
+    chain access_control_forward_ip4 {
+        ether daddr 01:00:5e:00:00:fb ip daddr 224.0.0.251 udp sport 5353 udp dport 5353 accept
+        
+        udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
+        udp sport bootps udp dport bootpc oif . iif @dhcp_pt_ifs accept
+    }
+
+    chain access_control_forward_ip6 {
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } iif . oif @ndp_pt_ifs accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } oif . iif @ndp_pt_ifs accept
+        
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } iif . oif @dns_pt_ifs accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } oif . iif @dns_pt_ifs accept
+
+        ether daddr 33:33:00:00:00:fb ip6 daddr ff02::fb udp sport 5353 udp dport 5353 accept
+
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit } iif . oif @dhcp_pt_ifs accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert  } oif . iif @dhcp_pt_ifs accept
+
+        ip6 saddr {fe80::/10} ip6 daddr ff02::1:2   udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
+        ip6 saddr {fe80::/10} ip6 daddr {fe80::/10} udp sport dhcpv6-server udp dport dhcpv6-client oif . iif @dhcp_pt_ifs accept
+    }
+
     chain access_control_forward {
         mark 0 ether daddr . oif @mac_on_vlan ether daddr . iif @mac_to_vlan accept 
         mark 0 ether saddr . oif @mac_to_vlan accept
         
-        ether type arp iif . oif @ndp_pt_ifs accept
-        ether type arp oif . iif @ndp_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } iif . oif @ndp_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } oif . iif @ndp_pt_ifs accept
-        
-        ether type arp iif . oif @dns_pt_ifs accept
-        ether type arp oif . iif @dns_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } iif . oif @dns_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } oif . iif @dns_pt_ifs accept
         udp dport domain iif . oif @dns_pt_ifs accept
         udp sport domain oif . iif @dns_pt_ifs accept
         
-        ether daddr 01:00:5e:00:00:fb ip  daddr 224.0.0.251 udp sport 5353 udp dport 5353 accept
-        ether daddr 33:33:00:00:00:fb ip6 daddr ff02::fb    udp sport 5353 udp dport 5353 accept
-
-        ether type arp iif . oif @dhcp_pt_ifs accept
-        ether type arp oif . iif @dhcp_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit } iif . oif @dhcp_pt_ifs accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert  } oif . iif @dhcp_pt_ifs accept
-        
-        ip protocol udp udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
-        ip protocol udp udp sport bootps udp dport bootpc oif . iif @dhcp_pt_ifs accept
-        ip6 saddr {fe80::/10} ip6 daddr ff02::1:2   ip6 nexthdr udp udp sport dhcpv6-client udp dport dhcpv6-server iif . oif @dhcp_pt_ifs accept
-        ip6 saddr {fe80::/10} ip6 daddr {fe80::/10} ip6 nexthdr udp udp sport dhcpv6-server udp dport dhcpv6-client oif . iif @dhcp_pt_ifs accept
-        
+        ether type vmap { arp: jump access_control_forward_arp, ip: jump access_control_forward_ip4, ip6: jump access_control_forward_ip6 }
+                
         mark 0 tcp dport {http, https} log group 20 prefix "add" drop
         
         drop 
