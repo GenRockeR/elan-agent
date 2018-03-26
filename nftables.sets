@@ -10,6 +10,9 @@ table bridge elan {
   set dns_pt_ifs {
     type iface_index . iface_index ;
   }
+  set mdns_pt_ifs {
+    type iface_index . iface_index ;
+  }
   set ac_ifs {
     type iface_index ;
   }

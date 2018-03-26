@@ -43,7 +43,7 @@ table bridge elan {
     }
 
     chain access_control_forward_ip4 {
-        ether daddr 01:00:5e:00:00:fb ip daddr 224.0.0.251 udp sport 5353 udp dport 5353 accept
+        ether daddr 01:00:5e:00:00:fb ip daddr 224.0.0.251 udp sport mdns udp dport mdns iif . oif @mdns_pt_ifs accept
         
         udp sport bootpc udp dport bootps iif . oif @dhcp_pt_ifs accept
         udp sport bootps udp dport bootpc oif . iif @dhcp_pt_ifs accept
@@ -56,7 +56,7 @@ table bridge elan {
         ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } iif . oif @dns_pt_ifs accept
         ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert } oif . iif @dns_pt_ifs accept
 
-        ether daddr 33:33:00:00:00:fb ip6 daddr ff02::fb udp sport 5353 udp dport 5353 accept
+        ether daddr 33:33:00:00:00:fb ip6 daddr ff02::fb udp sport mdns udp dport mdns iif . oif @mdns_pt_ifs accept
 
         ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit } iif . oif @dhcp_pt_ifs accept
         ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert  } oif . iif @dhcp_pt_ifs accept

@@ -109,6 +109,22 @@ class AccessControlConfigurator():
                     elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
                         nft('delete element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
 
+                    # configure mDNS passthroughs
+                    for pt in new_vlan.get('mdns_answers_passthroughs', []):
+                        if pt not in self.vlans.get(nic_name, {}).get('mdns_answers_passthroughs', []):
+                            # add non existing passthrough
+                            nic_out = pt['interface']
+                            if pt['vlan_id']:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=pt['vlan_id'])
+                            nft('add element bridge elan mdns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+                    for pt in self.vlans.get(nic_name, {}).get('mdns_answers_passthroughs', []):
+                        if pt not in new_vlan.get('mdns_answers_passthroughs', []):
+                            # delete no longer existing passthrough
+                            nic_out = pt['interface']
+                            if pt['vlan_id']:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=pt['vlan_id'])
+                            nft('delete element bridge elan mdns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+
                     # Configure connection tracking
                     if new_vlan.get('log', False):
                         nft('add element bridge elan log_ifs {{ {nic} }}'.format(nic=nic_name))
