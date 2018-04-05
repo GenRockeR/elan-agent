@@ -18,31 +18,30 @@ class AccessControlConfigurator():
         self.agent_path = None
         self.vlans_path = None
 
-        self.vlans = {}  # vlans by Vlan-ID
+        self.vlans_by_ifname = {}  # vlans by NIC name (<nic>.<vlan>)
+        self.vlans_by_id = {}  # vlans by Vlan-ID
 
     def new_vlan_conf(self, conf):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
-        new_vlans = {}
+        new_vlans_by_ifname = {}
+        new_vlans_by_id = {}
         for vlan in conf:
+            new_vlans_by_id[vlan['id']] = vlan
             if vlan.get('vlan_id', 0):
                 nic_name = '{nic}.{vid}'.format(nic=vlan['interface'], vid=vlan['vlan_id'])
             else:
                 nic_name = vlan['interface']
-            new_vlans[ nic_name ] = vlan
+            new_vlans_by_ifname[ nic_name ] = vlan
 
-        self.apply_new_vlan_conf(new_vlans)
-
-    def apply_new_vlan_conf(self, new_vlans):
-        # New VLANS
         ip = IPDB(mode='direct')
         try:
             bridge = ip.interfaces[self.bridge]
 
             # Create New VLANs
-            for nic_name in set(new_vlans.keys()) - set(self.vlans.keys()):
+            for nic_name in set(new_vlans_by_ifname.keys()) - set(self.vlans_by_ifname.keys()):
                 try:
-                    nic = ip.interfaces[ new_vlans[nic_name]['interface'] ]
-                    vlan_id = new_vlans[nic_name].get('vlan_id', 0)
+                    nic = ip.interfaces[ new_vlans_by_ifname[nic_name]['interface'] ]
+                    vlan_id = new_vlans_by_ifname[nic_name].get('vlan_id', 0)
                     # Make sure NIC is up
                     nic.up()
 
@@ -61,7 +60,7 @@ class AccessControlConfigurator():
                 def nft(*cmds):
                     print(*cmds, file=nft_process.stdin, flush=True)
 
-                for nic_name, new_vlan in new_vlans.items():
+                for nic_name, new_vlan in new_vlans_by_ifname.items():
                     # configure Access Contol
                     if new_vlan.get('access_control', False):
                         nft('add element bridge elan ac_ifs {{{nic}}}'.format(nic=nic_name))
@@ -80,49 +79,57 @@ class AccessControlConfigurator():
                         nft("add element {protocol} elan captive_portals {{ {mark} . 80: {http_port} , {mark} . 443: {https_port} }}".format(protocol=protocol, mark=mark, http_port=new_vlan['http_port'], https_port=new_vlan['https_port']))
 
                     # configure DHCP passthrough
-                    if new_vlan.get('dhcp_passthrough_bridge', None):
-                        nic_out = new_vlan['dhcp_passthrough_interface']
-                        if new_vlan['dhcp_passthrough_vlan_id']:
-                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dhcp_passthrough_vlan_id'])
+                    dhcp_passthrough_bridge = new_vlan.get('dhcp_passthrough_bridge', None)
+                    if dhcp_passthrough_bridge:
+                        nic_out = new_vlans_by_id[dhcp_passthrough_bridge]['interface']
+                        vlan_id = new_vlans_by_id[dhcp_passthrough_bridge]['vlan_id']
+                        if vlan_id:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
                         new_vlan['dhcp_passthrough_ifname'] = nic_out
                         nft('add element bridge elan dhcp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
-                    elif nic_name in self.vlans and 'dhcp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dhcp_passthrough_ifname']:
-                        nft('delete element bridge elan dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dhcp_passthrough_ifname']))
+                    elif nic_name in self.vlans_by_ifname and 'dhcp_passthrough_ifname' in self.vlans_by_ifname[nic_name] and self.vlans_by_ifname[nic_name]['dhcp_passthrough_ifname']:
+                        nft('delete element bridge elan dhcp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans_by_ifname[nic_name]['dhcp_passthrough_ifname']))
 
                     # configure DNS passthrough
-                    if new_vlan.get('dns_passthrough_bridge', None):
-                        nic_out = new_vlan['dns_passthrough_interface']
-                        if new_vlan['dns_passthrough_vlan_id']:
-                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['dns_passthrough_vlan_id'])
+                    dns_passthrough_bridge = new_vlan.get('dns_passthrough_bridge', None)
+                    if dns_passthrough_bridge:
+                        nic_out = new_vlans_by_id[dns_passthrough_bridge]['interface']
+                        vlan_id = new_vlans_by_id[dns_passthrough_bridge]['vlan_id']
+                        if vlan_id:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
                         new_vlan['dns_passthrough_ifname'] = nic_out
-                        nft('add element bridge elan dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
-                    elif nic_name in self.vlans and 'dns_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['dns_passthrough_ifname']:
-                        nft('delete element bridge elan dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['dns_passthrough_ifname']))
+                        nft('add element bridge elan dns_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
+                    elif nic_name in self.vlans_by_ifname and 'dns_passthrough_ifname' in self.vlans_by_ifname[nic_name] and self.vlans_by_ifname[nic_name]['dns_passthrough_ifname']:
+                        nft('delete element bridge elan dns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans_by_ifname[nic_name]['dns_passthrough_ifname']))
 
                     # configure ARP/NDP passthrough
-                    if new_vlan.get('ndp_passthrough_bridge', None):
-                        nic_out = new_vlan['ndp_passthrough_interface']
-                        if new_vlan['ndp_passthrough_vlan_id']:
-                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=new_vlan['ndp_passthrough_vlan_id'])
+                    ndp_passthrough_bridge = new_vlan.get('ndp_passthrough_bridge', None)
+                    if ndp_passthrough_bridge:
+                        nic_out = new_vlans_by_id[ndp_passthrough_bridge]['interface']
+                        vlan_id = new_vlans_by_id[ndp_passthrough_bridge]['vlan_id']
+                        if vlan_id:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
                         new_vlan['ndp_passthrough_ifname'] = nic_out
-                        nft('add element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
-                    elif nic_name in self.vlans and 'ndp_passthrough_ifname' in self.vlans[nic_name] and self.vlans[nic_name]['ndp_passthrough_ifname']:
-                        nft('delete element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans[nic_name]['ndp_passthrough_ifname']))
+                        nft('add element bridge elan ndp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=nic_out))
+                    elif nic_name in self.vlans_by_ifname and 'ndp_passthrough_ifname' in self.vlans_by_ifname[nic_name] and self.vlans_by_ifname[nic_name]['ndp_passthrough_ifname']:
+                        nft('delete element bridge elan ndp_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=self.vlans_by_ifname[nic_name]['ndp_passthrough_ifname']))
 
                     # configure mDNS passthroughs
                     for pt in new_vlan.get('mdns_answers_passthroughs', []):
-                        if pt not in self.vlans.get(nic_name, {}).get('mdns_answers_passthroughs', []):
+                        if pt not in self.vlans_by_ifname.get(nic_name, {}).get('mdns_answers_passthroughs', []):
                             # add non existing passthrough
-                            nic_out = pt['interface']
-                            if pt['vlan_id']:
-                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=pt['vlan_id'])
+                            nic_out = new_vlans_by_id[pt]['interface']
+                            vlan_id = new_vlans_by_id[pt]['vlan_id']
+                            if vlan_id:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
                             nft('add element bridge elan mdns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
-                    for pt in self.vlans.get(nic_name, {}).get('mdns_answers_passthroughs', []):
+                    for pt in self.vlans_by_ifname.get(nic_name, {}).get('mdns_answers_passthroughs', []):
                         if pt not in new_vlan.get('mdns_answers_passthroughs', []):
                             # delete no longer existing passthrough
-                            nic_out = pt['interface']
-                            if pt['vlan_id']:
-                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=pt['vlan_id'])
+                            nic_out = self.vlans_by_id[pt]['interface']
+                            vlan_id = self.vlans_by_id[pt]['vlan_id']
+                            if vlan_id:
+                                nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
                             nft('delete element bridge elan mdns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
 
                     # Configure connection tracking
@@ -138,8 +145,8 @@ class AccessControlConfigurator():
                         nft('delete element bridge elan ids_ifs {{ {nic} }}'.format(nic=nic_name))
 
             # VLANs to delete
-            for nic_name in set(self.vlans.keys()) - set(new_vlans.keys()):
-                old_vlan = self.vlans[nic_name]
+            for nic_name in set(self.vlans_by_ifname.keys()) - set(new_vlans_by_ifname.keys()):
+                old_vlan = self.vlans_by_ifname[nic_name]
                 vlan_id = old_vlan.get('vlan_id', 0)
 
                 # TODO: use nft from pyroute2 when ready
@@ -157,6 +164,13 @@ class AccessControlConfigurator():
                     if old_vlan.get('ndp_passthrough_bridge', None):
                         nft('delete element bridge elan ndp_pt_ifs {{ {nic_in} . {nic_out} }}'.format(nic_in=nic_name, nic_out=old_vlan['ndp_passthrough_ifname']))
 
+                    for pt in old_vlan.get('mdns_answers_passthroughs', []):
+                        nic_out = self.vlans_by_id[pt]['interface']
+                        vlan_id = self.vlans_by_id[pt]['vlan_id']
+                        if vlan_id:
+                            nic_out = '{nic}.{vlan_id}'.format(nic=nic_out, vlan_id=vlan_id)
+                        nft('delete element bridge elan mdns_pt_ifs {{ {nic} . {nic_out} }}'.format(nic=nic_name, nic_out=nic_out))
+
                     for protocol in ['ip', 'ip6']:
                         nft("delete element {protocol} elan captive_portals {{ {mark} . 80, {mark} . 443 }}".format(protocol=protocol, mark=old_vlan['local_index']))
 
@@ -173,13 +187,14 @@ class AccessControlConfigurator():
             # Set captive portals
             nginx_captive_portals = Template(filename='/elan-agent/network/nginx/server')
             with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
-                nginx_file.write(nginx_captive_portals.render(vlans=new_vlans))
+                nginx_file.write(nginx_captive_portals.render(vlans=new_vlans_by_ifname))
 
             reload_service('nginx')
 
-            self.vlans = new_vlans
+            self.vlans_by_ifname = new_vlans_by_ifname
+            self.vlans_by_id = new_vlans_by_id
 
-            nac.set_access_controlled_vlans_cache([iface for iface, vlan in new_vlans.items() if vlan['access_control']])
+            nac.set_access_controlled_vlans_cache([iface for iface, vlan in new_vlans_by_ifname.items() if vlan.get('access_control', False)])
 
         finally:
             ip.release()
