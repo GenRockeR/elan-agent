@@ -52,12 +52,12 @@ class NetworkConfiguration:
             with open(self.configuration_file, 'w') as conf_file:
                 conf_file.write(template.render(ipv4=self.ipv4, ipv6=self.ipv6))
 
-    def setIPv4Configuration(self, **kwargs):
+    def set_ip_v4(self, kwargs):
         self.ipv4 = kwargs
         self.save_configuration()
         self.apply_configuration()
 
-    def setIPv6Configuration(self, **kwargs):
+    def set_ip_v6(self, kwargs):
         self.ipv6 = kwargs
         self.save_configuration()
         self.apply_configuration()

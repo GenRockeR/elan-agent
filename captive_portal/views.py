@@ -401,7 +401,7 @@ def admin_login(request):
     if not is_registered():
         dendrite = Dendrite()
         try:
-            response = dendrite.call('register', post_dict)
+            dendrite.call('register', post_dict)
         except RequestTimeout:
             context.update(form_errors={'non_field_errors': [_('Request timeout')]})
         except RequestError as e:
@@ -540,8 +540,8 @@ class Ip6ConfigurationForm(forms.Form):
 def admin_ipv4_conf(request):
     form = Ip4ConfigurationForm(request.POST)
     if form.is_valid():
-        conf = NetworkConfiguration()
-        conf.setIPv4Configuration(**form.cleaned_data)
+        Dendrite.publish_conf_single('ipv4', form.cleaned_data)
+        time.sleep(5)  # wait for conf to apply
         return redirect('dashboard')
 
     return dashboard(request, context={'ipv4_form': form})
@@ -554,8 +554,7 @@ def admin_ipv4_conf(request):
 def admin_ipv6_conf(request):
     form = Ip6ConfigurationForm(request.POST)
     if form.is_valid():
-        conf = NetworkConfiguration()
-        conf.setIPv6Configuration(**form.cleaned_data)
+        Dendrite.publish_conf_single('ipv6', form.cleaned_data)
         time.sleep(5)  # wait for ipv6 autoconf
         return redirect('dashboard')
 

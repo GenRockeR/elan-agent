@@ -1,6 +1,6 @@
 [Unit]
 
-Description=Authentications
+Description=RADIUS configurator
 
 
 After=redis.service

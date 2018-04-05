@@ -1,6 +1,6 @@
 [Unit]
 
-Description=SNMP configurator
+Description=Network Configurator
 
 
 After=redis.service
@@ -12,7 +12,7 @@ RestartSec=10
 
 Environment=PYTHONPATH=/elan-agent/lib/python
 
-ExecStart=/elan-agent/bin/snmp-configurator
+ExecStart=/elan-agent/bin/network-configurator
 
 [Install]
 WantedBy=multi-user.target

@@ -132,6 +132,10 @@ class  Dendrite(mqtt.Client):
             data = json.dumps(data)
         return publish.single(topic, data, qos=1, retain=retain, hostname=cls.MQTT_HOST, port=cls.MQTT_PORT)
 
+    @classmethod
+    def publish_conf_single(cls, topic, data=None, retain=True):
+        return cls.publish_single(cls.CONF_PATH_PREFIX + topic, data, retain=retain)
+
     def finish(self):
         self.disconnect()
         self.loop_stop()
