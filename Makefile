@@ -153,7 +153,8 @@ nac-install: nac-python nac-freeradius nac-authz nac-snmp nac-conf
 .PHONY: nac-conf
 nac-conf:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/bin
-	install -m 755 bin/nac_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/nac-configurator
+	install -m 755 bin/radius_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/radius-configurator
+	install -m 755 bin/snmp_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/snmp-configurator
 
 .PHONY: nac-freeradius
 nac-freeradius: freeradius.nac.server freeradius.nac.modules
