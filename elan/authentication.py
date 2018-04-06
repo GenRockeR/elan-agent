@@ -1,11 +1,11 @@
-import subprocess, re, socket
-
-from elan.neuron import Synapse, Dendrite
-from elan.utils import restart_service
 from mako.template import Template
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 import pyrad.packet
+import subprocess, re, socket
+
+from elan.neuron import Synapse, Dendrite
+from elan.utils import restart_service
 
 
 def pwd_authenticate(authenticator_id, login, password, source):
@@ -117,8 +117,6 @@ class AuthenticationProvider():
                 inner_case += self.ldap_auth_template.render(**auth)
             elif auth['type'] == 'active-directory':
                 inner_case += self.ad_auth_template.render(**auth)
-            elif auth['type'] == 'google-apps':
-                inner_case += self.google_auth_template.render(**auth)
             else:
                 inner_case += self.external_auth_template.render(**auth)
 
