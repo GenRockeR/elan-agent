@@ -93,29 +93,31 @@ class AuthenticationProvider():
             }
         ''')
 
-    def get_group_inner_case(self, auth, ignore_authentications=None):
+    def get_group_inner_case(self, auth_id, ignore_authentications=None):
         if ignore_authentications is None:
             ignore_authentications = set()
 
-        if auth['id'] in ignore_authentications:
+        if auth_id in ignore_authentications:
             # authentications has already been tried. no need to try it again...
             return ''
 
-        ignore_authentications.add(auth['id'])
+        ignore_authentications.add(auth_id)
 
         inner_case = ''
 
-        if auth['type'] == 'group':
+        auth = self.authentications.get(auth_id, {'id': auth_id, 'type': 'external'})
+        auth_type = auth.get('type', 'external')
+        if auth_type == 'group':
             for member in auth['members']:
                 member_auth = self.authentications.get(
-                        member['authentication'],
-                        {'id': member['authentication'], 'type': 'external'}  # external may not be declared
+                        member,
+                        {'id': member, 'type': 'external'}  # external may not be declared
                 )
-                inner_case += self.get_group_inner_case(member_auth, ignore_authentications)
+                inner_case += self.get_group_inner_case(member_auth['id'], ignore_authentications)
         else:
-            if auth['type'] == 'LDAP':
+            if auth_type == 'LDAP':
                 inner_case += self.ldap_auth_template.render(**auth)
-            elif auth['type'] == 'active-directory':
+            elif auth_type == 'active-directory':
                 inner_case += self.ad_auth_template.render(**auth)
             else:
                 inner_case += self.external_auth_template.render(**auth)
@@ -297,7 +299,8 @@ rest auth_all_providers_failed_in_group {
         has_active_directory = False
 
         for auth in self.authentications.values():
-            if auth['type'] == 'LDAP':
+            auth_type = auth.get('type', 'external')
+            if auth_type == 'LDAP':
                 module_conf += "\n" + self.ldap_template.render(**auth)
                 inner_switch_server_conf += '''
                     case {id} {{
@@ -318,7 +321,7 @@ rest auth_all_providers_failed_in_group {
                 # also notify that we provide this auth
                 new_provided_services.add('authentication/provider/{id}/authenticate'.format(id=auth['id']))
                 new_provided_services.add('authentication/provider/{id}/authorize'.format(id=auth['id']))
-            elif auth['type'] == 'active-directory':
+            elif auth_type == 'active-directory':
                 # Join domain if not already done
                 if not AD.joined(auth['domain']):
                     if AD.joined():
@@ -359,7 +362,7 @@ rest auth_all_providers_failed_in_group {
                 else:
                     auth['join_failed'] = True  # so that if we receive again same conf, we try to join again (new condf!= old)
 
-            elif auth['type'] == 'group':
+            elif auth_type == 'group':
                 # Take care of groups, that can be nested:
                 inner_switch_server_conf += '''
                         case {id} {{
@@ -372,7 +375,7 @@ rest auth_all_providers_failed_in_group {
                         }}
                 '''.format(
                        id=auth['id'],
-                       inner_case=self.get_group_inner_case(auth))
+                       inner_case=self.get_group_inner_case(auth['id']))
 
         # Quit AD domain if required
         if not has_active_directory and AD.joined():
