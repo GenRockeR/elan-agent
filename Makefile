@@ -80,8 +80,6 @@ captive-portal-www:
 	find captive_portal -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/captive-portal/{} \;
 	install -d ${DESTDIR}/etc/uwsgi
 	install -m 644 captive-portal_uwsgi.ini ${DESTDIR}/etc/uwsgi/
-	install -d ${DESTDIR}/etc/sudoers.d
-	install -m 440 captive-portal.sudoers ${DESTDIR}/etc/sudoers.d/captive-portal
   
 
 .PHONY: connection-tracker-install
