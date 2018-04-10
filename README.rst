@@ -42,8 +42,9 @@ IP Configuration
 
 IP v4
 -----
-* topic: `conf/ipv4`
-* format:
+:topic:
+  `conf/ipv4`
+:format:
 
   .. code-block:: json
 
@@ -54,12 +55,13 @@ IP v4
       "dns":     <list of ip4: []>, // List of DNS servers. Will be added to ones received by dhcp.
     }, ...
 
-* If no configuration, defaults to `dhcp`.
+  If no configuration, defaults to `dhcp`.
 
 IP v6
 -----
-* topic: `conf/ipv6`
-* format:
+:topic:
+  `conf/ipv6`
+:format:
 
   .. code-block:: json
 
@@ -70,7 +72,7 @@ IP v6
       "dns":     <list of ip6: []>, // List of DNS servers. Will be added to ones received by autoconf.
     }, ...
 
-* If no configuration, defaults to `autoconf`.
+  If no configuration, defaults to `autoconf`.
 
 Administrator Configuration
 ***************************
@@ -78,8 +80,10 @@ Administrator Configuration
 Administrators can connect to the Agent web console to configure its network,
 like IP addresses, DNS and default gateway.
 
-* topic: `conf/administrator`
-* format: list of administrator definitions:
+:topic:
+  `conf/administrator`
+:format:
+  *list* of administrator definitions
 
   .. code-block:: json
   
@@ -97,8 +101,10 @@ VLANs are identified by the network interface of the agent and the VLAN identifi
 ELAN Agent should only be connected once to every VLAN, ie do not connect the same VLAN on 2 different NICs.
 However, if those vlans are completly separate, it can be connected to 2 vlans with the same identifier on different interfaces.
 
-* topic: `conf/vlans`
-* format: list of vlan definitions:
+:topic:
+  `conf/vlans`
+:format:
+  *list* of vlan definitions:
 
   .. code-block:: json
 
@@ -120,30 +126,23 @@ However, if those vlans are completly separate, it can be connected to 2 vlans w
       ...
     ]
 
-   NDP passthroughs always include DHCP and DNS passthroughs.
-   They can be useful if you want to give access to a resource via captive portal authentication as a device needs to resolve IP to MAC to access the service before getting redirected by captive portal.
-   For example when WAN connectivity is not on the same Network as DHCP and DNS.
+  NDP passthroughs always include DHCP and DNS passthroughs.
+  They can be useful if you want to give access to a resource via captive portal authentication as a device needs to resolve IP to MAC to access the service before getting redirected by captive portal.
+  For example when WAN connectivity is not on the same Network as DHCP and DNS.
  
-RADIUS Configuration
-********************
-
-#TODO
- 
-SNMP Configuration
-******************
-
-#TODO
-
 
 Authentication Configuration
 ****************************
 
 Authentications can be used by captive portal and 802.1X to authenticate users against existing user databases.
 
-* topic: `conf/authentication`
-* format: list of authentication definitions:
+:topic:
+  `conf/authentication`
+:format:
+  *list* of authentication definitions:
 
-  - LDAP: User will be authenticated using the following attributes for the password: `userPassword`, `ntPassword` or `sambaNTPassword`.
+  :*LDAP*:
+    User will be authenticated using the following attributes for the password: `userPassword`, `ntPassword` or `sambaNTPassword`.
 
   .. code-block:: json
 
@@ -161,7 +160,8 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
         "userFilter": <str: "">,                 // LDAP filter used when searching for user. No filtering if empty.
       }
 
-  - Active Directory: Authentication will be performed by joining the AD domain. Only one AD is supported.
+  :*Active Directory*:
+    Authentication will be performed by joining the AD domain. Only one AD is supported.
 
   .. code-block:: json
 
@@ -173,7 +173,8 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
       "adminPwd":   <str: null>,        // password of admin.
     }
 
-  - External: Authentication will be made by doing a request via MQTT. Unknown Authentication IDs will be considered external, so you don't really need to declare them.
+  :*External*:
+    Authentication will be made by doing a request via MQTT. Unknown Authentication IDs will be considered external, so you don't really need to declare them.
 
   .. code-block:: json
 
@@ -182,7 +183,8 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
       "type": <str: external>,    // unknown authentication types will be considered external
     }
 
-  - Groups: Authentication will be tried among members of the group, in the order defined.
+  :*Groups*:
+    Authentication will be tried among members of the group, in the order defined.
     Nested and circular groups are supported. 
     If an authentication has been tried once, it will not be retried, even if it appears in several groups that are members of the group.
 
@@ -194,6 +196,53 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
       "members": <list of ints: []>   // list of authentication IDs. If an ID is not present in list of authentication, it will be considered as external. 
     }
 
+RADIUS Configuration
+********************
+Radius will support both 802.1X and MAC-authentication. It will accept all incoming request with the correct `secret`.
+All network equipments share the same RADIUS secret.
+
+
+:topic:
+  `conf/radius`
+:format: 
+
+  .. code-block:: json
+  
+    {
+      "default_secret": <str: *Mandatory*>, // Secret used to authenticate RADIUS requests
+      "dot1x_authentication": <int>         // authentication id to be used for user during 802.1X requests. Can be a group.
+      "cert_chain":           <str>         // PEM encoded Certificate Chain to return to 802.1X client.
+      "cert_key":             <str>         // PEM encoded Private key
+    }
+
+SNMP Configuration
+******************
+SNMP configuration is used for both SNMP polling and SNMP Trap/Informs.
+Several credentials can be used, on first poll first one to succeed will be used. SNMPv3 credentials will be tried, then v2c, and finally v1.
+
+:topic:
+  `conf/snmp`
+:format: 
+
+  .. code-block:: json
+  
+    {
+      "credentials": [
+        {
+          "community":  <str: *Mandatory*>, // Community for SNMP v2c and v1
+                                            // or User for SNMPv3 (
+                                            //    NoAuth NoPriv if `auth_key` not present,
+                                            //    Auth noPriv if `auth_key` present but not `priv_key`,
+                                            //    or Auth Priv if both `auth_key` and `priv_key` present)
+          "auth_proto": <str>,              // MD5 or SHA
+          "auth_key":   <str>,              // If present, used for SNMPv3 Auth (NoPriv or Priv if `priv_key` present)
+          "priv_proto": <str>,              // DES or AES
+          "priv_key":   <str>,              // If present, used for SNMPv3 Auth Priv
+        },
+        ...
+      ],
+      "engine_ids": <list of str: []> // list of Engine IDs used in SNMPv3 Informs. Hex string without leading 0x.
+    }
 
 
 Guest Access Configuration
