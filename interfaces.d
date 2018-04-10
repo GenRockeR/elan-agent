@@ -7,33 +7,28 @@ iface br0 inet static
 % else:
 iface br0 inet manual
 % endif
-  % if ipv6['type'] == 'autoconf':
-  up sysctl net.ipv6.conf.br0.disable_ipv6=0
-  up sysctl net.ipv6.conf.br0.autoconf=1
-  % elif ipv6['type'] == 'static':
-  up sysctl net.ipv6.conf.br0.disable_ipv6=0
-  up sysctl net.ipv6.conf.br0.autoconf=0
-  % else:
-  up sysctl net.ipv6.conf.br0.disable_ipv6=1
-  % endif
-  
-  % if ipv4['dns']:
-    % for ip in ipv4['dns']:
+% if ipv4['dns']:
+  % for ip in ipv4['dns']:
   dns-nameservers ${ip}
-    % endfor
-  % endif
+  % endfor
+% endif
  
 
-% if ipv6['type'] == 'static':
+% if ipv6['type'] == 'dhcp':
+iface br0 inet6 dhcp
+% elif ipv6['type'] == 'static':
 iface br0 inet6 static
   address ${ipv6['address']}/${ipv6['mask']}
   gateway ${ipv6['gateway']}
-% else:
+% elif ipv6['type'] == 'autoconf':
 iface br0 inet6 auto
+% else:
+iface br0 inet6 manual
 % endif
-  % if ipv6['dns']:
-    % for ip in ipv6['dns']:
+  pre-up sysctl net.ipv6.conf.br0.autoconf=0
+% if ipv6['dns']:
+  % for ip in ipv6['dns']:
   dns-nameservers ${ip}
-    % endfor
-  % endif
+  % endfor
+% endif
   

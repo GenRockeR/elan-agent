@@ -37,6 +37,40 @@ Configuration
 All configuration is done by sending JSON encoded message to MQTT topics under`conf/` on `localhost`.
 No validation is made on the format nor on the parameters, they will be used as is.
 
+IP Configuration
+****************
+
+IP v4
+-----
+* topic: `conf/ipv4`
+* format:
+
+  .. code-block:: json
+
+    {
+      "type":    <str: "none">,     // `dhcp`, `static` or `none`. Unknown value is same as `none`
+      "address": <ip4>,             // IP address when `type` is `static`
+      "mask":    <int>,             // mask when `type` is `static`
+      "dns":     <list of ip4: []>, // List of DNS servers. Will be added to ones received by dhcp.
+    }, ...
+
+* If no configuration, defaults to `dhcp`.
+
+IP v6
+-----
+* topic: `conf/ipv6`
+* format:
+
+  .. code-block:: json
+
+    {
+      "type":    <str: "none">,     // `autoconf`, `dhcp`, `static` or `none`. Unknown value is same as `none`
+      "address": <ip6>,             // IP address when `type` is `static`
+      "mask":    <int>,             // mask when `type` is `static`
+      "dns":     <list of ip6: []>, // List of DNS servers. Will be added to ones received by autoconf.
+    }, ...
+
+* If no configuration, defaults to `autoconf`.
 
 Administrator Configuration
 ***************************
@@ -47,14 +81,14 @@ like IP addresses, DNS and default gateway.
 * topic: `conf/administrator`
 * format: list of administrator definitions:
 
-.. code-block:: json
-
-  [
-     {
-        "login":    <str: *Mandatory*>, "password": <pbkdf2 encrypted
-        password: *Mandatory*>
-     }, ...
-  ]
+  .. code-block:: json
+  
+    [
+      {
+          "login":    <str: *Mandatory*>,
+          "password": <pbkdf2 encrypted: *Mandatory*>
+      }, ...
+    ]
 
 VLAN Configuration
 ******************
@@ -70,7 +104,7 @@ However, if those vlans are completly separate, it can be connected to 2 vlans w
 
     [
       {
-        "id":                        <int:>              // Unique ID for the vlan so it can referenced by other vlans. Optional
+        "id":                        <int>               // Unique ID for the vlan so it can referenced by other vlans.
         "interface":                 <str: *Mandatory*>, // Nic Name
         "vlan_id":                   <int: 0>,           // Vlan Identifier
         "access_control":            <bool: false>,      // Enable access control on that vlan
