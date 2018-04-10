@@ -26,7 +26,8 @@ class AccessControlConfigurator():
         new_vlans_by_ifname = {}
         new_vlans_by_id = {}
         for vlan in conf:
-            new_vlans_by_id[vlan['id']] = vlan
+            if 'id' in vlan:
+                new_vlans_by_id[vlan['id']] = vlan
             if vlan.get('vlan_id', 0):
                 nic_name = '{nic}.{vid}'.format(nic=vlan['interface'], vid=vlan['vlan_id'])
             else:

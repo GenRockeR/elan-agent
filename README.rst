@@ -70,7 +70,7 @@ However, if those vlans are completly separate, it can be connected to 2 vlans w
 
     [
       {
-        "id":                        <int: *Mandatory*>  // Unique ID for the vlan so it can referenced by other vlans.
+        "id":                        <int:>              // Unique ID for the vlan so it can referenced by other vlans. Optional
         "interface":                 <str: *Mandatory*>, // Nic Name
         "vlan_id":                   <int: 0>,           // Vlan Identifier
         "access_control":            <bool: false>,      // Enable access control on that vlan

@@ -1,6 +1,6 @@
 [Unit]
 
-Description=NAC network
+Description=ELAN network
 
 [Service]
 Type=oneshot
