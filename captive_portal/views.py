@@ -193,7 +193,13 @@ class DynamicFieldForm(forms.Form):
 
 
 def get_request_form(guest_registration_fields, guest_access_conf, data=None):
-    form_fields = [{'name':'field-{}'.format(f['id']), 'required':f.get('required', True), 'type':f.get('type')} for f in guest_registration_fields]
+    form_fields = [
+            {
+                    'name':'field-{}'.format(f['id']),
+                    'required':f.get('required', True),
+                    'type':f.get('type')
+            } for f in guest_registration_fields
+    ]
     form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'text'})
     if guest_access_conf.get('validation_patterns', None):
         form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
@@ -220,17 +226,24 @@ def guest_access(request):
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
 
     if form.is_valid():
-        guest_request = dict(mac=clientMAC, interface=interface, vlan_id=vlan_id, fields=[], guest_access=guest_access, sponsor_email=request.POST.get('sponsor_email', ''), guest_access_modification_time=request.POST.get('guest_access_modification_time'))
+        guest_request = dict(
+                mac=clientMAC,
+                interface=interface,
+                vlan_id=vlan_id,
+                fields=[],
+                guest_access=guest_access,
+                sponsor_email=form.cleaned_data.get('sponsor_email', ''),
+                guest_access_modification_time=form.cleaned_data.get('guest_access_modification_time')
+        )
         for field in guest_registration_fields:
             guest_request['fields'].append(dict(
                                          display_name=field['display_name'],
                                          type=field['type'],
-                                         value=request.POST.get('field-{}'.format(field['id']), ''),
-                                         position=field['position']
+                                         value=form.cleaned_data.get('field-{}'.format(field['id']), ''),
             ))
 
         try:
-            guest_request['id'] = submit_guest_request(guest_request)
+            guest_request = submit_guest_request(guest_request)
             if guest_access_conf['type'] == 'sponsored':
                 # send mail
                 html_template = loader.get_template('captive-portal/guest-request-email.html')

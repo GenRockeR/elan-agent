@@ -11,4 +11,4 @@ Guest Request:
 
 -----------------------------------
 
-Grant Access: https://elan-center.origin-nexus.com/sponsor-guest/{{ guest_request.id }}
+Grant Access: {{ guest_request.action_url }}
