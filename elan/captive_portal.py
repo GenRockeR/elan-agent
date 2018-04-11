@@ -21,8 +21,8 @@ synapse = Synapse()
 
 
 def submit_guest_request(request):
-    ''' submits sponsored guest access request and return ID of request'''
-    r = dendrite.call('authentication/guest-request', request)
+    ''' submits guest access request and return answer '''
+    r = dendrite.call('guest-access', request)
 
     synapse.sadd(PENDING_GUEST_REQUESTS_PATH, request['mac'])
 

@@ -5,7 +5,6 @@ from django.core.urlresolvers import reverse
 from django.core.validators import validate_ipv4_address, validate_ipv6_address
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect
-from django.template import RequestContext, loader
 from django.utils.translation import ugettext as _
 from django.views.decorators.cache import never_cache
 import time
@@ -192,7 +191,7 @@ class DynamicFieldForm(forms.Form):
         setattr(self, 'clean_{}'.format(name), field_validator.__get__(self))
 
 
-def get_request_form(guest_registration_fields, guest_access_conf, data=None):
+def get_request_form(guest_registration_fields, data=None):
     form_fields = [
             {
                     'name':'field-{}'.format(f['id']),
@@ -200,9 +199,7 @@ def get_request_form(guest_registration_fields, guest_access_conf, data=None):
                     'type':f.get('type')
             } for f in guest_registration_fields
     ]
-    form_fields.append({'name':'guest_access_modification_time', 'required': True, 'type': 'text'})
-    if guest_access_conf.get('validation_patterns', None):
-        form_fields.append({'name':'sponsor_email', 'required':True, 'validation_patterns': guest_access_conf['validation_patterns'], 'type': 'email'})
+    form_fields.append({'name': 'guest_access_modification_time', 'required': True, 'type': 'text'})
     return DynamicFieldForm(data, fields=form_fields)
 
 
@@ -244,33 +241,9 @@ def guest_access(request):
 
         try:
             guest_request = submit_guest_request(guest_request)
-            if guest_access_conf['type'] == 'sponsored':
-                # send mail
-                html_template = loader.get_template('captive-portal/guest-request-email.html')
-                text_template = loader.get_template('captive-portal/guest-request-email.txt')
-                context = RequestContext(request, {
-                    'guest_request': guest_request,
-                })
-                html = html_template.render(context)
-                text = text_template.render(context)
-
-                if not guest_request['sponsor_email']:
-                    recipients = guest_access_conf['fixed_recipients']
-                    bcc_recipients = []
-                else:
-                    recipients = [guest_request['sponsor_email']]
-                    bcc_recipients = guest_access_conf['fixed_recipients']
-
-                send_mail(recipients=recipients,
-                            bcc_recipients=bcc_recipients,
-                            html=html,
-                            text=text,
-                            mail_subject='Guest Request for Network Access'
-                )
 
             return redirect('status')
         except:
-            # No ID
             if 'non_field_errors' not in form.errors:
                 form.errors['non_field_errors'] = []
             form.errors['non_field_errors'].append(_('Error during request, please try again or contact administrator.'))

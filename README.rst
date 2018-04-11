@@ -3,16 +3,15 @@ Overview
 
 ELAN Agent is platform to ease LAN management by providing several services:
 
-- NAC: 802.1X/Mac-Auth via RADIUS
-- Access Control of devices to VLANs
-- Detection of unauthorized devices
+- NAC: 802.1X/Mac-Auth via RADIUS.
+- Access Control of devices to VLANs.
+- Detection of unauthorized devices.
 - Authentication using LDAP, AD or external source.
-- Inventory of all devices (MAC addresses) on the network
-- Captive portal: User Authentication & Guest Access
-- IDS (Suricata)
-- Log of Networks events (New Device, New device on VLAN, New Device IP,
-  diconnected Device, New connection, IDS alert for device...)
-- Log of outgoing connections
+- Inventory of all devices (MAC addresses) on the network.
+- Captive portal: User Authentication & Guest Access.
+- IDS (Suricata).
+- Log of Networks events (New Device, New device on VLAN, New Device IP, diconnected Device, New connection, IDS alert for device...).
+- Log of outgoing connections.
 
 All configuration of these services are done via MQTT by publishing retained messages to topics. Events are also sent via MQTT.
 
@@ -52,7 +51,7 @@ IP v4
       "type":    <str: "none">,     // `dhcp`, `static` or `none`. Unknown value is same as `none`
       "address": <ip4>,             // IP address when `type` is `static`
       "mask":    <int>,             // mask when `type` is `static`
-      "dns":     <list of ip4: []>, // List of DNS servers. Will be added to ones received by dhcp.
+      "dns":     <list of ip4: []>, // List of DNS servers (in case of `dhcp`, will be added to received ones).
     }, ...
 
   If no configuration, defaults to `dhcp`.
@@ -69,7 +68,7 @@ IP v6
       "type":    <str: "none">,     // `autoconf`, `dhcp`, `static` or `none`. Unknown value is same as `none`
       "address": <ip6>,             // IP address when `type` is `static`
       "mask":    <int>,             // mask when `type` is `static`
-      "dns":     <list of ip6: []>, // List of DNS servers. Will be added to ones received by autoconf.
+      "dns":     <list of ip6: []>, // List of DNS servers. (in case of `dhcp` or `autoconf`, will be added to received ones).
     }, ...
 
   If no configuration, defaults to `autoconf`.
@@ -117,7 +116,7 @@ However, if those vlans are completly separate, it can be connected to 2 vlans w
         "log":                       <bool: false>,      // Enable connection logging
         "ids":                       <bool: false>,      // Enable IDS on that vlan
         "web_authentication":        <int: null>,        // ID of Authentication to use when authenticating users on captive portal
-        "guest_access":              <int: null>,        // ID of guest access to use on this vlan
+        "guest_access":              <int: null>,        // ID of Guest Access to use on this vlan
         "dhcp_passthroughs":         <list of ints: []>, // IDs of vlans to which DHCP/IPv6autoconf requests are allowed even if device not allowed to these VLANs
         "dns_passthroughs":          <list of ints: []>, // IDs of vlans to which DNS requests are allowed even if device not allowed to these VLANs
         "ndp_passthroughs":          <list of ints: []>, // IDs of vlans to which ARP/NDP requests are allowed even if device not allowed to these VLANs
@@ -247,13 +246,72 @@ Several credentials can be used, on first poll first one to succeed will be used
 
 Guest Access Configuration
 **************************
+There are 2 sorts of guest access:
+* User Policy Agreement: The guest will just need to accept the configurable policy.
+* Sponsored: External action will be required to authorize the guest.
 
-#TODO
 
- 
+:topic:
+  `conf/guest-access`
+:format:
+
+  .. code-block:: json
+    [
+      {
+        "id":   <int>,              // ID that can be used in vlan definitions for `guest_access`.
+        "registration_fields": [     // list of form fields that guest can fill on captive portal to get access
+          {
+            "id":                  <str: *Mandatory*>,       // unique id of field.
+            "type":                <str: *Mandatory*>,       // `text`, `textarea`, `email`, `date`, `date-time`, `time`.
+            "display_name":        <str>,                    // Name displayed before the form field.
+            "required":            <bool: true>,             // Whether that field must be filled by guest.
+            "validation_patterns": <*list* of patterns: []>, // if not empty, field should match matches at least one of the patterns (for example `*@my-domain.com` for an email)
+          },
+          ...
+        ],
+        "description":         <html: "">, // Description that sits above the guest request form.
+        "policy":              <html: "">, // User Policy Agreement that is displayed below the guest request form/
+      },
+      ...
+    ]
+    
+
+--> Explain implementation with guest request service.
+
+Services
+########
+
+These are services ELAN Agent relies on but are not implemented, so they can be defined to match closely your needs.
+#TODO: Dendrite....
+
+Connectivity
+************
+
+Registration
+************
+
+External Authentications
+************************
+
+Device Authorizations
+*********************
+
+Guest Access
+************
+
+-> action url -> return other fields modified or unchanged...
+
+Guest Access Authorizations
+***************************
+
+Check Mac Authorizations
+************************
+
+
 Events
 ######
 
 #TODO
+new mac session, new IP session for mac, new vlan session for mac, mac on port...
 
 

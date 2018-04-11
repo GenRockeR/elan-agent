@@ -259,7 +259,7 @@ class  Dendrite(mqtt.Client):
 
     def call(self, service, data=None, timeout=30):
         '''
-        RPC request to service, returns result or raises RequestTimeout.
+        RPC request to service, returns result or raises RequestError or RequestTimeout.
         This should not be called in async function as it will block the event loop.
         However it can be safely called from Thread Executor or when not event loop is running (will run it for a short while)
         '''
