@@ -104,7 +104,7 @@ def login(request, context=None):
         default_context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
         if default_context['guest_access']:
             default_context.update(
-                        guest_registration_fields=default_context['guest_access']['registration_fields'],
+                        guest_registration_fields=default_context['guest_access']['fields'],
                         guest_access_pending=is_authz_pending(clientMAC)
             )
 
@@ -218,7 +218,7 @@ def guest_access(request):
 
     # Guest access fields
     guest_access_conf = synapse.hget(GUEST_ACCESS_CONF_PATH, guest_access)
-    guest_registration_fields = guest_access_conf['registration_fields']
+    guest_registration_fields = guest_access_conf['fields']
 
     form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
 
@@ -234,13 +234,14 @@ def guest_access(request):
         )
         for field in guest_registration_fields:
             guest_request['fields'].append(dict(
+                                         field_id=field['id'],
                                          display_name=field['display_name'],
                                          type=field['type'],
                                          value=form.cleaned_data.get('field-{}'.format(field['id']), ''),
             ))
 
         try:
-            guest_request = submit_guest_request(guest_request)
+            submit_guest_request(guest_request)
 
             return redirect('status')
         except:
