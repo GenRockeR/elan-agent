@@ -34,6 +34,8 @@ def get_authorization(authenticator_id, login, source):
 
     for attr in reply.get(18, []):  # 18 -> Reply-Message
         key, value = attr.split('=', 1)
+        if key == 'ELAN-Auth-Provider':
+            key = 'provider'
         authz[key] = value
 
     return authz
@@ -413,7 +415,7 @@ rest auth_all_providers_failed_in_group {
             try:
                 return { 'success': pwd_authenticate(m.group(1), login=data['login'], password=data['password'], source=data['source']) }
             except KeyError:
-                return { 'success': False }
+                return
 
         m = re.match(r'authentication/provider/(\d+)/authorize', service)
         if m:
@@ -421,7 +423,7 @@ rest auth_all_providers_failed_in_group {
             try:
                 return get_authorization(m.group(1), login=data['login'], source=data['source'])
             except KeyError:
-                return { 'success': False }
+                return
 
 
 class AD:

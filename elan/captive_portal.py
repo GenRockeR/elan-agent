@@ -92,21 +92,10 @@ class GuestAccessManager():
         current_mac_with_authz = self.synapse.smembers(self.MAC_AUTHS_PATH)
 
         for mac in current_mac_with_authz - set(authz_by_mac.keys()):
-            revoker_kwargs = {}
-            currentAuthz = nac.getAuthz(mac)
-            if getattr(currentAuthz, 'source', None) == 'captive-portal-guest':
-                # find guest authz that granted authz
-                for authz in authz_by_mac[mac]:
-                    if authz['guest_authorization'] == currentAuthz.guest_authorization:
-                        revoker_kwargs['end_reason'] = 'revoked'
-                        revoker_kwargs['revoker_login'] = authz['revoker_login']
-                        revoker_kwargs['revoker_authentication_provider'] = authz['revoker_authentication_provider']
-                        revoker_kwargs['revoker_comment'] = authz['revoker_comment']
-                        break
-            nac.checkAuthz(mac, remove_source='captive-portal-guest', **revoker_kwargs)
+            nac.checkAuthz(mac, remove_source='captive-portal-guest')
             self.synapse.srem(self.MAC_AUTHS_PATH, mac)
 
-        for mac in set(authz_by_mac.keys()):
+        for mac in authz_by_mac:
             # Authz not pending any more
             self.synapse.srem(PENDING_GUEST_REQUESTS_PATH, mac)
 

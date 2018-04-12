@@ -48,6 +48,9 @@ server authentication {
             }
         } 
         elsif( &ELAN-Command == "authorize" ){
+            update reply {
+              Reply-Message += "ELAN-Auth-Provider=%{control:ELAN-Auth-Provider}"
+            }
             if( control:Cleartext-Password ) {
                 update reply {
                    Reply-Message += "Cleartext-Password=%{control:Cleartext-Password}"

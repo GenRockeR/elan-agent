@@ -246,20 +246,19 @@ Several credentials can be used, on first poll first one to succeed will be used
 
 Guest Access Configuration
 **************************
-There are 2 sorts of guest access:
-* User Policy Agreement: The guest will just need to accept the configurable policy.
-* Sponsored: External action will be required to authorize the guest.
-
+Guest Access Service gives the ability to guest to fill up a form that is then submitted to the `guest-request` service that can take the necessary actions to allow the guest on the network.
+The `guest-request` service is to be implement according to your needs.
 
 :topic:
   `conf/guest-access`
 :format:
 
   .. code-block:: json
+  
     [
       {
-        "id":   <int>,              // ID that can be used in vlan definitions for `guest_access`.
-        "registration_fields": [     // list of form fields that guest can fill on captive portal to get access
+        "id":     <int>, // ID that can be used in vlan definitions for `guest_access`.
+        "fields": [      // list of form fields that guest can fill on captive portal to get access
           {
             "id":                  <str: *Mandatory*>,       // unique id of field.
             "type":                <str: *Mandatory*>,       // `text`, `textarea`, `email`, `date`, `date-time`, `time`.
@@ -269,29 +268,137 @@ There are 2 sorts of guest access:
           },
           ...
         ],
-        "description":         <html: "">, // Description that sits above the guest request form.
-        "policy":              <html: "">, // User Policy Agreement that is displayed below the guest request form/
+        "description": <html: "">, // Description that sits above the guest request form.
+        "policy":      <html: "">, // User Policy Agreement that is displayed below the guest request form/
       },
       ...
     ]
     
 
---> Explain implementation with guest request service.
+Active Authorizations
+---------------------
+
+This is not really a configuration but can be used to tell ELAN agent what are the current active guest access authorization.
+This can for example be used by your implementation of `guest-request` service.
+
+:topic:
+  `conf/guest-access/active-authorizations`
+:format:
+
+  .. code-block:: json
+
+    [
+      {
+        "id":             <int>,              // id of the authorization
+        "mac":            <mac>,              // device allowed by guest access
+        "till":           <UTC ISO8601 date>, // validity of authorization
+        "sponsor_login":  <str>,              // Login used to authenticate sponsor.
+        "sponsor_authentication_provider":    // id of authentication provider used to authenticate sponsor
+      },
+      ...
+    ]
+
+
 
 Services
 ########
 
 These are services ELAN Agent relies on but are not implemented, so they can be defined to match closely your needs.
-#TODO: Dendrite....
+Services are RPC services that listen to a topic for a request and send an answer.
 
-Connectivity
-************
+* They can be implemented using python:
+
+.. code-block:: python
+
+  from elan.neuron import Dendrite, RequestError
+  
+  def my_service(request, service):
+    # .. process request...
+    
+    return {'json': 'serializable', 'object': ''}
+    
+    # or
+    
+    raise RequestError(errors={'json': 'serializable', 'error': 'object'}, error_str='an error string')
+  
+  dendrite = Dendrite()
+  
+  dendrite.provide('my-service', cb=my_service)
+
+* or directly using MQTT requests:
+
+  --> TODO
 
 Registration
 ************
 
+:service:
+  `check-connectivity`
+:request format:
+  `{'login': ..., 'password': ...}`
+:purpose:
+  Used to register agent to a control center for example.
+
+  With no request data, used to check if registration service is implemented.
+:returns:
+  returns on success (return value ignored)
+
+  raises RequestError on failure
+
+Connectivity
+************
+
+:service:
+  `check-connectivity`
+:request format:
+  None
+:purpose:
+  Used to check connectivity of registration service
+:returns:
+  returns on success  (return value ignored)
+
+  raises RequestError on failure
+
+
 External Authentications
 ************************
+
+You can implement external authentication by implementing the following:
+
+:service:
+  `authentication/external/authorize`
+:request format:
+
+  .. code-block:: json
+
+    { 
+      "provider": // authentication ID to use
+      "source":   // 'radius-dot1x' or 'captive-portal-web'
+      "login":    
+      "password" // not always available, depending on authentication scheme. 
+    }
+    
+:purpose:
+  return authentication information about user to be able to authenticate him
+:returns:
+
+  .. code-block:: json
+
+    {
+      "Cleartext-Password":,
+      // or
+      "NT-Password":,
+      // or
+      "LM-Password":,
+      // or
+      "Password-With-Header":,
+      
+      "provider": # real provider that gave this auth information if different of one from request.
+    }
+
+  Even if password was sent in request, it is important to return it in `Cleartext-Password` to confirm it is the correct password.
+
+
 
 Device Authorizations
 *********************
