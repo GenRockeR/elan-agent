@@ -336,12 +336,12 @@ Registration
 
 :service:
   `check-connectivity`
-:request format:
-  `{'login': ..., 'password': ...}`
 :purpose:
   Used to register agent to a control center for example. 
 
   With no request data, used to check if registration service is implemented.
+:request format:
+  `{'login': ..., 'password': ...}`
 :returns:
   returns on success (return value ignored)
 
@@ -352,10 +352,10 @@ Connectivity
 
 :service:
   `check-connectivity`
-:request format:
-  None
 :purpose:
   Used to check connectivity of registration service
+:request format:
+  None
 :returns:
   returns on success  (return value ignored)
 
@@ -369,6 +369,8 @@ You can implement extra authentication schemes by implementing the following:
 
 :service:
   `authentication/external/authorize`
+:purpose:
+  return authentication information about user to be able to authenticate him
 :request format:
 
   .. code-block:: json
@@ -380,8 +382,6 @@ You can implement extra authentication schemes by implementing the following:
       "password" // not always available, depending on authentication scheme. 
     }
     
-:purpose:
-  return authentication information about user to be able to authenticate him
 :returns:
   Nothing if authentication information could not be found.
   
@@ -415,6 +415,9 @@ You can implement guest access authorization using:
 
 :service:
   `guest-request`
+:purpose:
+  Send guest request for validation (other that field validation).
+  It is then the responsibility of the implemented service to grant access to the guest
 :request format:
 
   .. code-block:: json
@@ -436,17 +439,52 @@ You can implement guest access authorization using:
       "interface":  // Interface the request was received on.
     }
     
-:purpose:
-  Send guest request for validation (other that field validation).
-  It is then the responsibility of the implemented service to grant access to the guest
 :returns:
   Nothing if request accepted.
   raise RequestError to send back errors to guest requesting access.
 
 
-Check Mac Authorizations
-************************
+Device Authorization
+********************
 
+:service:
+  `device-authorization`
+:purpose:
+  Get device authorization (allowed VLANs to be one, allowed VLANs to access).
+:request format:
+
+  .. code-block:: json
+
+    {
+      "mac":             // device we want to get authorizations for.
+      "auth_sessions": [ // list of authentication sessions (802.1x, captive portal or guest authorization)
+        {
+          "source": <str>,           // captive-portal-web, radius-dot1x, ...
+          "till": <epoch>,           // till when this authorization is valid
+          "till_disconnect": <bool>, // invalidate authorization on disconnect.
+          "authentication_provider":,
+          ...
+        },
+        ...
+      ],
+      "port": {
+        "local_id":  // switch local id.
+        "interface": // interface name.
+        "ssid":      // ssid mac is connected to, if any
+      }
+    }
+    
+:returns:
+
+  .. code-block:: json
+
+    {
+      "assign_vlan": <int>,      // VLAN Identifier the device should be assigned during 802.1x, mac-auth, or by SNMP.
+      "allowed_on":[]            // list of interface names like eth0.100 where eth0 is interface and 100 is vlan identifier (none if untagged vlan) on which the device is allowed to be.
+      "bridge_to": []            // list of interface names like eth0.100 where eth0 is interface and 100 is vlan identifier (none if untagged vlan) to which device has access.
+      "till": <epoch>,           // till when this authorization is valid
+      "till_disconnect": <bool>, // invalidate authorization on disconnect.
+    }
 
 Events
 ######
