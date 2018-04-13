@@ -39,7 +39,7 @@ def newAuthz(mac, source, no_duplicate_source=False, **auth):
 
 def checkAuthz(mac, remove_source=None, end_reason='overridden', **kwargs):
     '''
-    Asks CC what Authorization should be granted to the mac, based on current authentications
+    Asks what Authorization should be granted to the mac, based on current authentications
     First, an authentication source can be removed using remove_source
     '''
     if remove_source is not None:
@@ -104,7 +104,7 @@ def get_network_assignments(mac, port=None, current_auth_sessions=None):
     if port is None:
         port = synapse.hget(session.MAC_PORT_PATH, mac)
 
-    return dendrite.call('assignments', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
+    return dendrite.call('device-authorization', {'auth_sessions': current_auth_sessions, 'mac': mac, 'port': port})
     # TODO: when CC unreachable or Error, retry in a few seconds (maybe use mac authz manager daemon for that)
 
 
