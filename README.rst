@@ -33,7 +33,7 @@ Deployment
 Configuration
 #############
 
-All configuration is done by sending JSON encoded message to MQTT topics under`conf/` on `localhost`.
+All configuration is done by sending JSON encoded *retained* message to MQTT topics under`conf/` on `localhost`.
 No validation is made on the format nor on the parameters, they will be used as is.
 
 IP Configuration
@@ -257,8 +257,9 @@ The `guest-request` service is to be implement according to your needs.
   
     [
       {
-        "id":     <int>, // ID that can be used in vlan definitions for `guest_access`.
-        "fields": [      // list of form fields that guest can fill on captive portal to get access
+        "id":     <int>,     // ID that can be used in vlan definitions for `guest_access`.
+        "modification_time": // Sent at each Guest Request so we can invalidate authz if guest access has been updated.
+        "fields": [          // list of form fields that guest can fill on captive portal to get access
           {
             "id":                  <str: *Mandatory*>,       // unique id of field.
             "type":                <str: *Mandatory*>,       // `text`, `textarea`, `email`, `date`, `date-time`, `time`.
@@ -278,8 +279,9 @@ The `guest-request` service is to be implement according to your needs.
 Active Authorizations
 ---------------------
 
-This is not really a configuration but can be used to tell ELAN agent what are the current active guest access authorization.
+This is used to tell ELAN agent what are the current active guest access authorization.
 This can for example be used by your implementation of `guest-request` service.
+When an authorization is no longer valid, republish list of active authorizations without it.
 
 :topic:
   `conf/guest-access/active-authorizations`
@@ -337,7 +339,7 @@ Registration
 :request format:
   `{'login': ..., 'password': ...}`
 :purpose:
-  Used to register agent to a control center for example.
+  Used to register agent to a control center for example. 
 
   With no request data, used to check if registration service is implemented.
 :returns:
@@ -363,7 +365,7 @@ Connectivity
 External Authentications
 ************************
 
-You can implement external authentication by implementing the following:
+You can implement extra authentication schemes by implementing the following:
 
 :service:
   `authentication/external/authorize`
@@ -381,7 +383,10 @@ You can implement external authentication by implementing the following:
 :purpose:
   return authentication information about user to be able to authenticate him
 :returns:
-
+  Nothing if authentication information could not be found.
+  
+  or
+  
   .. code-block:: json
 
     {
@@ -393,7 +398,7 @@ You can implement external authentication by implementing the following:
       // or
       "Password-With-Header":,
       
-      "provider": # real provider that gave this auth information if different of one from request.
+      "provider": # real provider that gave this auth information if different of one from request (for example an external group).
     }
 
   Even if password was sent in request, it is important to return it in `Cleartext-Password` to confirm it is the correct password.
@@ -403,13 +408,41 @@ You can implement external authentication by implementing the following:
 Device Authorizations
 *********************
 
-Guest Access
-************
+Guest Request
+*************
 
--> action url -> return other fields modified or unchanged...
+You can implement guest access authorization using:
 
-Guest Access Authorizations
-***************************
+:service:
+  `guest-request`
+:request format:
+
+  .. code-block:: json
+
+    { 
+      "guest_access":                   // id of the guest access
+      "guest_access_modification_time": // modification time of the guest access when it was displayed to guest.
+      "mac":                            // MAC address of the device requesting guest access
+      "fields": [                       // fields sent by guest request form.
+        {
+          "display_name": // name of the field as configured in Guest Access Configuration.
+          "type":         // type of the field as configured in Guest Access Configuration.
+          "value":        // value of the field, validated against `type`.
+          "field_id":     // id of the field as configured in Guest Access Configuration.
+        },
+        ...
+      ],
+      "vlan_id":    // VLAN Identifier of the received request.
+      "interface":  // Interface the request was received on.
+    }
+    
+:purpose:
+  Send guest request for validation (other that field validation).
+  It is then the responsibility of the implemented service to grant access to the guest
+:returns:
+  Nothing if request accepted.
+  raise RequestError to send back errors to guest requesting access.
+
 
 Check Mac Authorizations
 ************************

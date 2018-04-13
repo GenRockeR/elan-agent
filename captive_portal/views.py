@@ -229,7 +229,6 @@ def guest_access(request):
                 vlan_id=vlan_id,
                 fields=[],
                 guest_access=guest_access,
-                sponsor_email=form.cleaned_data.get('sponsor_email', ''),
                 guest_access_modification_time=form.cleaned_data.get('guest_access_modification_time')
         )
         for field in guest_registration_fields:
@@ -244,12 +243,16 @@ def guest_access(request):
             submit_guest_request(guest_request)
 
             return redirect('status')
-        except:
-            if 'non_field_errors' not in form.errors:
-                form.errors['non_field_errors'] = []
-            form.errors['non_field_errors'].append(_('Error during request, please try again or contact administrator.'))
 
-    # Form not valid or error when getting Guest Request Id
+        except RequestError as e:
+            if e.errors:
+                form.errors = e.errors
+            else:
+                form.errors = [{'non_field_errors': [e.error_str]}]
+        except:
+            form.errors['non_field_errors'] = [_('Error during request, please try again or contact administrator.')]
+
+    # Form not valid or error when submitting request
     # we update the field conf with passed value and error messages as it is easier to display in Template (difficult to access error.var where var='field-{id}' and to build that access in the template)
     for field in guest_registration_fields:
         field.update(value=request.POST.get('field-{}'.format(field['id']), ''))
