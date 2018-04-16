@@ -16,7 +16,7 @@ ExecStart=/sbin/ifup br0
 
 TimeoutStopSec=2
 ExecStop=/sbin/ifdown br0
-ExecStopPost=-/sbin/ifdown br0
+
 
 [Install]
 WantedBy=network.target
