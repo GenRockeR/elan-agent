@@ -14,7 +14,6 @@ from elan import session
 from elan.authentication import pwd_authenticate
 from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.event import Event
-from elan.mail import send_mail
 from elan.network import NetworkConfiguration
 from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
 from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
