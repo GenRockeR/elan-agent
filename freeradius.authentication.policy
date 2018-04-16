@@ -67,7 +67,7 @@ authentications.authorize {
     }
     
     update control {
-      &ELAN-Auth-Provider := "%{reply:ELAN-Auth-Provider:-%{session-state:ELAN-Auth-Provider}}"
+      &ELAN-Auth-Provider := "%{%{reply:ELAN-Auth-Provider}:-%{session-state:ELAN-Auth-Provider}}"
     }
     
 }

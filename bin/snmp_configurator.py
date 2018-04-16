@@ -11,7 +11,7 @@ SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
 logging.basicConfig()
 
 
-class SNMPConfigurator():
+class SnmpConfigurator():
     KEYS = ('credentials', 'engine_ids')
 
     def __init__(self):
@@ -27,7 +27,7 @@ class SNMPConfigurator():
                 conf_changed = True
 
                 # save credentials for other program use...
-                if key == 'snmp_credentials':
+                if key == 'credentials':
                     self.synapse.set(SNMP_DEFAULT_CREDENTIALS_PATH, conf[key])
 
         if conf_changed:
@@ -38,12 +38,12 @@ class SNMPConfigurator():
                 server_file.write(snmp_template.render(**self.conf))
 
             # Reload freeradius
-            restart_service('freeradius')
+            restart_service('snmptrapd')
 
 
 if __name__ == "__main__":
     dendrite = Dendrite()
-    conf = SNMPConfigurator()
-    dendrite.subscribe_conf('agent', conf.agent_conf_updated)
+    conf = SnmpConfigurator()
+    dendrite.subscribe_conf('snmp', conf.agent_conf_updated)
 
     dendrite.wait_complete()

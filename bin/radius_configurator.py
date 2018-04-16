@@ -6,8 +6,6 @@ import logging
 from elan.neuron import Dendrite, Synapse
 from elan.utils import restart_service
 
-SNMP_DEFAULT_CREDENTIALS_PATH = 'snmp:default_credentials'
-
 logging.basicConfig()
 
 
@@ -46,6 +44,6 @@ class RadiusConfigurator():
 if __name__ == "__main__":
     dendrite = Dendrite()
     conf = RadiusConfigurator()
-    dendrite.subscribe_conf('agent', conf.agent_conf_updated)
+    dendrite.subscribe_conf('radius', conf.agent_conf_updated)
 
     dendrite.wait_complete()
