@@ -10,7 +10,7 @@ synapse = Synapse()
 dendrite = Dendrite()
 
 
-def seen_fingerprint(mac, fingerprint, source):
+def seen_fingerprint(mac, fingerprint, source, hostname=''):
     new = store_fingerprint(mac, fingerprint, source)
     if new:
         notify_fingerprint(mac, fingerprint, source)
@@ -32,8 +32,8 @@ def store_fingerprint(mac, fingerprint, source, lifetime=REDIS_LIFETIME):
         return True
 
 
-def notify_fingerprint(mac, fingerprint, source):
-    dendrite.publish('mac/fingerprint', dict(mac=mac, source=source, **fingerprint))
+def notify_fingerprint(mac, fingerprint, source, hostname):
+    dendrite.publish('mac/fingerprint', dict(mac=mac, source=source, hostname=hostname, fingerprint=fingerprint))
 
 
 def notify_known_fingerprints():

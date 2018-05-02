@@ -24,7 +24,7 @@ class DeviceTracker():
         capture = Capture(
                 name='device-tracker',
                 interface=self.interfaces,
-                capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or ( !ip and !ip6) )'
+                capture_filter='inbound and ( udp port 67 or arp or udp port 138 or udp port 547 or (icmp6 and ip6[40] == 0x88) or (udp src port 5353 and udp dst port 5353) or ( !ip and !ip6) )'
         )
 
         capture.remove_files()
@@ -84,35 +84,82 @@ class DeviceTracker():
             elif source == 'BOOTP':
                 source = 'DHCPV4'
 
-            # DHCP fingerprint
-            if source == 'DHCPV4':
-                try:
-                    fingerprint = {
-                                'fingerprint': ','.join(str(option.hex_value) for option in packet.bootp.option_request_list_item.fields),
-                                'vendor_id': str(getattr(packet.bootp, 'option_vendor_class_id', ''))
-                    }
-                except AttributeError:
-                    pass
-                else:
-                    device.seen_fingerprint(mac, fingerprint, source)
-
-            # Hostname: grab it from netbios or dhcpv4 or dhcpv6
+            # Hostname: grab it from netbios or dhcpv4 or dhcpv6 or mdns
             hostname = None
             try:
                 hostname = str(packet.nbdgm.source_name)  # ends with <??>
                 p = re.compile('<..>$')
                 hostname = p.sub('', hostname)
             except AttributeError:
-                try:
-                    hostname = str(packet.bootp.option_hostname)
-                except AttributeError:
+                pass
+
+            try:
+                hostname = str(packet.bootp.option_hostname)
+            except AttributeError:
+                pass
+
+            try:
+                hostname = str(packet.dhcpv6.client_fqdn)
+            except AttributeError:
+                pass
+
+            try:
+                if int(packet.mdns.dns_flags_response) and int(packet.mdns.dns_flags_authoritative):
+                    mdns = packet.mdns
                     try:
-                        hostname = str(packet.dhcpv6.client_fqdn)
+                        a_list = mdns.dns_a.fields.copy()
+                        a_list.reverse()
                     except AttributeError:
-                        pass
+                        a_list = []
+                    try:
+                        aaaa_list = mdns.dns_aaaa.fields.copy()
+                        aaaa_list.reverse()
+                    except AttributeError:
+                        aaaa_list = []
+                    resp_types = mdns.dns_resp_type.fields.copy()
+                    resp_types.reverse()
+                    for field in mdns.dns_resp_name.fields:
+                        name, *domain = field.showname_value.split('.')
+                        if domain == ['local']:
+                            resp_type = resp_types.pop().showname_value.split(' ')[0]
+                            target = None
+                            if resp_type == 'A':
+                                target = a_list.pop().showname_value
+                            elif resp_type == 'AAAA':
+                                target = aaaa_list.pop().showname_value
+                            if target:
+                                if session.mac_has_ip_on_vlan(mac, target, vlan):
+                                    hostname = name
+                                    break  # Only first one found...
+            except AttributeError:
+                pass
 
             if hostname:
                 device.seen_hostname(mac, hostname, source)
+
+            # DHCP fingerprint
+            if source == 'DHCPV4':
+                try:
+                    fingerprint = {
+                                'request_list': ','.join(str(option.hex_value) for option in packet.bootp.option_request_list_item.fields),
+                                'vendor': str(getattr(packet.bootp, 'option_vendor_class_id', ''))
+                    }
+                except AttributeError:
+                    pass
+                else:
+                    device.seen_fingerprint(mac, fingerprint, source, hostname)
+
+            elif source == 'DHCPV6':
+                try:
+                    fingerprint = {
+                                'request_list': ','.join(str(option.hex_value) for option in packet.dhcpv6.requested_option_code.fields),
+                                'vendor': str(getattr(packet.dhcpv6, 'vendorclass_data', '')),
+                                'enterprise': str(getattr(packet.dhcpv6, 'vendorclass_enterprise', ''))
+                    }
+                except AttributeError:
+                    pass
+                else:
+                    device.seen_fingerprint(mac, fingerprint, source, hostname)
 
         except Exception:
             ExceptionEvent(source='device-tracker')\
