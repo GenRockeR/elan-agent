@@ -3,15 +3,15 @@
 use strict;
 use warnings;
 
-use Switch;
+use ELAN::NetdiscoDevice;
 use ELAN::SNMP;
 use Encode;
-use Redis;
-use JSON;
 use File::Find;
-use ELAN::NetdiscoDevice;
 use IO::Select;
 use IO::Socket::UNIX;
+use JSON;
+use Redis;
+use Switch;
 
 use constant SNMP_POLL_REQUEST_SOCK => '/tmp/snmp-poll-request.sock';
 use constant SNMP_PARSE_TRAP_SOCK => '/tmp/snmp-trap-parse.sock';

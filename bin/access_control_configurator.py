@@ -34,9 +34,10 @@ class AccessControlConfigurator():
                 nic_name = vlan['interface']
             new_vlans_by_ifname[ nic_name ] = vlan
 
-        ip = IPDB(mode='direct')
+        ip = IPDB(mode='explicit')
         try:
             bridge = ip.interfaces[self.bridge]
+            bridge.begin()
 
             # Create New VLANs
             for nic_name in set(new_vlans_by_ifname.keys()) - set(self.vlans_by_ifname.keys()):
@@ -44,13 +45,14 @@ class AccessControlConfigurator():
                     nic = ip.interfaces[ new_vlans_by_ifname[nic_name]['interface'] ]
                     vlan_id = new_vlans_by_ifname[nic_name].get('vlan_id', 0)
                     # Make sure NIC is up
-                    nic.up()
+                    nic.begin()
+                    nic.up().commit()
 
                     if vlan_id:
-                        nic = ip.create(kind='vlan', link=nic, vlan_id=vlan_id, ifname=nic_name, reuse=True).commit()
-                        nic.up()
-
+                        nic = ip.create(kind='vlan', link=nic, vlan_id=vlan_id, ifname=nic_name, reuse=True).up().commit()
                     bridge.add_port(nic)
+                except KeyError:  # Happens when interface already exists
+                    pass
                 except:
                     ExceptionEvent(source='network').notify()
 
@@ -202,12 +204,15 @@ class AccessControlConfigurator():
                     try:
                         nic = ip.interfaces[nic_name]
                         if vlan_id:
-                            nic.remove()
+                            nic.begin()
+                            nic.remove().commit()
                         else:
                             bridge.del_port(nic)
                     except:
                         # TODO log error to CC
                         print('error occured:', traceback.format_exc())
+
+            bridge.commit()
 
             # Set captive portals
             nginx_captive_portals = Template(filename='/elan-agent/network/nginx/server')

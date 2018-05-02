@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from aiohttp import web, errors
+from aiohttp import web
 from elan import freeradius, neuron
 from elan.freeradius.utils import request_as_hash_of_values
 

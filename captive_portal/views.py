@@ -1,6 +1,6 @@
 from django import forms
 from django.conf import settings
-from django.contrib.sites.models import get_current_site
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.urlresolvers import reverse
 from django.core.validators import validate_ipv4_address, validate_ipv6_address
 from django.http import HttpResponseRedirect
