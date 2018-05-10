@@ -7,7 +7,7 @@ PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make
                    python3-mako, python3-pyroute2, python3-django, python3-logbook, python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp, \
                    libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, libnet-ip-perl, libreadonly-perl, \
                    libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, \
-                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl, libchi-perl
+                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl, libchi-perl, ifupdown
 
 include packaging.mk
 
@@ -95,9 +95,9 @@ connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trac
 
 connection-tracker-pyshark:
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
-	cp -rp ${VIRTUAL_ENV}/lib/python3.5/site-packages/pyshark/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
+	cp -rp ${VIRTUAL_ENV}/lib/python3.6/site-packages/pyshark/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/pyshark
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
-	cp -rp ${VIRTUAL_ENV}/lib/python3.5/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
+	cp -rp ${VIRTUAL_ENV}/lib/python3.6/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
 install: core-python
@@ -111,7 +111,7 @@ core-python: elan/*.py elan/nac/*.py core-pylib
 core-pylib: idstools paho scapy serialized_redis
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python
 	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /elan-agent/lib/python
-	( cd ${VIRTUAL_ENV}/lib/python3.5/site-packages; \
+	( cd ${VIRTUAL_ENV}/lib/python3.6/site-packages; \
 		find $^ -type d -exec install -d ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \;; \
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ORIGIN_PREFIX}/lib/python/{} \; \
