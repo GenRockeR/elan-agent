@@ -280,7 +280,7 @@ sub snmp_parse_trap {
     }
   }
   
-  my $count = keys($trap_matches);
+  my $count = keys(%$trap_matches);
   if($count == 0) {
      return {trapType => 'unknown'};
   } elsif($count == 1) {
