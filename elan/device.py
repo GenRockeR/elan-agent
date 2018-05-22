@@ -13,7 +13,7 @@ dendrite = Dendrite()
 def seen_fingerprint(mac, fingerprint, source, hostname=''):
     new = store_fingerprint(mac, fingerprint, source)
     if new:
-        notify_fingerprint(mac, fingerprint, source)
+        notify_fingerprint(mac, fingerprint, source, hostname)
     return new
 
 
