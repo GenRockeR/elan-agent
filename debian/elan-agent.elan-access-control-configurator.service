@@ -10,12 +10,7 @@ Environment=PYTHONPATH=/elan-agent/lib/python
 
 ExecStartPre=-/sbin/brctl addbr br0
 ExecStartPre=-/sbin/modprobe br_netfilter
-ExecStartPre=-/usr/sbin/nft add table bridge elan
-ExecStartPre=-/usr/sbin/nft add table ip elan
-ExecStartPre=-/usr/sbin/nft add table ip6 elan
-ExecStartPre=-/usr/sbin/nft add table inet elan
-ExecStartPre=-/usr/sbin/nft -f /elan-agent/network/nftables.sets
-ExecStartPre=-/usr/sbin/nft -f /elan-agent/network/nftables.chains
+ExecStartPre=-/usr/sbin/nft -f /elan-agent/network/nftables
 
 ExecStart=/elan-agent/bin/access-control-configurator
 

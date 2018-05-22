@@ -208,8 +208,7 @@ network-install:
 	install -m 755 bin/access_control_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/access-control-configurator
 	install -m 755 bin/network_configurator.py ${DESTDIR}${ORIGIN_PREFIX}/bin/network-configurator
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network
-	install -m 755 nftables.sets   ${DESTDIR}${ORIGIN_PREFIX}/network/
-	install -m 755 nftables.chains ${DESTDIR}${ORIGIN_PREFIX}/network/
+	install -m 755 nftables ${DESTDIR}${ORIGIN_PREFIX}/network/
 	install -m 755 interfaces.d ${DESTDIR}${ORIGIN_PREFIX}/network/interfaces
 	install -m 644 interfaces ${DESTDIR}${ORIGIN_PREFIX}/network/interface.lo
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/network/nginx

@@ -5,9 +5,44 @@ define agent_ip6 = 2001:41d0:2:ba47::1000:1000
 define portal_ip = 8.8.8.9
 define portal_ip6 = 2001:41d0:2:ba47::1000:1010
 
-flush table bridge elan
-
 table bridge elan {
+    set ndp_pt_ifs {
+        type iface_index . iface_index ;
+    }
+    set dhcp_pt_ifs {
+        type iface_index . iface_index ;
+    }
+    set dns_pt_ifs {
+        type iface_index . iface_index ;
+    }
+    set mdns_pt_ifs {
+        type iface_index . iface_index ;
+    }
+    set ac_ifs {
+        type iface_index ;
+    }
+    set log_ifs {
+        type iface_index ;
+    }
+    set ids_ifs {
+        type iface_index ;
+    }
+    set mac_on_vlan {
+        type ether_addr . iface_index ;
+    }
+    set mac_to_vlan {
+        type ether_addr . iface_index ;
+    }
+    set ip_conn2mark {
+        type ipv4_addr . inet_service . ipv4_addr . inet_service ;
+    }
+    set ip6_conn2mark {
+        type ipv6_addr . inet_service . ipv6_addr . inet_service ;
+    }
+    map vlan_mark {
+        type iface_index : mark ;
+    }
+
     chain access_control_in {
 
         ether saddr . iif @mac_on_vlan accept
@@ -106,8 +141,6 @@ table bridge elan {
     }
 }
 
-flush table inet elan
-
 table inet elan {
   
     chain connections  {
@@ -118,10 +151,11 @@ table inet elan {
     }
 }
 
-flush table ip elan
-
 table ip elan {
-  
+    map captive_portals {
+      type mark . inet_service : inet_service ;
+    }
+
     chain prerouting  { 
         type nat hook prerouting priority -150;
     
@@ -136,10 +170,11 @@ table ip elan {
     } 
 }
 
-flush table ip6 elan
-
 table ip6 elan {
-  
+    map captive_portals {
+        type mark . inet_service : inet_service ;
+    }
+
     chain prerouting  { 
         type nat hook prerouting priority -150;
 
