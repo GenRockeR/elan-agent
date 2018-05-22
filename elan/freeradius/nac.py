@@ -54,7 +54,7 @@ async def find_port(request):
     # Retrieve switch info
     # first try nas_ip address in snmp cache then radius_client_ip
     # then try polling
-    if nas_ip_address:
+    if nas_ip_address and nas_ip_address not in ['0.0.0.0', '::']:
         switch = snmp_manager.get_device_by_ip(nas_ip_address)
     if switch:
         switch_ip = nas_ip_address
