@@ -28,10 +28,10 @@ class RadiusConfigurator():
             # Grab template
             server_template = Template(filename="/elan-agent/nac/freeradius/server")
 
-            with open ("/etc/freeradius/sites-enabled/nac", "w") as server_file:
+            with open ("/etc/freeradius/3.0/sites-enabled/nac", "w") as server_file:
                 server_file.write(server_template.render(**self.conf))
 
-            with open ("/etc/freeradius/certs/nac.pem", "w") as cert_file:
+            with open ("/etc/freeradius/3.0/certs/nac.pem", "w") as cert_file:
                 # reverse certchain so that freeradius/openssl finds the cert matching the private key in first position...
                 cert_list = [ cert + '-----END CERTIFICATE-----\n' for cert in self.conf['cert_chain'].split('-----END CERTIFICATE-----') if '-----BEGIN CERTIFICATE-----' in cert ]
                 cert_file.write(''.join(reversed(cert_list)))

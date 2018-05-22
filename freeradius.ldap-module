@@ -93,7 +93,7 @@ ldap ldap-auth-${id} {
   % endif
   
   % if server_ca and (encryption == 'start_tls' or encryption == 'ssl'):
-    ca_file = /etc/freeradius/certs/server_CA/auth-${id}.pem
+    ca_file = /etc/freeradius/3.0/certs/server_CA/auth-${id}.pem
     require_cert  = "demand"
   % else:
     require_cert  = "allow"

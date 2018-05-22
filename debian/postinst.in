@@ -6,15 +6,15 @@ ln -s /lib/init/upstart-job /etc/init.d/freeradius
   
 
 # create default params
-/etc/freeradius/certs/bootstrap
+/etc/freeradius/3.0/certs/bootstrap
 
 
 # Configure Nginx
 rm -f /etc/nginx/sites-enabled/default
 
 # deconfigure freeradius default sites
-rm -f /etc/freeradius/sites-enabled/default
-rm -f /etc/freeradius/sites-enabled/inner-tunnel
+rm -f /etc/freeradius/3.0/sites-enabled/default
+rm -f /etc/freeradius/3.0/sites-enabled/inner-tunnel
 
 mkdir -p /var/log/freeradius/tlscache
 chown freerad: /var/log/freeradius/tlscache

@@ -383,15 +383,15 @@ rest auth_all_providers_failed_in_group {
         if not has_active_directory and AD.joined():
             AD.leave()
 
-        with open ("/etc/freeradius/mods-enabled/authentications", "w") as module_file:
+        with open ("/etc/freeradius/3.0/mods-enabled/authentications", "w") as module_file:
             module_file.write(module_conf)
-        with open ("/etc/freeradius/policy.d/authentications", "w") as policy_file:
+        with open ("/etc/freeradius/3.0/policy.d/authentications", "w") as policy_file:
             policy_file.write(self.policy_template.render(inner_switch=inner_switch_server_conf))
 
         # CAs
         for provider in self.authentications.values():
             if provider.get('server_ca', None):
-                with open ("/etc/freeradius/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
+                with open ("/etc/freeradius/3.0/certs/server_CA/auth-{id}.pem".format(id=provider['id']), "w") as server_ca_file:
                     server_ca_file.write(provider['server_ca'])
 
         # unprovide
@@ -485,7 +485,7 @@ class AD:
         cls._run(['usermod', '-a', '-G', 'winbindd_priv', 'freerad'])
         cls._run(['chgrp', 'winbindd_priv', '/var/lib/samba/winbindd_privileged'])
 
-        f = open('/etc/freeradius/.k5identity', 'w')
+        f = open('/etc/freeradius/3.0/.k5identity', 'w')
         f.write('{hostname}$@{realm}'.format(hostname=socket.gethostname(), realm=realm).upper())
         f.close()
 

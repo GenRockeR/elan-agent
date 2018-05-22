@@ -35,8 +35,8 @@ authentication-python: elan/authentication.py elan/freeradius/*.py
    
 .PHONY: authentication-freeradius
 authentication-freeradius:
-	install -d ${DESTDIR}/etc/freeradius
-	install -m 644 freeradius.dictionary       ${DESTDIR}/etc/freeradius/dictionary
+	install -d ${DESTDIR}/etc/freeradius/3.0
+	install -m 644 freeradius.dictionary       ${DESTDIR}/etc/freeradius/3.0/dictionary
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius
 	install -m 644 freeradius.authentication.policy           ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/policy
 	install -m 644 freeradius.ldap-module      ${DESTDIR}${ORIGIN_PREFIX}/authentication/freeradius/ldap-module
@@ -45,10 +45,10 @@ authentication-freeradius:
 	install -m 755 bin/authentication_provider.py ${DESTDIR}${ORIGIN_PREFIX}/bin/authentication-provider
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius
 	install -m 644 pyrad.dictionary            ${DESTDIR}${ORIGIN_PREFIX}/authentication/pyradius/dictionary
-	install -d ${DESTDIR}/etc/freeradius/sites-available
-	install -d ${DESTDIR}/etc/freeradius/sites-enabled
-	install -m 644 freeradius.authentication.server           ${DESTDIR}/etc/freeradius/sites-available/authentication
-	ln -fs ../sites-available/authentication    ${DESTDIR}/etc/freeradius/sites-enabled/
+	install -d ${DESTDIR}/etc/freeradius/3.0/sites-available
+	install -d ${DESTDIR}/etc/freeradius/3.0/sites-enabled
+	install -m 644 freeradius.authentication.server           ${DESTDIR}/etc/freeradius/3.0/sites-available/authentication
+	ln -fs ../sites-available/authentication    ${DESTDIR}/etc/freeradius/3.0/sites-enabled/
 	install -d ${DESTDIR}/etc/default
 	install -m 644 freeradius.default          ${DESTDIR}/etc/default/freeradius
 
@@ -158,10 +158,10 @@ nac-conf:
 nac-freeradius: freeradius.nac.server freeradius.nac.modules
 	install -d ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius
 	install -m 644 freeradius.nac.server ${DESTDIR}${ORIGIN_PREFIX}/nac/freeradius/server
-	install -d ${DESTDIR}/etc/freeradius/mods-available
-	install -d ${DESTDIR}/etc/freeradius/mods-enabled
-	install -m 644 freeradius.nac.modules ${DESTDIR}/etc/freeradius/mods-available/nac
-	ln -fs ../mods-available/nac ${DESTDIR}/etc/freeradius/mods-enabled
+	install -d ${DESTDIR}/etc/freeradius/3.0/mods-available
+	install -d ${DESTDIR}/etc/freeradius/3.0/mods-enabled
+	install -m 644 freeradius.nac.modules ${DESTDIR}/etc/freeradius/3.0/mods-available/nac
+	ln -fs ../mods-available/nac ${DESTDIR}/etc/freeradius/3.0/mods-enabled
 
 .PHONY: nac-nginx
 nac-nginx:
