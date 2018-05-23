@@ -37,8 +37,7 @@ class SnmpConfigurator():
             with open ("/etc/snmp/snmptrapd.conf", "w") as server_file:
                 server_file.write(snmp_template.render(**self.conf))
 
-            # Reload freeradius
-            restart_service('snmptrapd')
+            restart_service('elan-snmp-notification-receiver')
 
 
 if __name__ == "__main__":
