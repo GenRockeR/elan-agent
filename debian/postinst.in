@@ -24,7 +24,7 @@ mkdir -p /var/log/suricata
 mkdir -p /etc/suricata/rules
 PYTHONPATH=/elan-agent/lib/python /elan-agent/bin/rule-fetcher --no-rule-reload || true
 
-perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ORIGIN_PREFIX}/captive-portal/captive_portal/settings.py
+perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ELAN_PREFIX}/captive-portal/captive_portal/settings.py
 
 # get rid of rc.d symlinks for nginx and redis
 update-rc.d -f nginx remove
@@ -60,8 +60,8 @@ then
 fi
 
 mkdir -p /usr/local/pf/lib/pf/util
-ln -fs %{ORIGIN_PREFIX}/nac/pf/conf /usr/local/pf/
-ln -fs %{ORIGIN_PREFIX}/nac/pf/conf/dictionary /usr/local/pf/lib/pf/util/
+ln -fs %{ELAN_PREFIX}/nac/pf/conf /usr/local/pf/
+ln -fs %{ELAN_PREFIX}/nac/pf/conf/dictionary /usr/local/pf/lib/pf/util/
 
 
 #DEBHELPER#

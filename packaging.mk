@@ -2,7 +2,7 @@ ifeq ($(PACKAGE-NAME),)
 $(error "Please define PACKAGE-NAME (and PACKAGE-DESC)")
 endif
 
-ORIGIN_PREFIX = /elan-agent
+ELAN_PREFIX = /elan-agent
 
 # Make sure that the MCN key exists in gpg configuration
 .PHONY: gpgkey
@@ -12,10 +12,10 @@ gpgkey:
 $(HOME)/.dupload.conf: packaging/dupload.conf
 	cp $< $@
 
-gen-from-tmpl = @perl -pe 's:%\{PACKAGE-NAME\}:${PACKAGE-NAME}:g; s:%\{PACKAGE-DESC\}:${PACKAGE-DESC}:g; s:%\{PACKAGE-DEPENDS\}:${PACKAGE-DEPENDS}:g; s:%\{ORIGIN_PREFIX\}:${ORIGIN_PREFIX}:g' $(1) > $(2)
+gen-from-tmpl = @perl -pe 's:%\{PACKAGE-NAME\}:${PACKAGE-NAME}:g; s:%\{PACKAGE-DESC\}:${PACKAGE-DESC}:g; s:%\{PACKAGE-DEPENDS\}:${PACKAGE-DEPENDS}:g; s:%\{ELAN_PREFIX\}:${ELAN_PREFIX}:g' $(1) > $(2)
 
 .PHONY: deb-stable
-deb-stable: ORIGIN_TARGET = stable
+deb-stable: ELAN_TARGET = stable
 deb-stable: deb
 
 .PHONY: deb
@@ -43,7 +43,7 @@ endif
 .PHONY: debian/changelog
 debian/changelog: debian/changelog.in Makefile
 	$(call gen-from-tmpl,$<,$@)
-	@if [ "$(ORIGIN_TARGET)" = "stable" ]; \
+	@if [ "$(ELAN_TARGET)" = "stable" ]; \
 	then \
 		perl -p -i -e 's:unstable:stable:g' $@;\
 	else \
