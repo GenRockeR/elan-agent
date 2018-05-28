@@ -4,7 +4,7 @@ import asyncio
 import functools
 import re
 
-from elan import snmp, session, nac
+from elan import snmp, session, nac, neuron
 from elan.event import Event, DebugEvent, ExceptionEvent
 
 from .utils import request_as_hash_of_values
@@ -238,6 +238,11 @@ async def post_auth(req):
             return await seen(request)
         else:
             return await get_assignments(request)
+    except neuron.RequestTimeout:
+        Event('runtime-failure-authorization', source='radius', level='danger')\
+            .add_data('error', 'timeout')\
+            .notify()
+        raise
     except:
         ExceptionEvent(source='radius').notify()
         raise
