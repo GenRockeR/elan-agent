@@ -14,6 +14,10 @@ include packaging.mk
 .PHONY: install
 install: core-install authentication-install captive-portal-install connection-tracker-install ids-install nac-install network-install
 
+.PHONY: install-dependencies
+install-dependencies:
+	echo "${PACKAGE-DEPENDS}" | sed 's/,/\n/g' | awk '{ print $$1}' | xargs apt install -y
+
 .PHONY: test
 test:
 	python -m unittest
@@ -100,7 +104,7 @@ connection-tracker-pyshark:
 	cp -rp ${VIRTUAL_ENV}/lib/python3.6/site-packages/trollius/* ${DESTDIR}${ORIGIN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
-install: core-python
+core-install: core-python
 
 .PHONY: core-python
 core-python: elan/*.py elan/nac/*.py core-pylib
