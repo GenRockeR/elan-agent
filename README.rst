@@ -24,11 +24,19 @@ Hence you need only 1 IP address range for all your services and take advantages
 ELAN Agent fully supports IPv6.
 
 
-Deployment
-##########
+Installation
+############
 
-#TODO
+ELAN Agent is designed to run on Ubuntu 18.04 (Bionic)
 
+  .. code-block::
+  
+    $ sudo add-apt-repository ppa:easy-lan/stable
+    $ sudo apt-get update
+    $ sudo apt install elan-agent
+
+
+Note: This will modify your network configuration and create a bridge with the first 2 interfaces it finds, and obtain an address by DHCP.
 
 Configuration
 #############
@@ -403,11 +411,6 @@ You can implement extra authentication schemes by implementing the following:
 
   Even if password was sent in request, it is important to return it in `Cleartext-Password` to confirm it is the correct password.
 
-
-
-Device Authorizations
-*********************
-
 Guest Request
 *************
 
@@ -489,7 +492,50 @@ Device Authorization
 Events
 ######
 
-#TODO
-new mac session, new IP session for mac, new vlan session for mac, mac on port...
+Connections
+***********
 
+:topic:
+  `connection`
+
+Authorizations
+**************
+
+:topic:
+  `session/authorization`
+
+Mac Session
+***********
+
+:topic:
+  `session/mac`
+
+VLAN Session
+************
+
+:topic:
+  `session/vlan`
+
+IP Session
+**********
+
+:topic:
+  `session/ip`
+
+SNMP Information
+****************
+
+:topic:
+  `snmp`
+
+Device DHCP Fingerprint
+***********************
+:topic:
+  `mac/fingerprint`
+
+Device Hostname
+***************
+
+:topic:
+  `mac/hostname`
 
