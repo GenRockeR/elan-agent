@@ -16,3 +16,4 @@ manage.py
 pip-selfcheck.json
 debian/*.debhelper
 .cache
+embedded/python/

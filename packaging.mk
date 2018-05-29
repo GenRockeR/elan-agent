@@ -2,7 +2,7 @@ ifeq ($(PACKAGE-NAME),)
 $(error "Please define PACKAGE-NAME (and PACKAGE-DESC)")
 endif
 
-ELAN_PREFIX = /elan-agent
+DEBUILD_FLAGS ?= -F
 
 # Make sure that the MCN key exists in gpg configuration
 .PHONY: gpgkey
@@ -12,7 +12,7 @@ gpgkey:
 $(HOME)/.dupload.conf: packaging/dupload.conf
 	cp $< $@
 
-gen-from-tmpl = @perl -pe 's:%\{PACKAGE-NAME\}:${PACKAGE-NAME}:g; s:%\{PACKAGE-DESC\}:${PACKAGE-DESC}:g; s:%\{PACKAGE-DEPENDS\}:${PACKAGE-DEPENDS}:g; s:%\{ELAN_PREFIX\}:${ELAN_PREFIX}:g' $(1) > $(2)
+gen-from-tmpl = @perl -pe 's:%\{PACKAGE-NAME\}:${PACKAGE-NAME}:g; s:%\{PACKAGE-DESC\}:${PACKAGE-DESC}:g; s:%\{PACKAGE-DEPENDS\}:${PACKAGE-DEPENDS}:g; s:%\{ELAN_PREFIX\}:${ELAN_PREFIX}:g;' $(1) > $(2)
 
 .PHONY: deb-stable
 deb-stable: ELAN_TARGET = stable
@@ -21,7 +21,7 @@ deb-stable: deb
 .PHONY: deb
 deb: gpgkey debian/changelog debian/control
 	rm -f ../$(PACKAGE-NAME)_*
-	debuild --preserve-envvar VIRTUAL_ENV -b -mdebian@origin-nexus.com --lintian-opts --suppress-tags=file-in-unusual-dir
+	debuild $(DEBUILD_FLAGS) -mdebian@origin-nexus.com --lintian-opts --suppress-tags=file-in-unusual-dir
 
 ifneq ($(wildcard debian/preinst.in),)
 deb: debian/preinst
@@ -43,10 +43,8 @@ endif
 .PHONY: debian/changelog
 debian/changelog: debian/changelog.in Makefile
 	$(call gen-from-tmpl,$<,$@)
-	@if [ "$(ELAN_TARGET)" = "stable" ]; \
+	@if [ "$(ELAN_TARGET)" != "stable" ]; \
 	then \
-		perl -p -i -e 's:unstable:stable:g' $@;\
-	else \
 		# replace first line of change log with version followed by ~EPOCH (~ in deb-version ordering comes before anything, even nothing: version 1.0~whatever is less that 1.0) \
 		perl -p -i -e '$$now=time(); s:\((.*)\):($${1}~$$now): if 1 .. 1' $@ ;\
 	fi
@@ -67,7 +65,14 @@ debian/postrm: debian/postrm.in Makefile
 	$(call gen-from-tmpl,$<,$@)
 
 PACKAGE-VERSION = $(shell head -1 debian/changelog | cut -f 2 -d \( | cut -f 1 -d \))
-.PHONY: deploy-dev
-deploy-dev:
-	@scp ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb itadmin@192.168.20.10:/home/itadmin/
-	@ssh itadmin@192.168.20.10 "cd repositories; reprepro --ask-passphrase includedeb elan-agent ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb; rm ../${PACKAGE-NAME}_${PACKAGE-VERSION}_*.deb"
+.PHONY: ppa-unstable
+ppa-unstable: DEBUILD_FLAGS = -S
+ppa-unstable: deb
+	dput ppa:easy-lan/unstable ../$(PACKAGE-NAME)_$(PACKAGE-VERSION)*_source.changes
+
+.PHONY: ppa-stable
+ppa-stable: DEBUILD_FLAGS = -S
+ppa-stable: deb-stable
+	dput ppa:easy-lan/stable ../$(PACKAGE-NAME)_$(PACKAGE-VERSION)*_source.changes
+
+

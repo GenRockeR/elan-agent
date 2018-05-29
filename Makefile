@@ -1,13 +1,22 @@
 PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
-PACKAGE-DEPENDS := freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make, winbind, krb5-user, libsasl2-modules-gssapi-mit, krb5-pkinit, \
-                   python3, uwsgi-plugin-python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, suricata, \
-                   nginx, redis-server, gcc, libnetfilter-log-dev, libnfnetlink-dev, libpython3-dev, python3-cffi, libglib2.0-dev, python3-dev, \
-                   zsync, python3-yaml, python3-websockets, snmpd, snmptrapd, python3-redis, python3-pyrad, bridge-utils, vlan, nftables, rdnssd, \
-                   python3-mako, python3-pyroute2, python3-django, python3-logbook, python3-py, python3-lxml, tshark, mosquitto, python3-aiohttp, \
-                   libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, libnet-ip-perl, libreadonly-perl, \
-                   libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, \
-                   libjson-maybexs-perl, libfile-fcntllock-perl, libsocket6-perl, libchi-perl, ifupdown
+PACKAGE-DEPENDS := python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, libpython3-dev, python3-cffi, python3-dev, \
+                 python3-yaml, python3-websockets, python3-redis, python3-pyrad, python3-mako, python3-pyroute2, python3-django, \
+                 python3-logbook, python3-py, python3-lxml, python3-aiohttp, redis-server, gcc, \
+                 freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make, winbind, krb5-user, \
+                 libsasl2-modules-gssapi-mit, krb5-pkinit, uwsgi-plugin-python3, suricata, nginx, libnetfilter-log-dev, \
+                 libnfnetlink-dev, libglib2.0-dev, zsync, snmpd, snmptrapd, bridge-utils, vlan, nftables, rdnssd, tshark, \
+                 mosquitto, libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, \
+                 libnet-ip-perl, libreadonly-perl, libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, \
+                 libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, libjson-maybexs-perl, \
+                 libfile-fcntllock-perl, libsocket6-perl, libchi-perl, ifupdown
+
+ELAN_PREFIX := /elan-agent
+PYTHON_PIPENVFILES := embedded/python
+
+.PHONY: build
+build:
+	# Nothing to build...
 
 include packaging.mk
 
@@ -20,7 +29,11 @@ install-dependencies:
 
 .PHONY: test
 test:
-	python -m unittest
+	#
+
+.PHONY: test-python
+test-python:
+	PYTHONPATH=./embedded/python python3 -m unittest
 
 .PHONY: test-coverage
 test-coverage:
@@ -99,9 +112,9 @@ connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trac
 
 connection-tracker-pyshark:
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/pyshark
-	cp -rp ${VIRTUAL_ENV}/lib/python3.6/site-packages/pyshark/* ${DESTDIR}${ELAN_PREFIX}/lib/python/pyshark
+	cp -rp ${PYTHON_PIPENVFILES}/pyshark/* ${DESTDIR}${ELAN_PREFIX}/lib/python/pyshark
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/trollius
-	cp -rp ${VIRTUAL_ENV}/lib/python3.6/site-packages/trollius/* ${DESTDIR}${ELAN_PREFIX}/lib/python/trollius
+	cp -rp ${PYTHON_PIPENVFILES}/trollius/* ${DESTDIR}${ELAN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
 core-install: core-python
@@ -114,8 +127,7 @@ core-python: elan/*.py elan/nac/*.py core-pylib
 .PHONY: core-pylib
 core-pylib: idstools paho scapy serialized_redis
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python
-	# Although virtualenv was used to install tornadoredis in this repository, it is deployed on edgeagent under /elan-agent/lib/python
-	( cd ${VIRTUAL_ENV}/lib/python3.6/site-packages; \
+	( cd ${PYTHON_PIPENVFILES}; \
 		find $^ -type d -exec install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/{} \;; \
 		find $^ -type f -not -name \*.pyc -exec cp -Pp {} ${DESTDIR}${ELAN_PREFIX}/lib/python/{} \;; \
 		find $^ -type l -exec cp -pP {} ${DESTDIR}${ELAN_PREFIX}/lib/python/{} \; \
@@ -221,3 +233,15 @@ network-install:
 	install -t ${DESTDIR}${ELAN_PREFIX}/lib/python/elan elan/network.py
 
 
+.PHONY: embedded-python
+embedded-python:
+	rm -rf ${PYTHON_PIPENVFILES}
+	mkdir -p ${PYTHON_PIPENVFILES}
+	cp Pipfile* ${PYTHON_PIPENVFILES}/
+	cd ${PYTHON_PIPENVFILES}; pipenv --three install --ignore-pipfile
+	cp -rp $$(pipenv --venv)/lib/python3.6/site-packages/*/ ${PYTHON_PIPENVFILES}/
+	cd ${PYTHON_PIPENVFILES} ; rm -rf *.dist-info easy_install.py pip  pkg_resources  setuptools wheel
+	find ${PYTHON_PIPENVFILES}/ -name \*.pyc -o -name __pycache__ -print0 | xargs -0 -I {} /bin/rm -rf "{}" \;
+	cd ${PYTHON_PIPENVFILES}; pipenv --rm
+
+deb: embedded-python
