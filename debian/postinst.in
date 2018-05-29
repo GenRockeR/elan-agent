@@ -63,6 +63,8 @@ mkdir -p /usr/local/pf/lib/pf/util
 ln -fs %{ELAN_PREFIX}/nac/pf/conf /usr/local/pf/
 ln -fs %{ELAN_PREFIX}/nac/pf/conf/dictionary /usr/local/pf/lib/pf/util/
 
+# Remove netplan.io default conf
+rm -f /etc/netplan/01-netcfg.yaml
 
 #DEBHELPER#
 

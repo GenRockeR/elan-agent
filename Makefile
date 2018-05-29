@@ -238,10 +238,10 @@ embedded-python:
 	rm -rf ${PYTHON_PIPENVFILES}
 	mkdir -p ${PYTHON_PIPENVFILES}
 	cp Pipfile* ${PYTHON_PIPENVFILES}/
-	cd ${PYTHON_PIPENVFILES}; pipenv --three install --ignore-pipfile
-	cp -rp $$(pipenv --venv)/lib/python3.6/site-packages/*/ ${PYTHON_PIPENVFILES}/
-	cd ${PYTHON_PIPENVFILES} ; rm -rf *.dist-info easy_install.py pip  pkg_resources  setuptools wheel
-	find ${PYTHON_PIPENVFILES}/ -name \*.pyc -o -name __pycache__ -print0 | xargs -0 -I {} /bin/rm -rf "{}" \;
-	cd ${PYTHON_PIPENVFILES}; pipenv --rm
+	cd ${PYTHON_PIPENVFILES}; pipenv --three install --ignore-pipfile; \
+		cp -rp $$(pipenv --venv)/lib/python3.6/site-packages/*/ .; \
+		rm -rf *.dist-info easy_install.py pip  pkg_resources  setuptools wheel; \
+		find . -name \*.pyc -o -name __pycache__ -print0 | xargs -0 -I {} /bin/rm -rf "{}" \;; \
+		pipenv --rm
 
 deb: embedded-python

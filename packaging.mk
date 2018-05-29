@@ -4,7 +4,7 @@ endif
 
 DEBUILD_FLAGS ?= -F
 
-# Make sure that the MCN key exists in gpg configuration
+# Make sure that the Origin Nexus key exists in gpg configuration
 .PHONY: gpgkey
 gpgkey:
 	@gpg --list-secret-keys "Origin Nexus" || gpg --import < packaging/gpg.key
