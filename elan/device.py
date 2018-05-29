@@ -46,7 +46,8 @@ def notify_known_fingerprints():
             fingerprint = synapse.get(key)
 
             if fingerprint:
-                notify_fingerprint(mac, fingerprint, source)
+                hostname = synapse.get(MAC_HOSTNAME_PATH.format(mac=mac, source=source)) or ''
+                notify_fingerprint(mac, fingerprint, source, hostname)
                 count += 1
     return count
 
