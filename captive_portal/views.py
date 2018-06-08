@@ -76,6 +76,9 @@ def status(request):
     if 'guest_access' in request.META:
         context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
 
+    if session.get_authentication_sessions(clientMAC, source='captive-portal-web'):
+        context['show_logout'] = True
+
     return render(request, 'captive-portal/status.html', context)
 
 

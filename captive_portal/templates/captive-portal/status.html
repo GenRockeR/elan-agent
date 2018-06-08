@@ -9,8 +9,10 @@
         <div class="panel panel-default">
           <div class="panel-heading">{% trans "Authenticated" %}</div>
           <div class="panel-body"> 
-            <p>{% trans 'You are now uthenticated on the network. You will be able access the resources the administrator has granted you.' %}</p>
+            <p>{% trans 'You are now authenticated on the network. You will be able access the resources the administrator has granted to you.' %}</p>
+            {% if show_logout %}
             <p>{% trans 'You can logout here:' %}</p><a href="{% url 'logout' %}" class="btn btn-default">{% trans 'Logout' %}</a>
+            {% endif %}
           </div>
         </div>
       </div>
