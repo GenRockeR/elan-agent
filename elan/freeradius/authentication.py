@@ -31,7 +31,7 @@ def AuthenticationGroupFailed(req):
         
         # Todo: set source depending on requester: radius-dot1x, captive-portal-web or captive-portal-guest-access
         Event('runtime-failure-authentication', source='radius', level='danger')\
-            .add_data('authentication_group', request.get('ELAN-Auth-Failed'), data_type='authentication')\
+            .add_data('authentication_group', request.get('ELAN-Auth-Provider'), data_type='authentication')\
             .notify()
     except:
         ExceptionEvent(source='radius').notify()
