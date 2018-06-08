@@ -21,7 +21,7 @@ class Redirector():
         self.live_redirections = {}
 
     def start_nft_process(self):
-        return subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True)
+        return subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, universal_newlines=True)
 
     def do_redirect(self, src_ip, src_port, dst_ip, dst_port, action, is_retry=False):
         if ':' in src_ip:
