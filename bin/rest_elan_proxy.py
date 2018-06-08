@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+from aiohttp import web
 import asyncio
 import json
 
-from aiohttp import web
 from elan import freeradius, neuron
 from elan.freeradius.utils import request_as_hash_of_values
 
@@ -41,8 +41,8 @@ async def accounting(request):
 async def authorize(request):
     radius_request = await get_radius_request(request)
     radius_request = request_as_hash_of_values(radius_request)
-    source = request.GET['source']
-    provider = request.GET['provider']
+    source = request.query['source']
+    provider = request.query['provider']
 
     try:
         response = await call_service(
@@ -50,7 +50,7 @@ async def authorize(request):
                 dict(
                         provider=provider,
                         source=source,
-                        login=radius_request['User-Name'],
+                        login=radius_request.get('User-Name'),
                         password=radius_request.get('User-Password')
                 )
         )
@@ -76,8 +76,8 @@ async def authorize(request):
 async def authenticate(request):
     radius_request = await get_radius_request(request)
     radius_request = request_as_hash_of_values(radius_request)
-    source = request.GET['source']
-    provider = request.GET['provider']
+    source = request.query['source']
+    provider = request.query['provider']
 
     try:
 
