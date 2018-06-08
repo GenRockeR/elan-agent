@@ -219,7 +219,7 @@ def guest_access(request):
     guest_access_conf = synapse.hget(GUEST_ACCESS_CONF_PATH, guest_access)
     guest_registration_fields = guest_access_conf['fields']
 
-    form = get_request_form(guest_registration_fields, guest_access_conf, request.POST)
+    form = get_request_form(guest_registration_fields, request.POST)
 
     if form.is_valid():
         guest_request = dict(

@@ -22,7 +22,7 @@ synapse = Synapse()
 
 def submit_guest_request(request):
     ''' submits guest access request and return answer '''
-    r = dendrite.call('guest-access', request)
+    r = dendrite.call('guest-request', request)
 
     synapse.sadd(PENDING_GUEST_REQUESTS_PATH, request['mac'])
 
