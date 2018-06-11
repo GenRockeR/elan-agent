@@ -248,9 +248,9 @@ def guest_access(request):
 
         except RequestError as e:
             if e.errors:
-                form.errors = e.errors
+                form.errors.extend(e.errors)
             else:
-                form.errors = [{'non_field_errors': [e.error_str]}]
+                form.errors['non_field_errors'] = [e.error_str]
         except:
             form.errors['non_field_errors'] = [_('Error during request, please try again or contact administrator.')]
 
