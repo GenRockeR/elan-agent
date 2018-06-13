@@ -1,4 +1,4 @@
-%{PACKAGE-NAME} (1.0.0) bionic; urgency=low
+%{PACKAGE-NAME} (1.0) bionic; urgency=low
 
   * first version
 
