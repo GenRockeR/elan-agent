@@ -53,7 +53,7 @@ class Redirector():
                 )
             except IOError:
                 if is_retry:
-                    self.nft_process.terminate()
+                    self.nft_process.terminate(timeout=0)
                     raise
                 # try launching again the nft process
                 self.restart_nft_process()
@@ -63,8 +63,20 @@ class Redirector():
             if self.cmd_count > 100:
                 self.restart_nft_process()
 
-    def restart_nft_process(self):
-        self.nft_process.terminate()
+    def restart_nft_process(self, timeout=3):
+        '''
+        Soft restart (send quit) of nft process unless timeout=0, then terminate immediately
+        After timeout (seconds), terminate process.
+        if timeout is None, soft restart with no timeout
+        '''
+        if timeout == 0:
+            self.nft_process.terminate()
+        else:
+            print('quit', file=self.nft_process.stdin, flush=True)
+            try:
+                self.nft_process.wait(timeout)
+            except subprocess.TimeoutExpired:
+                self.nft_process.terminate()
         self.cmd_count = 0
         self.nft_process = self.start_nft_process()
 
