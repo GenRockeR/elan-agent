@@ -309,7 +309,8 @@ Active Authorizations
 
 This is used to tell ELAN agent what are the current active guest access authorization.
 This can for example be used by your implementation of `guest-request` service.
-When an authorization is no longer valid, republish list of active authorizations without it.
+When an authorization is revoked, republish list of active authorizations without it.
+Timeouts (`till` parameter) are taken care automatically, no need to republish the list once timedout.
 
 :topic:
   `conf/guest-access/active-authorizations`
@@ -517,21 +518,64 @@ Connections
 
 :topic:
   `connection`
+:format:
+
+  .. code-block:: json
+  
+    {
+      "src": { // source details
+        "ip": <ip>,
+        "mac": <mac>,  
+        "port": <str>, // Layer 4 (tcp/ugp) port
+        "vlan": <str>, // vlan as seen by ELAN agent in the form <device>.<vlan_id>
+      },
+      "dst": { // destination details
+        "ip": <ip>,
+        "mac": <mac>,  
+        "port": <str>, // Layer 4 (tcp/ugp) port
+        "vlan": <str>, // vlan as seen by ELAN agent in the form <device>.<vlan_id>
+      },
+      "start": <UTC ISO8601 date>,
+      "transport": <str>, // transport protocol: udp, tcp, ...
+      "protocol": <str>   // detected protocol
+    }
 
 Authorizations
 **************
 
+Sent when authorization is granted and when it is no longer valid.
+
 :topic:
   `session/authorization`
+:format:
+
+  .. code-block:: json
+
+      {
+        "mac":      <mac>,
+        "local_id": <int>,   // local tracking id that will be used for updates (on termination of the authorization for example)
+        "till_disconnect": true, // should authorization end on disconnect
+        "till": <UTC ISO8601 date>, // expiry time of authorization
+        "start": "2018-06-14T08:33:15Z", // when it effectively started
+        "assign_vlan": <int>, // what vlan_id may have been assigned.
+        "allow_on":  <list of vlans: []>, // list of vlans, in the form <device>.<vlan_id> the device is allowed on.
+        "bridge_to": <list of vlans: []>, // list of vlans, in the form <device>.<vlan_id> the device is allowed to access (assuming it is on an authorized vlan).
+        "end": <UTC ISO8601 date>,  // when it effectively ended
+        "termination_reason": <str>, // can be 'revoked', 'expired', 'overriden', ...
+      }
 
 Mac Session
 ***********
+
+If detected at the same time as a vlan or ip event, will not be sent as all information is included in those events.
 
 :topic:
   `session/mac`
 
 VLAN Session
 ************
+
+If detected at the same time as a ip event, will not be sent as all information is included in that events.
 
 :topic:
   `session/vlan`
