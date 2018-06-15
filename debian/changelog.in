@@ -1,6 +1,11 @@
+%{PACKAGE-NAME} (1.1) bionic; urgency=low
+
+  * 
+
+ -- Origin Nexus <debian@origin-nexus.com>  Fri, 19 Jul 2013 14:54:18 +0200
+
 %{PACKAGE-NAME} (1.0) bionic; urgency=low
 
   * first version
 
  -- Origin Nexus <debian@origin-nexus.com>  Fri, 19 Jul 2013 14:54:18 +0200
-
