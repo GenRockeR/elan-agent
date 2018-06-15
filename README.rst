@@ -73,11 +73,11 @@ IP v4
   `conf/ipv4`
 :format:
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "type":    <str: "none">,     // `dhcp`, `static` or `none`. Unknown value is same as `none`
-      "address": <ip4>,             // IP address when `type` is `static`
+      "address": <ip4>,             / IP address when `type` is `static`
       "mask":    <int>,             // mask when `type` is `static`
       "dns":     <list of ip4: []>, // List of DNS servers (in case of `dhcp`, will be added to received ones).
     }, ...
@@ -90,7 +90,7 @@ IP v6
   `conf/ipv6`
 :format:
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "type":    <str: "none">,     // `autoconf`, `dhcp`, `static` or `none`. Unknown value is same as `none`
@@ -112,7 +112,7 @@ like IP addresses, DNS and default gateway.
 :format:
   *list* of administrator definitions
 
-  .. code-block:: json
+  .. code-block::
   
     [
       {
@@ -133,7 +133,7 @@ However, if those vlans are completly separate, it can be connected to 2 vlans w
 :format:
   *list* of vlan definitions:
 
-  .. code-block:: json
+  .. code-block::
 
     [
       {
@@ -171,7 +171,7 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
   :*LDAP*:
     User will be authenticated using the following attributes for the password: `userPassword`, `ntPassword` or `sambaNTPassword`.
 
-  .. code-block:: json
+  .. code-block::
 
       {
         "id":         <int: *Mandatory*>,        // id that can be used in members of a group.
@@ -190,7 +190,7 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
   :*Active Directory*:
     Authentication will be performed by joining the AD domain. Only one AD is supported.
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "id":         <int: *Mandatory*>, // id that can be used in members of a group.
@@ -203,7 +203,7 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
   :*External*:
     Authentication will be made by doing a request via MQTT. Unknown Authentication IDs will be considered external, so you don't really need to declare them.
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "id":   <int: *Mandatory*>, // id that can be used in members of a group.
@@ -215,10 +215,10 @@ Authentications can be used by captive portal and 802.1X to authenticate users a
     Nested and circular groups are supported. 
     If an authentication has been tried once, it will not be retried, even if it appears in several groups that are members of the group.
 
-  .. code-block:: json
+  .. code-block::
 
     {
-      "id":      <int: *Mandatory*>,       // id that can be used in members of a group.
+      "id":      <int: *Mandatory*>,  // id that can be used in members of a group.
       "type":    "group",
       "members": <list of ints: []>   // list of authentication IDs. If an ID is not present in list of authentication, it will be considered as external. 
     }
@@ -233,7 +233,7 @@ All network equipments share the same RADIUS secret.
   `conf/radius`
 :format: 
 
-  .. code-block:: json
+  .. code-block::
   
     {
       "default_secret": <str: *Mandatory*>, // Secret used to authenticate RADIUS requests
@@ -251,7 +251,7 @@ Several credentials can be used, on first poll first one to succeed will be used
   `conf/snmp`
 :format: 
 
-  .. code-block:: json
+  .. code-block::
   
     {
       "credentials": [
@@ -281,7 +281,7 @@ The `guest-request` service is to be implement according to your needs.
   `conf/guest-access`
 :format:
 
-  .. code-block:: json
+  .. code-block::
   
     [
       {
@@ -316,7 +316,7 @@ Timeouts (`till` parameter) are taken care automatically, no need to republish t
   `conf/guest-access/active-authorizations`
 :format:
 
-  .. code-block:: json
+  .. code-block::
 
     [
       {
@@ -402,7 +402,7 @@ You can implement extra authentication schemes by implementing the following:
   return authentication information about user to be able to authenticate him
 :request format:
 
-  .. code-block:: json
+  .. code-block::
 
     { 
       "provider": // authentication ID to use
@@ -416,7 +416,7 @@ You can implement extra authentication schemes by implementing the following:
   
   or
   
-  .. code-block:: json
+  .. code-block::
 
     {
       "Cleartext-Password":,
@@ -444,7 +444,7 @@ You can implement guest access authorization using:
   It is then the responsibility of the implemented service to grant access to the guest
 :request format:
 
-  .. code-block:: json
+  .. code-block::
 
     { 
       "guest_access":                   // id of the guest access
@@ -477,7 +477,7 @@ Device Authorization
   Get device authorization (allowed VLANs to be one, allowed VLANs to access).
 :request format:
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "mac":             // device we want to get authorizations for.
@@ -500,7 +500,7 @@ Device Authorization
     
 :returns:
 
-  .. code-block:: json
+  .. code-block::
 
     {
       "assign_vlan": <int>,      // VLAN Identifier the device should be assigned during 802.1x, mac-auth, or by SNMP.
@@ -520,7 +520,7 @@ Connections
   `connection`
 :format:
 
-  .. code-block:: json
+  .. code-block::
   
     {
       "src": { // source details
@@ -549,7 +549,7 @@ Sent when authorization is granted and when it is no longer valid.
   `session/authorization`
 :format:
 
-  .. code-block:: json
+  .. code-block::
 
       {
         "mac":      <mac>,
