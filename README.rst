@@ -1,28 +1,48 @@
 Overview
 ########
 
-ELAN Agent is platform to ease LAN management by providing several services:
+ELAN Agent is platform to ease LAN management by integrating closely into the network, using existing services and equipments.
+
+The goal is to have an easy to deploy solution that adapts the switch capabilities (802.1C, mac auth, SNMP trap notification, ...) to be able to master your LAN in terms of visibility (know exactly what is on your network) and security (access control verification/enforcement with flexible rules).
+
+To achieve this, ELAN Agent provides the following services:
 
 - NAC: 802.1X/Mac-Auth via RADIUS.
-- Access Control of devices to VLANs.
+- SNMP polling and trap/notification monitoring.
+- Access Control of devices on VLANs.
 - Detection of unauthorized devices.
 - Authentication using LDAP, AD or external source.
 - Inventory of all devices (MAC addresses) on the network.
-- Captive portal: User Authentication & Guest Access.
+- Captive portal:
+
+  - User Authentication & Guest Access.
+  - Automatic captive portal when trying to access an http(s) unauthorized service.
 - IDS (Suricata).
-- Log of Networks events (New Device, New device on VLAN, New Device IP, diconnected Device, New connection, IDS alert for device...).
-- Log of outgoing connections.
+- Log of Networks events (New Device, New device on VLAN, New Device IP, disconnected Device, New connection, IDS alert for device...).
+- Log of outgoing IP connections.
+
 
 All configuration of these services are done via MQTT by publishing retained messages to topics. Events are also sent via MQTT.
 
 
-ELAN Agent implements NAC by assigning devices a vlan, then allowing them to access other vlan (bridging) based on their authorisations.
+ELAN Agent implements NAC by assigning devices a VLAN, then allowing them to access other VLANs (bridging) based on their authorizations.
 Access is done on a per device (MAC address) to all devices on the allowed VLANs.
-Hence you need only 1 IP address range for all your services and take advantages of local network facility like zero conf while still separating services.
+Hence you need only 1 IP address range for all your services and take advantages of local network facility like zero-conf while still separating services.
 
 
 ELAN Agent fully supports IPv6.
 
+Deployment
+##########
+
+ELAN Agent is typically deployed as an inline level 2 enforcement device.
+It sits between the WAN connection and the switches and should be connected on every VLAN segment on a trunk port (all VLANs tagged) to maximize it visibility on the network.
+It should also receive RADIUS authentication/accounting request from the switches and be able to connect via SNMP to the switches.
+
+All devices on the network can share the same IP (v4/v6) subnet while being isolated by VLAN.
+When a device is authorized to access another vlan, it is "bridged" on it, so that all zero-conf services are available.
+
+DHCP/DNS services are not part of ELAN agent services but it offers connectivity to those services even if located on another VLAN.
 
 Installation
 ############
