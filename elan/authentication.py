@@ -1,10 +1,10 @@
 from mako.template import Template
-from pyrad.client import Client
+from pyrad.client import Client, Timeout
 from pyrad.dictionary import Dictionary
 import pyrad.packet
 import subprocess, re, socket
 
-from elan.neuron import Synapse, Dendrite
+from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
 from elan.utils import restart_service
 
 
@@ -16,7 +16,12 @@ def pwd_authenticate(authenticator_id, login, password, source):
               User_Name=login, Connect_Info='authenticator={},source={},command=authenticate'.format(authenticator_id, source))
     req["User-Password"] = req.PwCrypt(password)
 
-    reply = srv.SendPacket(req)
+    try:
+        reply = srv.SendPacket(req)
+    except Timeout:
+        raise RequestTimeout
+    except Exception as e:
+        raise RequestError(e)
 
     return reply.code == pyrad.packet.AccessAccept
 

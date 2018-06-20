@@ -127,8 +127,15 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context)
 
     context['username'] = username
-    if 'web_authentication' not in request.META or not pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
-        context['error_message'] = _("Invalid username or password.")
+    try:
+        if 'web_authentication' not in request.META or not pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
+            context['error_message'] = _("Invalid username or password.")
+            return render(request, 'captive-portal/login.html', context)
+    except RequestError:
+        context['error_message'] = _("An error occurred, please retry.")
+        return render(request, 'captive-portal/login.html', context)
+    except RequestTimeout:
+        context['error_message'] = _("request timed out, please retry.")
         return render(request, 'captive-portal/login.html', context)
 
     vlan = '{interface}.{id}'.format(interface=request.META['interface'], id=request.META['vlan_id'])
