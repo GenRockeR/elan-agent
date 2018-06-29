@@ -37,7 +37,7 @@ class DnsResponseTracker():
             aaaa_iter = None
 
             entries = []
-            if hasattr(packet, 'dns'):
+            try:
                 dns = packet.dns
                 for name, type_, ttl in zip(dns.resp_name.fields, dns.resp_type.fields, dns.resp_ttl.fields):
                     type_ = type_.show
@@ -59,6 +59,8 @@ class DnsResponseTracker():
                     entries.append(dict(mac=mac, rdns=name.show, source=value.show, ttl=ttl.show))
 
                 rdns.add_entries(*entries)
+            except AttributeError:
+                pass  # In some cases (SERVFAIL or not even a dns packet) dns packet has not all of these attributes, just ignore...
 
         except Exception:
             ExceptionEvent(source='dns-response-tracker')\
