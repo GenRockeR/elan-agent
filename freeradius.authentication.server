@@ -86,4 +86,10 @@ server authentication {
         }
     }
 
+    post-auth {
+        update reply {
+            Reply-Message := "provider=%{session-state:ELAN-Auth-Provider}"
+        }
+    }
+
 }

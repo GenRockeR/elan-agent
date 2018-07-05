@@ -11,7 +11,7 @@ import time
 
 from elan import nac, utils
 from elan import session
-from elan.authentication import pwd_authenticate
+from elan.authentication import pwd_authenticate, AuthenticationFailed
 from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.event import Event
 from elan.network import NetworkConfiguration
@@ -127,22 +127,34 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context)
 
     context['username'] = username
+    if 'web_authentication' not in request.META
+        context['error_message'] = _("Invalid username or password.")
+        return render(request, 'captive-portal/login.html', context)
     try:
-        if 'web_authentication' not in request.META or not pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
+        authenticator_id = pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
+
+    except AuthenticationFailed as e:
+        if not e.args:
             context['error_message'] = _("Invalid username or password.")
-            return render(request, 'captive-portal/login.html', context)
+        elif len(e.args) == 1:
+            context['error_message'] = e.args[0]
+        else:
+            context['error_message'] =  e.args
+        
+        return render(request, 'captive-portal/login.html', context)
+
     except RequestError:
         context['error_message'] = _("An error occurred, please retry.")
         return render(request, 'captive-portal/login.html', context)
+
     except RequestTimeout:
         context['error_message'] = _("request timed out, please retry.")
         return render(request, 'captive-portal/login.html', context)
 
     vlan = '{interface}.{id}'.format(interface=request.META['interface'], id=request.META['vlan_id'])
     # start session
-    # TODO: use effective auth_provider, this one could be a group
     authz = nac.newAuthz(clientMAC, source='captive-portal-web', till_disconnect=True,
-                         login=username, authentication_provider=request.META['web_authentication'],
+                         login=username, authentication_provider=authenticator_id,
                          vlan=vlan
     )
     # TODO: if vlan incorrect, try to change it
@@ -151,7 +163,7 @@ def login(request, context=None):
         event = Event('device-not-authorized', source='captive-portal-web', level='danger')
         event.add_data('mac', clientMAC, 'mac')
         event.add_data('vlan', vlan)
-        event.add_data('authentication_provider', request.META['web_authentication'], 'authentication')
+        event.add_data('authentication_provider', authenticator_id, 'authentication')
         event.add_data('login', username)
         event.notify()
 

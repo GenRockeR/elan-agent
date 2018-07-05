@@ -8,7 +8,20 @@ from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
 from elan.utils import restart_service
 
 
+class AuthenticationFailed(Exception):
+    pass
+
+
 def pwd_authenticate(authenticator_id, login, password, source):
+    '''
+    Passsword authentication against RADIUS
+    :param authenticator_id: Authentication ID to be used.
+    :param login:
+    :param password:
+    :param source: Source that is asking for authentication. Used for error notifications
+    :returns: Effective authenticator ID
+    :raises AuthenticationFailed: when auth failed. May contain an error message (Reply Message sent back from RADIUS)
+    '''
     srv = Client(server="127.0.0.1", authport=18122, secret=b'a2e4t6u8qmlskdvcbxnw',
                  dict=Dictionary("/elan-agent/authentication/pyradius/dictionary"))
 
@@ -23,7 +36,18 @@ def pwd_authenticate(authenticator_id, login, password, source):
     except Exception as e:
         raise RequestError(e)
 
-    return reply.code == pyrad.packet.AccessAccept
+    if reply.code == pyrad.packet.AccessAccept:
+        if 'Reply-Message' in reply:
+            m = re.search('provider=(?P<provider_id>\d+)', reply['Reply-Message'][0])
+            if m:
+                authenticator_id = m.group('provider_id')
+        return authenticator_id
+
+    errors = []
+    if 'Reply-Message' in reply:
+        errors = reply['Reply-Message']
+
+    raise AuthenticationFailed(*errors)
 
 
 def get_authorization(authenticator_id, login, source):
