@@ -57,11 +57,17 @@ class AccessControlConfigurator():
                     ExceptionEvent(source='network').notify()
 
             # Configure VLANs
-            # TODO: use nft from pyroute2 when ready
+            # TODO: use nft from pyroute2 when ready... meanwhile, create a manager to handle 'quit' command...
             with subprocess.Popen(['nft', '-i'], stdin=subprocess.PIPE, universal_newlines=True, stdout=subprocess.DEVNULL) as nft_process:
 
-                def nft(*cmds):
-                    print(*cmds, file=nft_process.stdin, flush=True)
+                def nft(cmd):
+                    print(cmd, file=nft_process.stdin, flush=True)
+
+                    if cmd == 'quit':
+                        try:
+                            nft_process.wait(2)
+                        except subprocess.TimeoutExpired:
+                            pass
 
                 for nic_name, new_vlan in new_vlans_by_ifname.items():
                     # configure Access Contol
@@ -211,6 +217,8 @@ class AccessControlConfigurator():
                     except:
                         # TODO log error to CC
                         print('error occured:', traceback.format_exc())
+
+                nft('quit')
 
             bridge.commit()
 
