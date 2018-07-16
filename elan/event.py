@@ -44,15 +44,15 @@ class Event(object):
 class DebugEvent(Event):
     EVENT_TOPIC = 'debug'
 
-    def __init__(self, source, event_type='runtime', **kwargs):
-        super().__init__(event_type, source, level='internal', **kwargs)
+    def __init__(self, source, event_type='runtime', level='info', **kwargs):
+        super().__init__(event_type, source, level=level, **kwargs)
 
 
 class ExceptionEvent(DebugEvent):
     EVENT_TOPIC = 'exception'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, level='danger', **kwargs):
+        super().__init__(*args, level=level, **kwargs)
         self.add_data('script', __file__)
         self.add_data('details', 'Exception occured')
         self.add_data('Exception', traceback.format_exc())

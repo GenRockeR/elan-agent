@@ -18,7 +18,7 @@ class EventTest(unittest.TestCase):
 
     def test_DebugEvent(self):
         event = DebugEvent(event_type='test_event', source='test')
-        self.assertEqual(event.level, 'internal', 'Debug event has "internal" level by default')
+        self.assertEqual(event.level, 'info', 'Debug event has "info" level by default')
 
     def test_ExceptionEvent(self):
         event = ExceptionEvent(event_type='test_event', source='test')
