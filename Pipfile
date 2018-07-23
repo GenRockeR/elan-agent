@@ -1,24 +1,17 @@
 [[source]]
-
 name = "pypi"
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 
-
 [dev-packages]
-
 coverage = "*"
 
-
 [packages]
-
 idstools = "*"
 pyshark = "*"
 "scapy-python3" = "*"
 serialized-redis-interface = "*"
 paho-mqtt = "*"
 
-
 [requires]
-
 python_version = "3.6"
