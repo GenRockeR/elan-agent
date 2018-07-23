@@ -101,11 +101,11 @@ class  Dendrite(mqtt.Client):
         Dendrite is used to retrieve configuration (and configuration updates), declare what RPC are processed by the calling module and make RPC calls
         Instantiate class, call subscribe, subscribe_conf, publish, publish_conf, call or provide with topic/service and callback. callback receive message and optionnaly topic.
 
-        Use class method publish_single for a single publish. This will connecet, publish and disconnect and will be blocking.
+        Use class method publish_single for a single publish. This will connect, publish and disconnect and will be blocking.
 
         When using instance:
         - all callbacks are executed in an other thread.
-        - call are non blocking (publish will happen in another thread)
+        - calls are non blocking (publish will happen in another thread)
 
     '''
     CONF_PATH_PREFIX = 'conf/'
@@ -255,7 +255,10 @@ class  Dendrite(mqtt.Client):
                 self.unsubscribe(topic)
 
     def get_conf(self, topic, timeout=1):
-        return self.get(self.CONF_PATH_PREFIX + topic, timeout=timeout)
+        'get configuration value. This relies on `run_conf_cacher` to be executed'
+        synapse = Synapse()
+
+        return synapse.get(self.CACHE_PREFIX + self.CONF_PATH_PREFIX + topic)
 
     def call(self, service, data=None, timeout=30):
         '''
@@ -290,4 +293,68 @@ class  Dendrite(mqtt.Client):
         Block until timeout or disconnect called
         '''
         self._thread.join(timeout)
+
+    def run_conf_cacher(self):
+        '''
+        will run configuration cacher to store configuration in Redis
+        '''
+        synapse = Synapse()
+
+        def cache_conf(data, path):
+            synapse.set(self.CACHE_PREFIX + path, data)
+
+        self.subscribe(Dendrite.CONF_PATH_PREFIX + '#', cache_conf)
+        self.wait_complete()
+
+
+class ConfObject:
+    _dendrite = Dendrite()
+
+    @classmethod
+    def count(cls):
+        '''
+        Count the number of objects the configuration has.
+        Assumes the configuration is a list.
+        '''
+        return len(cls._dendrite.get_conf()(cls.TOPIC) or [])
+
+    @classmethod
+    def get_all(cls, **filters):
+        '''
+        Retrieve the first object that matches all `filters`.
+        :param filters: key/value pairs the object should have.
+        :returns: a list of instances.
+        Assumes the configuration is a list.
+        '''
+        objects = []
+        conf = cls._dendrite.get_conf(cls.TOPIC) or []
+        for obj in conf:
+            for key, value in filters.items():
+                if conf.get(key, None) != value:
+                    break
+            else:
+                # matches all filters
+                objects.append(cls(**obj))
+        return objects
+
+    @classmethod
+    def get(cls, **filters):
+        '''
+        Retrieve the first object that matches all `filters`.
+        :param filters: key/value pairs the object should have.
+        :returns: an instance if found or None.
+        Assumes the configuration is a list.
+        '''
+        conf = cls._dendrite.get_conf(cls.TOPIC) or []
+        for obj in conf:
+            for key, value in filters.items():
+                if conf.get(key, None) != value:
+                    break
+            else:
+                # matches all filters
+                return cls(**obj)
+
+    def __init__(self, **kwargs):
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
 

@@ -1,10 +1,9 @@
 import datetime
 
 from elan import nac, session
-from elan.neuron import Synapse, Dendrite
+from elan.neuron import Synapse, Dendrite, ConfObject
 
-CONF_PATH = 'conf:captive-portal'
-GUEST_ACCESS_CONF_PATH = 'conf:guest-access'
+GUEST_ACCESS_CONF_TOPIC = 'guest-access'
 PENDING_GUEST_REQUESTS_PATH = 'captive-portal:guest-request:pending'
 
 ELAN_AGENT_FQDN = 'elan-agent.origin-nexus.com'
@@ -33,41 +32,16 @@ def is_authz_pending(mac):
     return synapse.sismember(PENDING_GUEST_REQUESTS_PATH, mac)
 
 
-class Administrator:
-    ADMINISTRATOR_CONF_PATH = 'conf:administrator'
-
-    @classmethod
-    def count(cls):
-        return synapse.hlen(cls.ADMINISTRATOR_CONF_PATH)
-
-    @classmethod
-    def get(cls, login):
-        params = synapse.hget(cls.ADMINISTRATOR_CONF_PATH, login)
-        if not params:
-            return None
-        return cls(login=login, **params)
-
-    @classmethod
-    def add(cls, **kwargs):
-        if 'login' in kwargs and 'password' in kwargs:
-            login = kwargs.pop('login')
-            synapse.hset(cls.ADMINISTRATOR_CONF_PATH, login, kwargs)
-            return True
-        return False
-
-    @classmethod
-    def delete_all(cls):
-        synapse.delete(cls.ADMINISTRATOR_CONF_PATH)
-
-    def __init__(self, login, password, **kwargs):
-        self.login = login
-        self.password = password
-        for key in kwargs:
-            setattr(self, key, kwargs[key])
+class Administrator(ConfObject):
+    TOPIC = 'administrator'
 
     def check_password(self, password):
         from django.contrib.auth.hashers import check_password
         return check_password(password, self.password)
+
+
+class GuestAccess(ConfObject):
+    TOPIC = 'guest-access'
 
 
 class GuestAccessManager():
@@ -92,7 +66,7 @@ class GuestAccessManager():
         current_mac_with_authz = self.synapse.smembers(self.MAC_AUTHS_PATH)
 
         for mac in current_mac_with_authz - set(authz_by_mac.keys()):
-            nac.checkAuthz(mac, remove_source='captive-portal-guest', end_reason=='revoked')
+            nac.checkAuthz(mac, remove_source='captive-portal-guest', end_reason == 'revoked')
             self.synapse.srem(self.MAC_AUTHS_PATH, mac)
 
         for mac in authz_by_mac:

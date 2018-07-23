@@ -12,10 +12,12 @@ import time
 from elan import nac, utils
 from elan import session
 from elan.authentication import pwd_authenticate, AuthenticationFailed
-from elan.captive_portal import GUEST_ACCESS_CONF_PATH, submit_guest_request, is_authz_pending, Administrator, ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
+from elan.captive_portal import GuestAccess, submit_guest_request, is_authz_pending, Administrator, \
+                                ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, \
+                                CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.event import Event
 from elan.network import NetworkConfiguration
-from elan.neuron import Synapse, Dendrite, RequestTimeout, RequestError
+from elan.neuron import Dendrite, RequestTimeout, RequestError
 from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300  # seconds
@@ -74,7 +76,7 @@ def status(request):
         context['web_authentication'] = request.META['web_authentication']
 
     if 'guest_access' in request.META:
-        context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
+        context['guest_access'] = GuestAccess.get(id=int(request.META['guest_access']))
 
     if session.get_authentication_sessions(clientMAC, source='captive-portal-web'):
         context['show_logout'] = True
@@ -103,7 +105,7 @@ def login(request, context=None):
         default_context[ 'web_authentication'] = request.META['web_authentication']
 
     if 'guest_access' in request.META:
-        default_context['guest_access'] = Synapse().hget(GUEST_ACCESS_CONF_PATH, int(request.META['guest_access']))
+        default_context['guest_access'] = GuestAccess.get(id=int(request.META['guest_access']))
         if default_context['guest_access']:
             default_context.update(
                         guest_registration_fields=default_context['guest_access']['fields'],
@@ -127,11 +129,11 @@ def login(request, context=None):
         return render(request, 'captive-portal/login.html', context)
 
     context['username'] = username
-    if 'web_authentication' not in request.META
+    if 'web_authentication' not in request.META:
         context['error_message'] = _("Invalid username or password.")
         return render(request, 'captive-portal/login.html', context)
     try:
-        authenticator_id = pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web'):
+        authenticator_id = pwd_authenticate(request.META['web_authentication'], username, password, source='captive-portal-web')
 
     except AuthenticationFailed as e:
         if not e.args:
@@ -139,8 +141,8 @@ def login(request, context=None):
         elif len(e.args) == 1:
             context['error_message'] = e.args[0]
         else:
-            context['error_message'] =  e.args
-        
+            context['error_message'] = e.args
+
         return render(request, 'captive-portal/login.html', context)
 
     except RequestError:
@@ -235,10 +237,9 @@ def guest_access(request):
     interface = request.META['interface']
     vlan_id = request.META['vlan_id']
     guest_access = int(request.META['guest_access'])
-    synapse = Synapse()
 
     # Guest access fields
-    guest_access_conf = synapse.hget(GUEST_ACCESS_CONF_PATH, guest_access)
+    guest_access_conf = GuestAccess.get(id=guest_access)
     guest_registration_fields = guest_access_conf['fields']
 
     form = get_request_form(guest_registration_fields, request.POST)
@@ -428,7 +429,7 @@ def admin_login(request):
         # Authenticate admin
         login = post_dict.get('login', None)
         if login:
-            admin = Administrator.get(login)
+            admin = Administrator.get(login=login)
             if admin and admin.check_password(request.POST.get('password', None)):
                 admin_session_login(request.session, login)
                 return redirect('dashboard')

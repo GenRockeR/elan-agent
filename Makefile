@@ -84,9 +84,8 @@ captive-portal-python: elan/captive_portal.py
 	install -t ${DESTDIR}${ELAN_PREFIX}/lib/python/elan elan/captive_portal.py
 
 .PHONY: captive-portal-conf
-captive-portal-conf: bin/captive_portal_configuration_cacher.py bin/guest_access_manager.py
+captive-portal-conf: bin/guest_access_manager.py bin/redirector.py
 	install -d ${DESTDIR}${ELAN_PREFIX}/bin
-	install -m 755 bin/captive_portal_configuration_cacher.py ${DESTDIR}${ELAN_PREFIX}/bin/captive-portal-configuration-cacher
 	install -m 755 bin/guest_access_manager.py ${DESTDIR}${ELAN_PREFIX}/bin/guest-access-manager
 	install -m 755 bin/redirector.py ${DESTDIR}${ELAN_PREFIX}/bin/redirector
     
@@ -123,6 +122,8 @@ core-install: core-python
 core-python: elan/*.py elan/nac/*.py core-pylib
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/elan
 	install -m 644 -t ${DESTDIR}${ELAN_PREFIX}/lib/python/elan elan/*.py
+	install -d ${DESTDIR}${ELAN_PREFIX}/bin
+	install -m 755 bin/configuration_cacher.py ${DESTDIR}${ELAN_PREFIX}/bin/configuration-cacher
 
 .PHONY: core-pylib
 core-pylib: idstools paho scapy serialized_redis

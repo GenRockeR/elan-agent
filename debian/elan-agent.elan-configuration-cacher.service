@@ -1,6 +1,6 @@
 [Unit]
 
-Description=Captive Portal Conf retriever
+Description=Configuration Cacher
 
 After=redis.service
 Wants=redis.service
@@ -11,7 +11,7 @@ RestartSec=10
 
 Environment=PYTHONPATH=/elan-agent/lib/python
 
-ExecStart=/elan-agent/bin/captive-portal-configuration-cacher
+ExecStart=/elan-agent/bin/configuration-cacher
 
 [Install]
 WantedBy=multi-user.target
