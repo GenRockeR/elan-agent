@@ -1,0 +1,37 @@
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    ${bridge_name}:
+      critical: true
+% if ipv4['type'] == 'dhcp':
+      dhcp4: true
+% endif
+% if ipv6['type'] == 'autoconf':
+      accept-ra: true
+% elif ipv6['type'] == 'dhcp':
+      dhcp6: true
+% endif
+% if ipv4['type'] == 'static' or ipv6['type'] == 'static':
+      addresses:
+  % if ipv4['type'] == 'static':
+        - address ${ipv4['address']}/${ipv4['mask']}
+  % endif
+  % if ipv6['type'] == 'static':
+        - address ${ipv6['address']}/${ipv6['mask']}
+      gateway6: ${ipv6['gateway']}
+  % endif
+  % if ipv4['type'] == 'static':
+      gateway4: ${ipv4['gateway']}
+  % endif
+% endif
+% if ipv4['dns'] or ipv6['dns']:
+      nameservers:
+  % for ip in ipv4['dns']:
+        - ${ip}
+  % endfor
+  % for ip in ipv6['dns']:
+        - ${ip}
+  % endfor
+% endif
+

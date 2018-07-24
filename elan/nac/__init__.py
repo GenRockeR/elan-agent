@@ -78,17 +78,16 @@ def getAuthz(mac):
 
 
 def vlan_has_access_control(vlan):
-    if vlan.endswith('.0'):
-        vlan = vlan[0:-2]  # ifs are used not vlan standard name
-    return synapse.sismember(ACCESS_CONTROLLED_IFS_PATH, vlan)
+    if '.' in vlan:
+        interface, vlan_id = vlan.rsplit('.', 1)
+        vlan_id = int(vlan_id)
+    else:
+        interface = vlan
+        vlan_id = 0
 
-
-def set_access_controlled_vlans_cache(vlans):
-    p = synapse.pipeline()
-    p.delete(ACCESS_CONTROLLED_IFS_PATH)
-    if vlans:
-        p.sadd(ACCESS_CONTROLLED_IFS_PATH, *vlans)
-    p.execute()
+    for v in dendrite.get_conf('vlans') or []:
+        if v['interface'] == interface and v['vlan_id'] == vlan_id:
+            return v['access_control']
 
 
 def authzChanged(mac):

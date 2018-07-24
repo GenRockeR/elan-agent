@@ -11,8 +11,6 @@ import serialized_redis
 
 import paho.mqtt.client as mqtt
 
-CACHE_PREFIX = 'cache:'
-
 DENDRITE_COMMANDS = 'dendrite:commands'
 DENDRITE_ANSWERS = 'dendrite:answers'
 
@@ -64,6 +62,10 @@ class Synapse(serialized_redis.JSONSerializedRedis):
         self.pipe = self.pipeline()
 
 
+class ConnectionFailed():
+    pass
+
+
 class RequestTimeout(Exception):
 
     def __init__(self, details):
@@ -108,7 +110,8 @@ class  Dendrite(mqtt.Client):
         - calls are non blocking (publish will happen in another thread)
 
     '''
-    CONF_PATH_PREFIX = 'conf/'
+    CONF_TOPIC_PREFIX = 'conf/'
+    CACHE_PREFIX = 'cache:'
 
     SERVICE_REQUESTS_TOPIC_PATTERN = 'service/requests/{service}'
     SERVICE_ANSWERS_TOPIC_PATTERN = 'service/answers/{service}/{request_id}'
@@ -134,7 +137,7 @@ class  Dendrite(mqtt.Client):
 
     @classmethod
     def publish_conf_single(cls, topic, data=None, retain=True):
-        return cls.publish_single(cls.CONF_PATH_PREFIX + topic, data, retain=retain)
+        return cls.publish_single(cls.CONF_TOPIC_PREFIX + topic, data, retain=retain)
 
     def finish(self):
         self.disconnect()
@@ -175,7 +178,7 @@ class  Dendrite(mqtt.Client):
     def _subscribe_conf_cb_wrapper(self, fn):
 
         def wrapper(data, topic):
-            subtopic = topic[len(self.CONF_PATH_PREFIX):]
+            subtopic = topic[len(self.CONF_TOPIC_PREFIX):]
             return self._call_fn_with_good_arg_nb(fn, data, subtopic)
 
         return wrapper
@@ -210,7 +213,7 @@ class  Dendrite(mqtt.Client):
         return super().unsubscribe(topic)
 
     def subscribe_conf(self, topic, cb):
-        return self.subscribe(self.CONF_PATH_PREFIX + topic, self._subscribe_conf_cb_wrapper(cb))
+        return self.subscribe(self.CONF_TOPIC_PREFIX + topic, self._subscribe_conf_cb_wrapper(cb))
 
     def publish(self, topic, data=None, retain=False):
         '''
@@ -223,7 +226,7 @@ class  Dendrite(mqtt.Client):
         return super().publish(topic, data, retain=retain, qos=1)
 
     def publish_conf(self, path, message, retain=True):
-        return self.publish(self.CONF_PATH_PREFIX + path, message, retain=retain)
+        return self.publish(self.CONF_TOPIC_PREFIX + path, message, retain=retain)
 
     def provide(self, service, cb):
         '''
@@ -257,8 +260,10 @@ class  Dendrite(mqtt.Client):
     def get_conf(self, topic, timeout=1):
         'get configuration value. This relies on `run_conf_cacher` to be executed'
         synapse = Synapse()
-
-        return synapse.get(self.CACHE_PREFIX + self.CONF_PATH_PREFIX + topic)
+        try:
+            return synapse.get(self.CACHE_PREFIX + self.CONF_TOPIC_PREFIX + topic)
+        except serialized_redis.redis.ConnectionError as e:
+            raise ConnectionFailed(e)
 
     def call(self, service, data=None, timeout=30):
         '''
@@ -303,7 +308,7 @@ class  Dendrite(mqtt.Client):
         def cache_conf(data, path):
             synapse.set(self.CACHE_PREFIX + path, data)
 
-        self.subscribe(Dendrite.CONF_PATH_PREFIX + '#', cache_conf)
+        self.subscribe(Dendrite.CONF_TOPIC_PREFIX + '#', cache_conf)
         self.wait_complete()
 
 

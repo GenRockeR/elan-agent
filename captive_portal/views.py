@@ -16,7 +16,7 @@ from elan.captive_portal import GuestAccess, submit_guest_request, is_authz_pend
                                 ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, \
                                 CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.event import Event
-from elan.network import NetworkConfiguration
+from elan.network import NetworkConfiguration, BRIDGE_NAME
 from elan.neuron import Dendrite, RequestTimeout, RequestError
 from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
 
@@ -31,7 +31,7 @@ def requirePortalURL(fn):
         return fn
 
     def wrapper(request, *args, **kwargs):
-        agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses('br0') + get_ip6_addresses('br0')) ]
+        agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses(BRIDGE_NAME) + get_ip6_addresses(BRIDGE_NAME)) ]
         allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
         if str(get_current_site(request)).replace('[', '').replace(']', '').lower() not in allowed_sites:
             return redirect2status(request)
@@ -376,11 +376,11 @@ def dashboard(request, context=None):
                is_registered=registered,
                interfaces={ iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
-               ipsv4=utils.get_ip4_addresses('br0'),
+               ipsv4=utils.get_ip4_addresses(BRIDGE_NAME),
                ipv4_gw=utils.get_ip4_default_gateway(),
                ipv4_dns=utils.get_ip4_dns_servers(),
 
-               ipsv6=utils.get_ip6_global_addresses('br0'),
+               ipsv6=utils.get_ip6_global_addresses(BRIDGE_NAME),
                ipv6_gw=utils.get_ip6_default_gateway(),
                ipv6_dns=utils.get_ip6_dns_servers(),
     )
@@ -390,9 +390,9 @@ def dashboard(request, context=None):
 
     ip_conf = NetworkConfiguration()
     if not context.get('ipv4_form', None):
-        context['ipv4_form'] = Ip4ConfigurationForm(initial=ip_conf.ipv4)
+        context['ipv4_form'] = Ip4ConfigurationForm(initial=ip_conf.get_ipv4_conf)
     if not context.get('ipv6_form', None):
-        context['ipv6_form'] = Ip6ConfigurationForm(initial=ip_conf.ipv6)
+        context['ipv6_form'] = Ip6ConfigurationForm(initial=ip_conf.get_ipv6_conf)
 
     return render(request, 'captive-portal/dashboard.html', context)
 
@@ -552,7 +552,8 @@ class Ip6ConfigurationForm(forms.Form):
 def admin_ipv4_conf(request):
     form = Ip4ConfigurationForm(request.POST)
     if form.is_valid():
-        Dendrite.publish_conf_single('ipv4', form.cleaned_data)
+        ip_conf = NetworkConfiguration()
+        ip_conf.set_ipv4_conf(form.cleaned_data)
         time.sleep(5)  # wait for conf to apply
         return redirect('dashboard')
 
@@ -566,8 +567,9 @@ def admin_ipv4_conf(request):
 def admin_ipv6_conf(request):
     form = Ip6ConfigurationForm(request.POST)
     if form.is_valid():
-        Dendrite.publish_conf_single('ipv6', form.cleaned_data)
-        time.sleep(5)  # wait for ipv6 autoconf
+        ip_conf = NetworkConfiguration()
+        ip_conf.set_ipv6_conf(form.cleaned_data)
+        time.sleep(5)  # wait for conf to apply
         return redirect('dashboard')
 
     return dashboard(request, context={'ipv6_form': form})

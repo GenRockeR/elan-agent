@@ -1,67 +1,102 @@
 from mako.template import Template
 import os.path
+import subprocess
 
-from elan.neuron import Synapse, is_synapse_ready, wait_for_synapse_ready
-from elan.utils import restart_service, stop_service, start_service
+from elan.neuron import Dendrite, ConnectionFailed
+
+BRIDGE_NAME = 'elan'
+
+IPv4_CONF_TOPIC = 'ipv4'
+IPv4_CURRENT_TOPIC = 'ipv4/current'
+IPv6_CONF_TOPIC = 'ipv6'
+IPv6_CURRENT_TOPIC = 'ipv4/current'
+
+DEFAULT_IPv4_CONF = {'type': 'dhcp', 'dns': [] }
+DEFAULT_IPv6_CONF = {'type': 'autoconf', 'dns': [] }
 
 
 class NetworkConfiguration:
-    IPv4_CONF_PATH = 'conf:network:ipv4'
-    IPv6_CONF_PATH = 'conf:network:ipv6'
-    DEFAULT_IPv4_CONF = {'type': 'dhcp', 'dns': [] }
-    DEFAULT_IPv6_CONF = {'type': 'autoconf', 'dns': [] }
-    configuration_template = '/elan-agent/network/interfaces'
-    configuration_file = '/etc/network/interfaces.d/elan-network'
-    synapse = Synapse()
+    'Class to manipulate IP configuration and retrieve current status'
+    dendrite = Dendrite()
 
-    def __init__(self, wait_synapse=True):
-        self.load_configuration(wait_synapse)
+    def get_current_ipv4(self):
+        return self.dendrite.get_conf(IPv4_CURRENT_TOPIC)
 
-    def load_configuration(self, wait_synapse=True):
-        if wait_synapse:
-            wait_for_synapse_ready(self.synapse)
+    def get_ipv4_conf(self):
+        return self.dendrite.get(IPv4_CONF_TOPIC) or DEFAULT_IPv4_CONF
 
-        if is_synapse_ready(self.synapse):
-            self.ipv4 = self.synapse.get(self.IPv4_CONF_PATH)
+    def set_ipv4_conf(self, conf):
+        self.dendrite.publish_conf(IPv4_CONF_TOPIC, conf)
+
+    def get_current_ipv6(self):
+        return self.dendrite.get_conf(IPv6_CURRENT_TOPIC)
+
+    def get_ipv6_conf(self):
+        return self.dendrite.get(IPv6_CONF_TOPIC) or DEFAULT_IPv6_CONF
+
+    def set_ipv6_conf(self, conf):
+        self.dendrite.publish_conf(IPv6_CONF_TOPIC, conf)
+
+
+class NetworkMonitor:
+    pass
+
+
+class NetworkConfigurator:
+    'Class that does apply the network configuration. Use NetworkConfiguration class to manipulate Network Configuration'
+    ip_conf_template = '/elan-agent/network/netplan-ip-conf.yaml'
+    vlans_conf_template = '/elan-agent/network/netplan-vlans.yaml'
+    ip_conf_file = '/etc/network/elan-ip-conf.yaml'
+    vlans_conf_file = '/etc/network/elan-vlans.yaml'
+    dendrite = Dendrite()
+
+    def __init__(self):
+        self.load_configuration()
+
+    def load_configuration(self):
+        try:
+            self.ipv4 = self.dendrite.get_conf(self.IPv4_CONF_PATH)
             if self.ipv4 is None:
-                self.ipv4 = self.DEFAULT_IPv4_CONF
+                self.ipv4 = DEFAULT_IPv4_CONF
 
-            self.ipv6 = self.synapse.get(self.IPv6_CONF_PATH)
+            self.ipv6 = self.dendrite.get_conf(self.IPv6_CONF_PATH)
             if self.ipv6 is None:
-                self.ipv6 = self.DEFAULT_IPv6_CONF
-        elif os.path.exists(self.configuration_file):
-            self.ipv4 = None
-            self.ipv6 = None
-        else:
-            self.ipv4 = self.DEFAULT_IPv4_CONF
-            self.ipv6 = self.DEFAULT_IPv6_CONF
+                self.ipv6 = DEFAULT_IPv6_CONF
+        except ConnectionFailed:
+            if os.path.exists(self.ip_conf_file):
+                self.ipv4 = None
+                self.ipv6 = None
+            else:
+                self.ipv4 = DEFAULT_IPv4_CONF
+                self.ipv6 = DEFAULT_IPv6_CONF
 
-    def save_configuration(self):
-        self.synapse.set(self.IPv4_CONF_PATH, self.ipv4)
-        self.synapse.set(self.IPv6_CONF_PATH, self.ipv6)
-
-    def apply_configuration(self):
-        stop_service('elan-network', sudo=True)  # bring down br0 with old config to deconfigure it properly (DHCP release...)
-        self.generate_configuration_files()
-        start_service('elan-network', no_block=True, sudo=True)
-
-    def generate_configuration_files(self):
-        if self.ipv4 is not None:
-            template = Template(filename=self.configuration_template)
-
-            with open(self.configuration_file, 'w') as conf_file:
-                conf_file.write(template.render(ipv4=self.ipv4, ipv6=self.ipv6))
-
-    def set_ip_v4(self, kwargs):
+    def set_ipv4(self, kwargs):
         self.ipv4 = kwargs
-        self.save_configuration()
-        self.apply_configuration()
+        self.apply_ip_conf()
 
-    def set_ip_v6(self, kwargs):
+    def set_ipv6(self, kwargs):
         self.ipv6 = kwargs
-        self.save_configuration()
-        self.apply_configuration()
+        self.apply_ip_conf()
+
+    def apply_ip_conf(self):
+        if self.ipv4 is not None and self.ipv6 is not None:
+            self.generate_ip_conf_files(ipv4_conf=self.ipv4, ipv6_conf=self.ipv6)
+        self.reload()
 
     @classmethod
-    def reload(cls):
-        restart_service('elan-network', no_block=True, sudo=True)
+    def generate_ip_conf_files(cls, ipv4_conf, ipv6_conf):
+        template = Template(filename=cls.ip_conf_template)
+
+        with open(cls.ip_conf_file, 'w') as conf_file:
+            conf_file.write(template.render(ipv4=ipv4_conf, ipv6=ipv6_conf, bridge_name=BRIDGE_NAME))
+
+    @classmethod
+    def generate_vlans_conf_files(cls, vlans):
+        template = Template(filename=cls.vlans_conf_template)
+
+        with open(cls.vlans_conf_file, 'w') as conf_file:
+            conf_file.write(template.render(vlans=vlans, bridge_name=BRIDGE_NAME))
+
+    @staticmethod
+    def reload():
+        subprocess.run('netplan apply')

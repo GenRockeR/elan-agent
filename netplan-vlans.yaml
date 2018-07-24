@@ -1,0 +1,24 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+% for eth in ethernets:
+    ${eth}:
+      accept-ra: no
+% endfor
+  vlans:
+% for vlan in vlans:
+  % if vlan['vlan_id']:
+    ${vlan['nic_name']}:
+      accept-ra: no
+      id: ${vlan['vlan_id']}
+      link: ${vlan['interface']}
+  % endif
+% endfor
+  bridges:
+    ${bridge_name}:  
+      interfaces:
+% for vlan in vlans:
+        - ${vlan['nic_name']}:
+% endfor
+

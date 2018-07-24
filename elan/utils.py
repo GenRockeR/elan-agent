@@ -5,7 +5,7 @@ import netifaces, subprocess, re, netaddr
 import os
 import subprocess
 
-DEFAULT_IFACE = 'br0'
+DEFAULT_IFACE = 'elan'
 
 
 def get_ip6_address(if_name=DEFAULT_IFACE):

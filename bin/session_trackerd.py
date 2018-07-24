@@ -4,7 +4,7 @@ import time
 
 from scapy.all import sendp, Ether, ARP, Dot1Q, IPv6, ICMPv6ND_NS
 
-from elan import session
+from elan import session, network
 from elan.neuron import Synapse
 from elan.utils import get_ip4_address, get_ip6_address, get_ether_address
 
@@ -23,7 +23,7 @@ def pingIP(mac, vlan, ip):
 
 
 def ndpPing(mac, vlan, ip):
-    src_mac = get_ether_address('br0')
+    src_mac = get_ether_address(network.BRIDGE_NAME)
     packet = Ether(src=src_mac, dst=mac)
 
     if_name = vlan
@@ -33,7 +33,7 @@ def ndpPing(mac, vlan, ip):
         if vlan_id:
             packet = packet / Dot1Q(vlan=vlan_id)
 
-    src_ip = get_ip6_address('br0')['address']
+    src_ip = get_ip6_address(network.BRIDGE_NAME)['address']
     if src_ip is None:
         src_ip = 'fe80::66:66'  # we need a source IP...
     packet = packet / IPv6(src=src_ip, dst=ip)
@@ -43,7 +43,7 @@ def ndpPing(mac, vlan, ip):
 
 
 def arpPing(mac, vlan, ip):
-    src_mac = get_ether_address('br0')
+    src_mac = get_ether_address(network.BRIDGE_NAME)
     packet = Ether(src=src_mac, dst=mac)
 
     if_name = vlan
@@ -53,7 +53,7 @@ def arpPing(mac, vlan, ip):
         if vlan_id:
             packet = packet / Dot1Q(vlan=vlan_id)
 
-    src_ip = get_ip4_address('br0')['address']
+    src_ip = get_ip4_address(network.BRIDGE_NAME)['address']
     if src_ip is None:
         src_ip = '169.254.66.66'  # we need a source IP...
     packet = packet / ARP(hwsrc=src_mac, psrc=src_ip, hwdst=mac, pdst=ip)

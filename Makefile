@@ -9,7 +9,7 @@ PACKAGE-DEPENDS := python3, python3-dateutil, python3-six, python3-netifaces, py
                  mosquitto, libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, \
                  libnet-ip-perl, libreadonly-perl, libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, \
                  libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, libjson-maybexs-perl, \
-                 libfile-fcntllock-perl, libsocket6-perl, libchi-perl, ifupdown
+                 libfile-fcntllock-perl, libsocket6-perl, libchi-perl, netplan.io (>= 0.36.2)
 
 ELAN_PREFIX := /elan-agent
 PYTHON_PIPENVFILES := embedded/python
@@ -226,8 +226,7 @@ network-install:
 	install -m 755 bin/network_configurator.py ${DESTDIR}${ELAN_PREFIX}/bin/network-configurator
 	install -d ${DESTDIR}${ELAN_PREFIX}/network
 	install -m 755 nftables ${DESTDIR}${ELAN_PREFIX}/network/
-	install -m 755 interfaces.d ${DESTDIR}${ELAN_PREFIX}/network/interfaces
-	install -m 644 interfaces ${DESTDIR}${ELAN_PREFIX}/network/interface.lo
+	install -m 644 netplan-*.yaml ${DESTDIR}${ELAN_PREFIX}/network/
 	install -d ${DESTDIR}${ELAN_PREFIX}/network/nginx
 	install -m 644 nginx.captive-portal-server ${DESTDIR}${ELAN_PREFIX}/network/nginx/server
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/elan
