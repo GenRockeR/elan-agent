@@ -126,7 +126,7 @@ core-python: elan/*.py elan/nac/*.py core-pylib
 	install -m 755 bin/configuration_cacher.py ${DESTDIR}${ELAN_PREFIX}/bin/configuration-cacher
 
 .PHONY: core-pylib
-core-pylib: idstools paho scapy serialized_redis
+core-pylib: idstools scapy serialized_redis
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python
 	( cd ${PYTHON_PIPENVFILES}; \
 		find $^ -type d -exec install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/{} \;; \
