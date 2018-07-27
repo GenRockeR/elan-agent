@@ -9,7 +9,7 @@ PACKAGE-DEPENDS := python3, python3-dateutil, python3-six, python3-netifaces, py
                  mosquitto, libswitch-perl, libdancer-perl, libsnmp-perl, libredis-perl, libjson-perl, libnet-snmp-perl, \
                  libnet-ip-perl, libreadonly-perl, libnet-radius-perl, liblist-moreutils-perl, libsoap-lite-perl, \
                  libtest-mockobject-perl, libhtml-form-perl, liblog-log4perl-perl, libjson-maybexs-perl, \
-                 libfile-fcntllock-perl, libsocket6-perl, libchi-perl, netplan.io (>= 0.36.2)
+                 libfile-fcntllock-perl, libsocket6-perl, libchi-perl, netplan.io (>= 0.36.2), python3-dnspython, python3-watchdog
 
 ELAN_PREFIX := /elan-agent
 PYTHON_PIPENVFILES := embedded/python
@@ -222,6 +222,7 @@ nac-mibs:
 .PHONY: network-install
 network-install:
 	install -d ${DESTDIR}${ELAN_PREFIX}/bin
+	install -m 755 bin/access_control_monitor.py ${DESTDIR}${ELAN_PREFIX}/bin/access-control-monitor
 	install -m 755 bin/access_control_configurator.py ${DESTDIR}${ELAN_PREFIX}/bin/access-control-configurator
 	install -m 755 bin/network_configurator.py ${DESTDIR}${ELAN_PREFIX}/bin/network-configurator
 	install -d ${DESTDIR}${ELAN_PREFIX}/network
