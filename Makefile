@@ -220,9 +220,9 @@ nac-mibs:
 .PHONY: network-install
 network-install:
 	install -d ${DESTDIR}${ELAN_PREFIX}/bin
-	install -m 755 bin/access_control_monitor.py ${DESTDIR}${ELAN_PREFIX}/bin/access-control-monitor
 	install -m 755 bin/access_control_configurator.py ${DESTDIR}${ELAN_PREFIX}/bin/access-control-configurator
 	install -m 755 bin/network_configurator.py ${DESTDIR}${ELAN_PREFIX}/bin/network-configurator
+	install -m 755 bin/network_monitor.py ${DESTDIR}${ELAN_PREFIX}/bin/network-monitor
 	install -d ${DESTDIR}${ELAN_PREFIX}/network
 	install -m 755 nftables ${DESTDIR}${ELAN_PREFIX}/network/
 	install -m 644 netplan-*.yaml ${DESTDIR}${ELAN_PREFIX}/network/
