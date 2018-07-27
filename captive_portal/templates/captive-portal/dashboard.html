@@ -173,7 +173,7 @@
                 <label>{% trans 'Address' %}</label>
               </td>
               <td>
-                {% for ip in ipsv4 %}
+                {% for ip in ipv4.ips %}
                 <span class="badge pull-right">{{ip.address}}<small> / {{ip.prefix_length}}</small></span>
                 {% endfor %}
             </td>
@@ -183,7 +183,7 @@
                 <label>{% trans 'Gateway' %}</label>
               </td>
               <td>
-                <span class="badge pull-right">{{ipv4_gw|default_if_none:''}}</span>
+                <span class="badge pull-right">{{ipv4.gw|default_if_none:''}}</span>
               </td>
             </tr>
             <tr>
@@ -191,7 +191,7 @@
                 <label>{% trans 'DNS' %}</label>
               </td>
               <td>
-                {% for ip in ipv4_dns %}
+                {% for ip in ipv4.dns %}
                 <span class="badge pull-right">{{ip}}</span>
                 {% endfor %}
               </td>
@@ -267,7 +267,7 @@
                 <label>{% trans 'Address' %}</label>
               </td>
               <td>
-                {% for ip in ipsv6 %}
+                {% for ip in ipv6.ips %}
                 <span class="badge pull-right">{{ip.address}}<small> / {{ip.prefix_length}}</small></span>
                 {% endfor %}
             </td>
@@ -277,7 +277,7 @@
                 <label>{% trans 'Gateway' %}</label>
               </td>
               <td>
-                <span class="badge pull-right">{{ipv6_gw|default_if_none:''}}</span>
+                <span class="badge pull-right">{{ipv6.gw|default_if_none:''}}</span>
               </td>
             </tr>
             <tr>
@@ -285,7 +285,7 @@
                 <label>{% trans 'DNS' %}</label>
               </td>
               <td>
-                {% for ip in ipv6_dns %}
+                {% for ip in ipv6.dns %}
                 <span class="badge pull-right">{{ip}}</span>
                 {% endfor %}
               </td>

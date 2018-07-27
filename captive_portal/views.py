@@ -9,18 +9,20 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.cache import never_cache
 import time
 
-from elan import nac, utils
+from elan import nac
 from elan import session
 from elan.authentication import pwd_authenticate, AuthenticationFailed
 from elan.captive_portal import GuestAccess, submit_guest_request, is_authz_pending, Administrator, \
                                 ELAN_AGENT_FQDN, CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, \
                                 CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6
 from elan.event import Event
-from elan.network import NetworkConfiguration, BRIDGE_NAME
+from elan.network import NetworkConfiguration
 from elan.neuron import Dendrite, RequestTimeout, RequestError
-from elan.utils import get_ip4_addresses, get_ip6_addresses, ip4_to_mac, is_iface_up, physical_ifaces
+from elan.utils import ip4_to_mac, is_iface_up, physical_ifaces
 
 ADMIN_SESSION_IDLE_TIMEOUT = 300  # seconds
+
+netconf = NetworkConfiguration()
 
 
 def requirePortalURL(fn):
@@ -31,7 +33,7 @@ def requirePortalURL(fn):
         return fn
 
     def wrapper(request, *args, **kwargs):
-        agent_ips = [ ip['address'].lower() for ip in (get_ip4_addresses(BRIDGE_NAME) + get_ip6_addresses(BRIDGE_NAME)) ]
+        agent_ips = netconf.get_current_ips()
         allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
         if str(get_current_site(request)).replace('[', '').replace(']', '').lower() not in allowed_sites:
             return redirect2status(request)
@@ -43,7 +45,7 @@ def requirePortalURL(fn):
 def redirect2status(request):
     if 'dashboard' in request.META or settings.DEBUG and 'dashboard' in request.GET:
         host = request.META.get('HTTP_HOST', ELAN_AGENT_FQDN)
-        agent_ips = [ip['address'] for ip in utils.get_ip4_addresses() + utils.get_ip6_addresses()]
+        agent_ips = netconf.get_current_ips()
         if host in agent_ips:
             # if trying to get to agent with ip, redirect to IP
             redirect_fqdn = host
@@ -376,13 +378,8 @@ def dashboard(request, context=None):
                is_registered=registered,
                interfaces={ iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
-               ipsv4=utils.get_ip4_addresses(BRIDGE_NAME),
-               ipv4_gw=utils.get_ip4_default_gateway(),
-               ipv4_dns=utils.get_ip4_dns_servers(),
-
-               ipsv6=utils.get_ip6_global_addresses(BRIDGE_NAME),
-               ipv6_gw=utils.get_ip6_default_gateway(),
-               ipv6_dns=utils.get_ip6_dns_servers(),
+               ipv4=netconf.get_current_ipv4(),
+               ipv6=netconf.get_current_ipv6(),
     )
     if not context.get('location', ''):
         # TODO:

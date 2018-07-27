@@ -1,14 +1,14 @@
+from dns import resolver
 from mako.template import Template
 from pyroute2 import IPRoute
 from pyroute2.netlink import rtnl
+from watchdog.events import FileSystemEventHandler
 import os.path
 import socket
 import subprocess
-
-from dns import resolver
-from elan.neuron import Dendrite, ConnectionFailed
-from watchdog.events import FileSystemEventHandler
 import watchdog.observers
+
+from elan.neuron import Dendrite, ConnectionFailed
 
 BRIDGE_NAME = 'elan'
 
@@ -27,20 +27,27 @@ class NetworkConfiguration:
     'Class to manipulate IP configuration and retrieve current status'
     dendrite = Dendrite()
 
+    def get_current_ips(self, cidr=False):
+        ips = self.get_current_ipv4()['ips'] + self.get_current_ipv6()['ips']
+        if not cidr:
+            ips = [ip.split('/')[0] for ip in self.get_current_ipv4()['ips'] + self.get_current_ipv6()['ips']]
+
+        return ips
+
     def get_current_ipv4(self):
-        return self.dendrite.get_conf(IPv4_CURRENT_TOPIC)
+        return self.dendrite.get_conf(IPv4_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
 
     def get_ipv4_conf(self):
-        return self.dendrite.get(IPv4_CONF_TOPIC) or DEFAULT_IPv4_CONF
+        return self.dendrite.get_conf(IPv4_CONF_TOPIC) or DEFAULT_IPv4_CONF
 
     def set_ipv4_conf(self, conf):
         self.dendrite.publish_conf(IPv4_CONF_TOPIC, conf)
 
     def get_current_ipv6(self):
-        return self.dendrite.get_conf(IPv6_CURRENT_TOPIC)
+        return self.dendrite.get_conf(IPv6_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
 
     def get_ipv6_conf(self):
-        return self.dendrite.get(IPv6_CONF_TOPIC) or DEFAULT_IPv6_CONF
+        return self.dendrite.get_conf(IPv6_CONF_TOPIC) or DEFAULT_IPv6_CONF
 
     def set_ipv6_conf(self, conf):
         self.dendrite.publish_conf(IPv6_CONF_TOPIC, conf)
@@ -98,7 +105,7 @@ class NetworkMonitor:
                         elif event['family'] == socket.AF_INET6:
                             self.check_gw6()
 
-                    elif event['event'] in ['RTM_NEWADDR', 'RTM_DELADDR'] and event['index'] == ipr.link_lookup(ifname=self.interface):
+                    elif event['event'] in ['RTM_NEWADDR', 'RTM_DELADDR'] and event['index'] == ipr.link_lookup(ifname=self.interface)[0]:
                         self.check_ips(ipr)
 
     def check_gw4(self, publish=True):
@@ -116,7 +123,7 @@ class NetworkMonitor:
                 self.publish_current_ipv6()
 
     def check_ips(self, publish=True):
-        ips = self.get_ips(self.interaces)
+        ips = self.get_ips(self.interface)
 
         ipv4s = [ip for ip in ips if '.' in ip]
         if set(self.current_ipv4['ips']) != set(ipv4s):
@@ -164,7 +171,7 @@ class NetworkMonitor:
         ipr = IPRoute()
 
         ips = set()
-        index = ipr.link_lookup(ifname=interface)
+        index = ipr.link_lookup(ifname=interface)[0]
         for entry in ipr.get_addr(index=index):
             for key, value in entry['attrs']:
                 if key == 'IFA_ADDRESS':
@@ -219,11 +226,11 @@ class NetworkConfigurator:
 
     def load_configuration(self):
         try:
-            self.ipv4 = self.dendrite.get_conf(self.IPv4_CONF_PATH)
+            self.ipv4 = self.dendrite.get_conf(IPv4_CONF_TOPIC)
             if self.ipv4 is None:
                 self.ipv4 = DEFAULT_IPv4_CONF
 
-            self.ipv6 = self.dendrite.get_conf(self.IPv6_CONF_PATH)
+            self.ipv6 = self.dendrite.get_conf(IPv6_CONF_TOPIC)
             if self.ipv6 is None:
                 self.ipv6 = DEFAULT_IPv6_CONF
         except ConnectionFailed:

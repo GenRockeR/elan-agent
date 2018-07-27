@@ -6,13 +6,15 @@ from scapy.all import sendp, Ether, ARP, Dot1Q, IPv6, ICMPv6ND_NS
 
 from elan import session, network
 from elan.neuron import Synapse
-from elan.utils import get_ip4_address, get_ip6_address, get_ether_address
+from elan.utils import get_ether_address
 
 LAST_SEEN_PATH = 'device:macs:last_seen'
 
 PING_OBJECTS_AFTER = 240  #  4 minutes
 PING_EVERY = 10  # 10 seconds
 EXPIRY_OBJECT_AFTER = 300  #  5 minutes
+
+netconf = network.NetworkConfiguration()
 
 
 def pingIP(mac, vlan, ip):
@@ -33,9 +35,19 @@ def ndpPing(mac, vlan, ip):
         if vlan_id:
             packet = packet / Dot1Q(vlan=vlan_id)
 
-    src_ip = get_ip6_address(network.BRIDGE_NAME)['address']
-    if src_ip is None:
-        src_ip = 'fe80::66:66'  # we need a source IP...
+    local_ip = None
+    for ip in netconf.get_current_ipv6()['ips']:
+        if ip.startswith('fe80'):
+            local_ip = ip
+        else:
+            src_ip = ip
+            break
+    else:
+        if local_ip is None:
+            src_ip = 'fe80::66:66'  # we need a source IP...
+        else:
+            src_ip = local_ip
+
     packet = packet / IPv6(src=src_ip, dst=ip)
     packet = packet / ICMPv6ND_NS(tgt=ip)
 
@@ -53,9 +65,11 @@ def arpPing(mac, vlan, ip):
         if vlan_id:
             packet = packet / Dot1Q(vlan=vlan_id)
 
-    src_ip = get_ip4_address(network.BRIDGE_NAME)['address']
-    if src_ip is None:
+    try:
+        netconf.get_current_ipv4()['ips'][0]
+    except IndexError:
         src_ip = '169.254.66.66'  # we need a source IP...
+
     packet = packet / ARP(hwsrc=src_mac, psrc=src_ip, hwdst=mac, pdst=ip)
 
     sendp(packet, iface=if_name)
