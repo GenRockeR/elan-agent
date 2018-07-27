@@ -112,8 +112,6 @@ connection-tracker-install: elan/*.py bin/connection_trackerd.py bin/device_trac
 connection-tracker-pyshark:
 	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/pyshark
 	cp -rp ${PYTHON_PIPENVFILES}/pyshark/* ${DESTDIR}${ELAN_PREFIX}/lib/python/pyshark
-	install -d ${DESTDIR}${ELAN_PREFIX}/lib/python/trollius
-	cp -rp ${PYTHON_PIPENVFILES}/trollius/* ${DESTDIR}${ELAN_PREFIX}/lib/python/trollius
 
 .PHONY: core-install
 core-install: core-python
