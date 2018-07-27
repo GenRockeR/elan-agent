@@ -2,7 +2,7 @@ PACKAGE-NAME := elan-agent
 PACKAGE-DESC := Easy LAN Agent
 PACKAGE-DEPENDS := python3, python3-dateutil, python3-six, python3-netifaces, python3-netaddr, libpython3-dev, python3-cffi, python3-dev, \
                  python3-yaml, python3-websockets, python3-redis, python3-pyrad, python3-mako, python3-pyroute2, python3-django, \
-                 python3-logbook, python3-py, python3-lxml, python3-aiohttp, redis-server, gcc, \
+                 python3-logbook, python3-py, python3-lxml, python3-aiohttp, redis-server, gcc, python3-paho-mqtt, \
                  freeradius (>= 3.0.0), freeradius-ldap, freeradius-rest, make, winbind, krb5-user, \
                  libsasl2-modules-gssapi-mit, krb5-pkinit, uwsgi-plugin-python3, suricata, nginx, libnetfilter-log-dev, \
                  libnfnetlink-dev, libglib2.0-dev, zsync, snmpd, snmptrapd, bridge-utils, vlan, nftables, rdnssd, tshark, \

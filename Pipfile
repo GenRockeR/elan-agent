@@ -11,7 +11,6 @@ idstools = "*"
 pyshark = "*"
 "scapy-python3" = "*"
 serialized-redis-interface = "*"
-paho-mqtt = "*"
 
 [requires]
 python_version = "3.6"
