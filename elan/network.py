@@ -15,7 +15,7 @@ BRIDGE_NAME = 'elan'
 IPv4_CONF_TOPIC = 'ipv4'
 IPv4_CURRENT_TOPIC = 'ipv4/current'
 IPv6_CONF_TOPIC = 'ipv6'
-IPv6_CURRENT_TOPIC = 'ipv4/current'
+IPv6_CURRENT_TOPIC = 'ipv6/current'
 
 DEFAULT_IPv4_CONF = {'type': 'dhcp', 'dns': [] }
 DEFAULT_IPv6_CONF = {'type': 'autoconf', 'dns': [] }
@@ -131,7 +131,7 @@ class NetworkMonitor:
             if publish:
                 self.publish_current_ipv4()
 
-        ipv6s = [ip for ip in ips if '.' in ip]
+        ipv6s = [ip for ip in ips if ':' in ip]
         if set(self.current_ipv6['ips']) != set(ipv6s):
             self.current_ipv6['ips'] = ipv6s
             if publish:
@@ -146,7 +146,7 @@ class NetworkMonitor:
             if publish:
                 self.publish_current_ipv4()
 
-        dns6 = [d for d in dns if '.' in d]
+        dns6 = [d for d in dns if ':' in d]
         if dns6 != self.current_ipv6['dns']:
             self.current_ipv6['dns'] = dns6
             if publish:

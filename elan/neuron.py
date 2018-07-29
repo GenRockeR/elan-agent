@@ -1,3 +1,4 @@
+from paho.mqtt import publish
 import concurrent.futures
 import inspect
 import json
@@ -6,7 +7,6 @@ import threading
 import time
 import uuid
 
-from paho.mqtt import publish
 import serialized_redis
 
 import paho.mqtt.client as mqtt
@@ -321,7 +321,7 @@ class ConfObject:
         Count the number of objects the configuration has.
         Assumes the configuration is a list.
         '''
-        return len(cls._dendrite.get_conf()(cls.TOPIC) or [])
+        return len(cls._dendrite.get_conf(cls.TOPIC) or [])
 
     @classmethod
     def get_all(cls, **filters):

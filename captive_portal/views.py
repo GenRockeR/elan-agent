@@ -383,8 +383,8 @@ def dashboard(request, context=None):
                is_registered=registered,
                interfaces={ iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
-               ipv4=netconf.current_ipv4,
-               ipv6=netconf.current_ipv6,
+               ipv4=current_ipv4,
+               ipv6=current_ipv6,
     )
     if not context.get('location', ''):
         # TODO:
