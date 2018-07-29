@@ -97,7 +97,7 @@ class MacAuthorizationManager():
 
                 if cmd == 'quit':
                     try:
-                        self.nft_process.wait(2)
+                        nft_process.wait(2)
                     except subprocess.TimeoutExpired:
                         pass
 

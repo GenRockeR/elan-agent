@@ -2,14 +2,14 @@ network:
   version: 2
   renderer: networkd
   ethernets:
-% for eth in ethernets:
+% for eth in set(vlan['interface'] for vlan in vlans):
     ${eth}:
       accept-ra: no
 % endfor
   vlans:
 % for vlan in vlans:
   % if vlan['vlan_id']:
-    ${vlan['nic_name']}:
+    ${vlan['interface']}.${vlan['vlan_id']}:
       accept-ra: no
       id: ${vlan['vlan_id']}
       link: ${vlan['interface']}
@@ -19,6 +19,10 @@ network:
     ${bridge_name}:  
       interfaces:
 % for vlan in vlans:
-        - ${vlan['nic_name']}:
+  % if vlan['vlan_id']:
+        - ${vlan['interface']}.${vlan['vlan_id']}
+  % else:
+        - ${vlan['interface']}
+  % endif
 % endfor
 

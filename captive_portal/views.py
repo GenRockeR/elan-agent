@@ -369,6 +369,11 @@ def dashboard(request, context=None):
             registration_available = False
             registration_error = e.error_str
 
+    current_ipv4 = netconf.get_current_ipv4()
+    current_ipv4['ips'] = [*map(lambda x: dict(zip(['address', 'prefix_length'], x.split('/', 1))), current_ipv4['ips'])]
+    current_ipv6 = netconf.get_current_ipv6()
+    current_ipv6['ips'] = [*map(lambda x: dict(zip(['address', 'prefix_length'], x.split('/', 1))), current_ipv6['ips'])]
+
     context.update(
                registration_available=registration_available,
                registration_error=registration_error,
@@ -378,8 +383,8 @@ def dashboard(request, context=None):
                is_registered=registered,
                interfaces={ iface: {'up': is_iface_up(iface)} for iface in physical_ifaces()},
 
-               ipv4=netconf.get_current_ipv4(),
-               ipv6=netconf.get_current_ipv6(),
+               ipv4=netconf.current_ipv4,
+               ipv6=netconf.current_ipv6,
     )
     if not context.get('location', ''):
         # TODO:

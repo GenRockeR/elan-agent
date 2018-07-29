@@ -66,7 +66,7 @@ class GuestAccessManager():
         current_mac_with_authz = self.synapse.smembers(self.MAC_AUTHS_PATH)
 
         for mac in current_mac_with_authz - set(authz_by_mac.keys()):
-            nac.checkAuthz(mac, remove_source='captive-portal-guest', end_reason == 'revoked')
+            nac.checkAuthz(mac, remove_source='captive-portal-guest', end_reason='revoked')
             self.synapse.srem(self.MAC_AUTHS_PATH, mac)
 
         for mac in authz_by_mac:

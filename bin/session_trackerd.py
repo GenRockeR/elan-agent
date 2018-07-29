@@ -66,7 +66,7 @@ def arpPing(mac, vlan, ip):
             packet = packet / Dot1Q(vlan=vlan_id)
 
     try:
-        netconf.get_current_ipv4()['ips'][0]
+        src_ip = netconf.get_current_ipv4()['ips'][0]
     except IndexError:
         src_ip = '169.254.66.66'  # we need a source IP...
 
