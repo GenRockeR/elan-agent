@@ -5,6 +5,7 @@ define agent_ip6 = 2001:41d0:2:ba47::1000:1000
 define portal_ip = 8.8.8.9
 define portal_ip6 = 2001:41d0:2:ba47::1000:1010
 
+add table bridge elan
 flush table bridge elan
 table bridge elan {
     set ndp_pt_ifs {
@@ -141,9 +142,10 @@ table bridge elan {
         type filter hook postrouting priority 200;
     }
 }
+
+add table inet elan
 flush table inet elan
 table inet elan {
-  
     chain connections  {
         type filter hook forward priority 0;
     
@@ -152,6 +154,7 @@ table inet elan {
     }
 }
 
+add table ip elan
 flush table ip elan
 table ip elan {
     map captive_portals {
@@ -172,6 +175,7 @@ table ip elan {
     } 
 }
 
+add table ip6 elan
 flush table ip6 elan
 table ip6 elan {
     map captive_portals {
