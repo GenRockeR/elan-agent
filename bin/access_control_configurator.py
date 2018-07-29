@@ -2,11 +2,12 @@
 
 from mako.template import Template
 from pyroute2 import IPDB
+import argparse
 import subprocess
 
 from elan.event import ExceptionEvent
 from elan.network import NetworkConfigurator, BRIDGE_NAME
-from elan.neuron import Dendrite, Synapse
+from elan.neuron import Dendrite, Synapse, ConnectionFailed
 from elan.utils import reload_service, physical_ifaces
 
 
@@ -20,11 +21,11 @@ class AccessControlConfigurator():
         self.vlans_by_ifname = {}  # vlans by NIC name (<nic>.<vlan>)
         self.vlans_by_id = {}  # vlans by Vlan-ID
 
-    def new_vlan_conf(self, conf):
+    def new_vlan_conf(self, vlans):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
         new_vlans_by_ifname = {}
         new_vlans_by_id = {}
-        for vlan in conf:
+        for vlan in vlans:
             if 'id' in vlan:
                 new_vlans_by_id[vlan['id']] = vlan
             if vlan.get('vlan_id', 0):
@@ -53,7 +54,7 @@ class AccessControlConfigurator():
             for nft_set in ['dhcp_pt_ifs', 'dns_pt_ifs', 'ndp_pt_ifs', 'mdns_pt_ifs']:
                 nft('flush set bridge elan {nft_set}'.format(nft_set=nft_set))
             for protocol in ['ip', 'ip6']:
-                nft("flush set {protocol} elan captive_portals".format(protocol=protocol))
+                nft("flush map {protocol} elan captive_portals".format(protocol=protocol))
 
             bridge = ip.interfaces[BRIDGE_NAME]
             bridge.begin()
@@ -190,12 +191,19 @@ class AccessControlConfigurator():
 
 
 if __name__ == "__main__":
-    configurator = AccessControlConfigurator()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--default-conf-only", help="just generate default configuration if needed",
+                    action="store_true")
+    args = parser.parse_args()
 
     dendrite = Dendrite()
 
-    vlans = dendrite.get_conf('vlans', timeout=5)
-    if vlans is None:
+    try:
+        vlans = dendrite.get_conf('vlans', timeout=5)
+    except ConnectionFailed:
+        vlans = None
+
+    if vlans is None and not NetworkConfigurator.vlans_conf_files_exists():
         # Default vlan conf: first 2 interfaces bridged
         vlans = []
         count = 0
@@ -204,9 +212,14 @@ if __name__ == "__main__":
             vlans.append({'interface': interface})
             if count == 2:
                 break
-    configurator.new_vlan_conf(vlans)
+        if args.default_conf_only:
+            NetworkConfigurator.generate_vlans_conf_files(vlans)
 
-    dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
+    if not args.default_conf_only:
+        configurator = AccessControlConfigurator()
+        if vlans is not None:
+            configurator.new_vlan_conf(vlans)
+        dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
 
-    # wait for changes
-    dendrite.wait_complete()
+        # wait for changes
+        dendrite.wait_complete()

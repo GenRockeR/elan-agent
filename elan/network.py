@@ -91,7 +91,7 @@ class NetworkMonitor:
             # set monitoring of DNS (executed in another thread)
             observer = watchdog.observers.Observer()
             observer.schedule(self.FileChangeHandler(file=RESOLV_FILE, moved_cb=self.check_dns, created_cb=self.check_dns),
-                              path=os.path(RESOLV_FILE),
+                              path=os.path.dirname(RESOLV_FILE),
                               recursive=False
             )
 
@@ -193,7 +193,7 @@ class NetworkMonitor:
         except:
             return None
 
-    def parse_resolconf(self, file=RESOLV_FILE):
+    def parse_resolvconf(self, file=RESOLV_FILE):
         dns = []
         try:
             with open(file) as resolvconf:
@@ -217,12 +217,13 @@ class NetworkConfigurator:
     'Class that does apply the network configuration. Use NetworkConfiguration class to manipulate Network Configuration'
     ip_conf_template = '/elan-agent/network/netplan-ip-conf.yaml'
     vlans_conf_template = '/elan-agent/network/netplan-vlans.yaml'
-    ip_conf_file = '/etc/network/elan-ip-conf.yaml'
-    vlans_conf_file = '/etc/network/elan-vlans.yaml'
+    ip_conf_file = '/etc/netplan/elan-ip-conf.yaml'
+    vlans_conf_file = '/etc/netplan/elan-vlans.yaml'
     dendrite = Dendrite()
 
     def __init__(self):
         self.load_configuration()
+        self.apply_ip_conf()
 
     def load_configuration(self):
         try:
@@ -250,9 +251,12 @@ class NetworkConfigurator:
         self.apply_ip_conf()
 
     def apply_ip_conf(self):
+        self.generate_ip_conf()
+        self.reload()
+
+    def generate_ip_conf(self):
         if self.ipv4 is not None and self.ipv6 is not None:
             self.generate_ip_conf_files(ipv4_conf=self.ipv4, ipv6_conf=self.ipv6)
-        self.reload()
 
     @classmethod
     def generate_ip_conf_files(cls, ipv4_conf, ipv6_conf):
@@ -260,6 +264,10 @@ class NetworkConfigurator:
 
         with open(cls.ip_conf_file, 'w') as conf_file:
             conf_file.write(template.render(ipv4=ipv4_conf, ipv6=ipv6_conf, bridge_name=BRIDGE_NAME))
+
+    @classmethod
+    def vlans_conf_files_exists(cls):
+        return os.path.exists(cls.vlans_conf_file)
 
     @classmethod
     def generate_vlans_conf_files(cls, vlans):
@@ -270,4 +278,4 @@ class NetworkConfigurator:
 
     @staticmethod
     def reload():
-        subprocess.run('netplan apply')
+        subprocess.run(['netplan', 'apply'])

@@ -1,16 +1,4 @@
 #!/bin/sh
-# get rid of rc.d symlinks for freeradius
-update-rc.d -f freeradius remove
-rm -f /etc/init.d/freeradius
-ln -s /lib/init/upstart-job /etc/init.d/freeradius
-  
-
-# create default params
-/etc/freeradius/3.0/certs/bootstrap
-
-
-# Configure Nginx
-rm -f /etc/nginx/sites-enabled/default
 
 # deconfigure freeradius default sites
 rm -f /etc/freeradius/3.0/sites-enabled/default
@@ -26,13 +14,9 @@ PYTHONPATH=/elan-agent/lib/python /elan-agent/bin/rule-fetcher --no-rule-reload 
 
 perl -p -i -e 's:SECRET_KEY_TO_BE_REPLACED:'`date +%s | sha256sum | base64 | head -c 64`':'  %{ELAN_PREFIX}/captive-portal/captive_portal/settings.py
 
-# get rid of rc.d symlinks for nginx and redis
-update-rc.d -f nginx remove
-update-rc.d -f redis-server remove
-
 cat /elan-agent/authentication/smb.conf > /etc/samba/smb.conf
 
-# deconfigure default site
+# deconfigure NGINX default site
 rm -f /etc/nginx/sites-enabled/default
 
 # Create certs
@@ -45,15 +29,6 @@ do
   fi
 done
 
-# remove default FW that blocks all incoming...
-update-rc.d -f nftables remove
-
-# disable all interfaces
-ifdown -a --ignore-errors --exclude=lo
-cat /elan-agent/network/interface.lo > /etc/network/interfaces
-chown www-data /etc/network/interfaces.d/elan-network
-
-
 if ! grep -q 'SASL_NOCANON on' /etc/ldap/ldap.conf
 then
     echo 'SASL_NOCANON on' >> /etc/ldap/ldap.conf
@@ -65,6 +40,9 @@ ln -fs %{ELAN_PREFIX}/nac/pf/conf/dictionary /usr/local/pf/lib/pf/util/
 
 # Remove netplan.io default conf
 rm -f /etc/netplan/01-netcfg.yaml
+# and replace it with our default conf:
+PYTHONPATH=/elan-agent/lib/python /elan-agent/bin/access-control-configurator --default-conf-only
+PYTHONPATH=/elan-agent/lib/python python3 -m elan.network 'NetworkConfigurator().generate_ip_conf'
 
 #DEBHELPER#
 
