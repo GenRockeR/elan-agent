@@ -9,8 +9,8 @@ coverage = "*"
 [packages]
 idstools = "*"
 pyshark = "*"
-"scapy-python3" = "*"
 serialized-redis-interface = "*"
+scapy = "*"
 
 [requires]
 python_version = "3.6"
