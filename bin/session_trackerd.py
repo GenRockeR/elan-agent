@@ -36,11 +36,11 @@ def ndpPing(mac, vlan, ip):
             packet = packet / Dot1Q(vlan=vlan_id)
 
     local_ip = None
-    for ip in netconf.get_current_ipv6()['ips']:
-        if ip.startswith('fe80'):
-            local_ip = ip
+    for ip6 in netconf.get_current_ipv6(cidr=False)['ips']:
+        if ip6.startswith('fe80'):
+            local_ip = ip6
         else:
-            src_ip = ip
+            src_ip = ip6
             break
     else:
         if local_ip is None:
@@ -66,7 +66,7 @@ def arpPing(mac, vlan, ip):
             packet = packet / Dot1Q(vlan=vlan_id)
 
     try:
-        src_ip = netconf.get_current_ipv4()['ips'][0]
+        src_ip = netconf.get_current_ipv4(cidr=False)['ips'][0]
     except IndexError:
         src_ip = '169.254.66.66'  # we need a source IP...
 

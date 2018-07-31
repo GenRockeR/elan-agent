@@ -33,7 +33,7 @@ def requirePortalURL(fn):
         return fn
 
     def wrapper(request, *args, **kwargs):
-        agent_ips = netconf.get_current_ips()
+        agent_ips = netconf.get_current_ips(cidr=False)
         allowed_sites = agent_ips + [CAPTIVE_PORTAL_FQDN, ELAN_AGENT_FQDN, ELAN_AGENT_FQDN_IP, ELAN_AGENT_FQDN_IP6, CAPTIVE_PORTAL_FQDN_IP, CAPTIVE_PORTAL_FQDN_IP6]
         if str(get_current_site(request)).replace('[', '').replace(']', '').lower() not in allowed_sites:
             return redirect2status(request)
@@ -45,7 +45,7 @@ def requirePortalURL(fn):
 def redirect2status(request):
     if 'dashboard' in request.META or settings.DEBUG and 'dashboard' in request.GET:
         host = request.META.get('HTTP_HOST', ELAN_AGENT_FQDN)
-        agent_ips = netconf.get_current_ips()
+        agent_ips = netconf.get_current_ips(cidr=False)
         if host in agent_ips:
             # if trying to get to agent with ip, redirect to IP
             redirect_fqdn = host
@@ -369,9 +369,9 @@ def dashboard(request, context=None):
             registration_available = False
             registration_error = e.error_str
 
-    current_ipv4 = netconf.get_current_ipv4()
+    current_ipv4 = netconf.get_current_ipv4(cidr=True)
     current_ipv4['ips'] = [*map(lambda x: dict(zip(['address', 'prefix_length'], x.split('/', 1))), current_ipv4['ips'])]
-    current_ipv6 = netconf.get_current_ipv6()
+    current_ipv6 = netconf.get_current_ipv6(cidr=True)
     current_ipv6['ips'] = [*map(lambda x: dict(zip(['address', 'prefix_length'], x.split('/', 1))), current_ipv6['ips'])]
 
     context.update(

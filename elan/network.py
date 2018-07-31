@@ -27,15 +27,15 @@ class NetworkConfiguration:
     'Class to manipulate IP configuration and retrieve current status'
     dendrite = Dendrite()
 
-    def get_current_ips(self, cidr=False):
-        ips = self.get_current_ipv4()['ips'] + self.get_current_ipv6()['ips']
+    def get_current_ips(self, cidr=True):
+        return self.get_current_ipv4(cidr=cidr)['ips'] + self.get_current_ipv6(cidr=cidr)['ips']
+
+    def get_current_ipv4(self, cidr=True):
+        ips = self.dendrite.get_conf(IPv4_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
         if not cidr:
-            ips = [ip.split('/')[0] for ip in self.get_current_ipv4()['ips'] + self.get_current_ipv6()['ips']]
+            ips = [ip.split('/')[0] for ip in ips]
 
         return ips
-
-    def get_current_ipv4(self):
-        return self.dendrite.get_conf(IPv4_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
 
     def get_ipv4_conf(self):
         return self.dendrite.get_conf(IPv4_CONF_TOPIC) or DEFAULT_IPv4_CONF
@@ -43,8 +43,12 @@ class NetworkConfiguration:
     def set_ipv4_conf(self, conf):
         self.dendrite.publish_conf(IPv4_CONF_TOPIC, conf)
 
-    def get_current_ipv6(self):
-        return self.dendrite.get_conf(IPv6_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
+    def get_current_ipv6(self, cidr=True):
+        ips = self.dendrite.get_conf(IPv6_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
+        if not cidr:
+            ips = [ip.split('/')[0] for ip in ips]
+
+        return ips
 
     def get_ipv6_conf(self):
         return self.dendrite.get_conf(IPv6_CONF_TOPIC) or DEFAULT_IPv6_CONF
