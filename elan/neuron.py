@@ -335,7 +335,7 @@ class ConfObject:
         conf = cls._dendrite.get_conf(cls.TOPIC) or []
         for obj in conf:
             for key, value in filters.items():
-                if conf.get(key, None) != value:
+                if obj.get(key, None) != value:
                     break
             else:
                 # matches all filters
@@ -353,7 +353,7 @@ class ConfObject:
         conf = cls._dendrite.get_conf(cls.TOPIC) or []
         for obj in conf:
             for key, value in filters.items():
-                if conf.get(key, None) != value:
+                if obj.get(key, None) != value:
                     break
             else:
                 # matches all filters

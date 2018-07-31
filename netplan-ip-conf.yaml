@@ -25,13 +25,17 @@ network:
       gateway4: ${ipv4['gateway']}
   % endif
 % endif
-% if ipv4['dns'] or ipv6['dns']:
+% if ipv4['dns'] and ipv4['type'] in ['dhcp', 'static'] or ipv6['dns'] and ipv6['type'] in ['autoconf', 'dhcp', 'static']:
       nameservers:
-  % for ip in ipv4['dns']:
+  % if ipv4['type'] in ['dhcp', 'static']:
+    % for ip in ipv4['dns']:
         - ${ip}
-  % endfor
-  % for ip in ipv6['dns']:
+    % endfor
+  % endif
+  % if ipv6['type'] in ['autoconf', 'dhcp', 'static']:
+    % for ip in ipv6['dns']:
         - ${ip}
-  % endfor
+    % endfor
+  % endif
 % endif
 

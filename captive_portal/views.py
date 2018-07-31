@@ -392,9 +392,9 @@ def dashboard(request, context=None):
 
     ip_conf = NetworkConfiguration()
     if not context.get('ipv4_form', None):
-        context['ipv4_form'] = Ip4ConfigurationForm(initial=ip_conf.get_ipv4_conf)
+        context['ipv4_form'] = Ip4ConfigurationForm(initial=ip_conf.get_ipv4_conf())
     if not context.get('ipv6_form', None):
-        context['ipv6_form'] = Ip6ConfigurationForm(initial=ip_conf.get_ipv6_conf)
+        context['ipv6_form'] = Ip6ConfigurationForm(initial=ip_conf.get_ipv6_conf())
 
     return render(request, 'captive-portal/dashboard.html', context)
 
