@@ -7,7 +7,7 @@ DEBUILD_FLAGS ?= -F
 # Make sure that the Origin Nexus key exists in gpg configuration
 .PHONY: gpgkey
 gpgkey:
-	@gpg --list-secret-keys "Origin Nexus" || gpg --import < packaging/gpg.key
+	@gpg --list-secret-keys "Origin Nexus"
 
 $(HOME)/.dupload.conf: packaging/dupload.conf
 	cp $< $@
