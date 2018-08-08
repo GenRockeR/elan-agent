@@ -62,7 +62,7 @@ class Synapse(serialized_redis.JSONSerializedRedis):
         self.pipe = self.pipeline()
 
 
-class ConnectionFailed():
+class ConnectionFailed(Exception):
     pass
 
 
