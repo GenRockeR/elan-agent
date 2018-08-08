@@ -6,15 +6,24 @@ network:
     ${eth}:
       accept-ra: no
 % endfor
+<% 
+    has_vlans = False
+    for vlan in vlans:
+        if vlan.get('vlan_id', None):
+            has_vlans = True
+            break
+%>
+% if has_vlans:
   vlans:
-% for vlan in vlans:
-  % if vlan.get('vlan_id', None):
+  % for vlan in vlans:
+    % if vlan.get('vlan_id', None):
     ${vlan['interface']}.${vlan['vlan_id']}:
       accept-ra: no
       id: ${vlan['vlan_id']}
       link: ${vlan['interface']}
-  % endif
-% endfor
+    % endif
+  % endfor
+% endif
   bridges:
     ${bridge_name}:  
       interfaces:
