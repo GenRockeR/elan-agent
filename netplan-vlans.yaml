@@ -8,7 +8,7 @@ network:
 % endfor
   vlans:
 % for vlan in vlans:
-  % if vlan['vlan_id']:
+  % if vlan.get('vlan_id', None):
     ${vlan['interface']}.${vlan['vlan_id']}:
       accept-ra: no
       id: ${vlan['vlan_id']}
@@ -19,7 +19,7 @@ network:
     ${bridge_name}:  
       interfaces:
 % for vlan in vlans:
-  % if vlan['vlan_id']:
+  % if vlan.get('vlan_id', None):
         - ${vlan['interface']}.${vlan['vlan_id']}
   % else:
         - ${vlan['interface']}
