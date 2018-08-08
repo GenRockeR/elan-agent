@@ -1,3 +1,9 @@
+%{PACKAGE-NAME} (1.2) bionic; urgency=low
+
+  * 
+
+ -- Origin Nexus <debian@origin-nexus.com>  Wed, 08 Aug 2018 20:00:00 +0200
+
 %{PACKAGE-NAME} (1.1) bionic; urgency=low
 
   * few fixes
