@@ -31,11 +31,11 @@ class NetworkConfiguration:
         return self.get_current_ipv4(cidr=cidr)['ips'] + self.get_current_ipv6(cidr=cidr)['ips']
 
     def get_current_ipv4(self, cidr=True):
-        ips = self.dendrite.get_conf(IPv4_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
+        current_ipv4 = self.dendrite.get_conf(IPv4_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
         if not cidr:
-            ips = [ip.split('/')[0] for ip in ips]
+            current_ipv4['ips'] = [ip.split('/')[0] for ip in current_ipv4['ips']]
 
-        return ips
+        return current_ipv4
 
     def get_ipv4_conf(self):
         return self.dendrite.get_conf(IPv4_CONF_TOPIC) or DEFAULT_IPv4_CONF
@@ -44,11 +44,11 @@ class NetworkConfiguration:
         self.dendrite.publish_conf(IPv4_CONF_TOPIC, conf)
 
     def get_current_ipv6(self, cidr=True):
-        ips = self.dendrite.get_conf(IPv6_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
+        current_ipv6 = self.dendrite.get_conf(IPv6_CURRENT_TOPIC) or {'ips': [], 'gw': None, 'dns': []}
         if not cidr:
-            ips = [ip.split('/')[0] for ip in ips]
+            current_ipv6['ips'] = [ip.split('/')[0] for ip in current_ipv6['ips']]
 
-        return ips
+        return current_ipv6
 
     def get_ipv6_conf(self):
         return self.dendrite.get_conf(IPv6_CONF_TOPIC) or DEFAULT_IPv6_CONF
