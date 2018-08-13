@@ -3,12 +3,15 @@
 from mako.template import Template
 from pyroute2 import IPDB
 import argparse
+import os
 import subprocess
 
 from elan.event import ExceptionEvent
 from elan.network import NetworkConfigurator, BRIDGE_NAME
 from elan.neuron import Dendrite, Synapse, ConnectionFailed
 from elan.utils import reload_service, physical_ifaces
+
+NGINX_CAPTIVE_PORTAL = "/etc/nginx/sites-enabled/captive-portal"
 
 
 class AccessControlConfigurator():
@@ -21,7 +24,7 @@ class AccessControlConfigurator():
         self.vlans_by_ifname = {}  # vlans by NIC name (<nic>.<vlan>)
         self.vlans_by_id = {}  # vlans by Vlan-ID
 
-    def new_vlan_conf(self, vlans):
+    def new_vlan_conf(self, vlans, skip_vlans_conf_files=False):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
         new_vlans_by_ifname = {}
         new_vlans_by_id = {}
@@ -59,7 +62,8 @@ class AccessControlConfigurator():
             bridge = ip.interfaces[BRIDGE_NAME]
             bridge.begin()
 
-            NetworkConfigurator.generate_vlans_conf_files(vlans)
+            if not skip_vlans_conf_files:
+                NetworkConfigurator.generate_vlans_conf_files(vlans)
 
             # VLANs to delete
             for nic_name in set(self.vlans_by_ifname.keys()) - set(new_vlans_by_ifname.keys()):
@@ -164,7 +168,7 @@ class AccessControlConfigurator():
 
         # Set captive portals
         nginx_captive_portals = Template(filename='/elan-agent/network/nginx/server')
-        with open("/etc/nginx/sites-enabled/captive-portal", "w") as nginx_file:
+        with open(NGINX_CAPTIVE_PORTAL, "w") as nginx_file:
             nginx_file.write(nginx_captive_portals.render(vlans=new_vlans_by_ifname))
 
         reload_service('nginx')
@@ -192,8 +196,9 @@ class AccessControlConfigurator():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--default-conf-only", help="just generate default configuration if needed",
-                    action="store_true")
+    parser.add_argument("--default-conf-only",
+                        help="just generate default configuration if needed",
+                        action="store_true")
     args = parser.parse_args()
 
     dendrite = Dendrite()
@@ -203,22 +208,26 @@ if __name__ == "__main__":
     except ConnectionFailed:
         vlans = None
 
-    if vlans is None and not NetworkConfigurator.vlans_conf_files_exists():
+    if vlans is None:
         # Default vlan conf: first 2 interfaces bridged
-        vlans = []
+        default_vlans = []
         count = 0
         for interface in physical_ifaces():
             count += 1
-            vlans.append({'interface': interface})
+            default_vlans.append({'interface': interface})
             if count == 2:
                 break
-        if args.default_conf_only:
-            NetworkConfigurator.generate_vlans_conf_files(vlans)
+        if args.default_conf_only and not NetworkConfigurator.vlans_conf_files_exists():
+            NetworkConfigurator.generate_vlans_conf_files(default_vlans)
 
     if not args.default_conf_only:
         configurator = AccessControlConfigurator()
-        if vlans is not None:
-            configurator.new_vlan_conf(vlans)
+        # Generate nginx captive portal conf if needed
+        if vlans is None and not os.path.exists(NGINX_CAPTIVE_PORTAL):
+            configurator.new_vlan_conf(
+                    default_vlans,
+                    skip_vlans_conf_files=True
+            )
         dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
 
         # wait for changes
