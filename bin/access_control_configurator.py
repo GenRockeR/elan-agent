@@ -24,6 +24,9 @@ class AccessControlConfigurator():
         self.vlans_by_ifname = {}  # vlans by NIC name (<nic>.<vlan>)
         self.vlans_by_id = {}  # vlans by Vlan-ID
 
+    def new_vlan_conf_cb(self, vlans):
+        self.new_vlan_conf(vlans)
+
     def new_vlan_conf(self, vlans, skip_vlans_conf_files=False):
         # conf is list of all VLANS -> when a Vlan is modified, all VLANs are sent
         new_vlans_by_ifname = {}
@@ -228,7 +231,7 @@ if __name__ == "__main__":
                     default_vlans,
                     skip_vlans_conf_files=True
             )
-        dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf)
+        dendrite.subscribe_conf('vlans', cb=configurator.new_vlan_conf_cb)
 
         # wait for changes
         dendrite.wait_complete()
